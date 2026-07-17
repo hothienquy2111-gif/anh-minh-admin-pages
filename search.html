@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Danh sách phiếu - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="search-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html" aria-current="page">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Danh sách và tìm kiếm phiếu</h1>
+            <p class="page-subtitle">Tìm theo mã AM, mã khách, số điện thoại, tên khách hoặc model.</p>
+          </div>
+        </div>
+
+        <div id="searchNotice" class="notice"></div>
+
+        <section class="search-results" aria-labelledby="searchResultsTitle">
+          <div class="search-toolbar">
+            <form id="searchForm" class="search-box" role="search">
+              <label class="sr-only" for="searchInput">Tìm phiếu sửa chữa</label>
+              <div class="search-input-wrap">
+                <input
+                  id="searchInput"
+                  name="query"
+                  type="search"
+                  placeholder="Tìm mã AM, mã KH, tên, SĐT, hãng, model hoặc serial..."
+                  autocomplete="off"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="searchSuggestions"
+                >
+                <button id="searchClear" class="search-clear" type="button" aria-label="Xóa từ khóa tìm kiếm" title="Xóa từ khóa" hidden>×</button>
+                <div id="searchSuggestions" class="search-suggestions hidden" role="listbox" aria-label="Gợi ý phiếu"></div>
+              </div>
+              <button id="searchButton" class="btn primary" type="submit">Tìm</button>
+            </form>
+
+            <div class="search-tools">
+              <label class="search-year-filter" for="searchYearSelect">
+                <span>Năm tiếp nhận</span>
+                <select id="searchYearSelect" aria-label="Lọc phiếu theo năm tiếp nhận"></select>
+              </label>
+              <button id="exportExcelButton" class="btn secondary search-export-button" type="button">Xuất Excel</button>
+            </div>
+          </div>
+
+          <p id="exportStatus" class="search-export-status" aria-live="polite"></p>
+
+          <div class="search-results-heading">
+            <div>
+              <h2 id="searchResultsTitle">Phiếu tiếp nhận</h2>
+              <p id="resultsSummary">Đang chuẩn bị danh sách phiếu.</p>
+            </div>
+          </div>
+
+          <div id="resultsState" class="search-results-state" aria-live="polite"></div>
+          <section id="resultsList" class="results-list search-ticket-list" aria-live="polite"></section>
+          <nav id="resultsPagination" class="pagination search-pagination" aria-label="Phân trang danh sách phiếu"></nav>
+        </section>
+      </main>
+    </div>
+
+    <div id="editModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" aria-hidden="true">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="editModalTitle">Sửa phiếu</h2>
+          <button id="closeEditModal" class="close-button" type="button" aria-label="Đóng">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="editNotice" class="notice"></div>
+          <form id="editForm">
+            <input id="edit_id" name="id" type="hidden">
+            <div class="field-grid">
+              <div class="field">
+                <label for="edit_customer_name">Tên khách</label>
+                <input id="edit_customer_name" name="customer_name" type="text">
+              </div>
+              <div class="field">
+                <label for="edit_customer_phone">Số điện thoại</label>
+                <input id="edit_customer_phone" name="customer_phone" type="tel">
+              </div>
+              <div class="field">
+                <label for="edit_customer_address">Địa chỉ</label>
+                <input id="edit_customer_address" name="customer_address" type="text">
+              </div>
+              <div class="field">
+                <label for="edit_device_type">Loại thiết bị</label>
+                <input id="edit_device_type" name="device_type" type="text">
+              </div>
+              <div class="field">
+                <label for="edit_brand">Hãng</label>
+                <input id="edit_brand" name="brand" type="text" list="edit-tv-brand-options" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="edit_model">Model</label>
+                <input id="edit_model" name="model" type="text" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="edit_size">Kích thước</label>
+                <input id="edit_size" name="size" type="text" autocomplete="off">
+                <p id="editSizeAssistHint" class="form-hint tv-size-hint" hidden></p>
+              </div>
+              <div class="field">
+                <label for="edit_serial_number">Serial</label>
+                <input id="edit_serial_number" name="serial_number" type="text">
+              </div>
+              <div class="field">
+                <label for="edit_received_date">Ngày nhận</label>
+                <input id="edit_received_date" name="received_date" type="date">
+              </div>
+              <div class="field">
+                <label for="edit_status">Trạng thái</label>
+                <select id="edit_status" name="status"></select>
+                <p id="editStatusHint" class="form-hint"></p>
+              </div>
+              <div class="field">
+                <label for="edit_deposit_amount">Tiền cọc</label>
+                <input id="edit_deposit_amount" name="deposit_amount" type="number" min="0" step="1000">
+              </div>
+              <div class="field">
+                <label for="edit_estimated_price">Giá dự kiến</label>
+                <input id="edit_estimated_price" name="estimated_price" type="number" min="0" step="1000">
+              </div>
+              <div class="field">
+                <label for="edit_final_price">Giá cuối cùng</label>
+                <input id="edit_final_price" name="final_price" type="number" min="0" step="1000">
+              </div>
+              <div class="field full">
+                <label for="edit_condition_text">Tình trạng máy</label>
+                <textarea id="edit_condition_text" name="condition_text"></textarea>
+                <div id="editMachineConditionPicker" class="condition-picker" data-condition-picker="machine"></div>
+              </div>
+              <div class="field full">
+                <label for="edit_external_condition">Tình trạng ngoại quan</label>
+                <textarea id="edit_external_condition" name="external_condition"></textarea>
+                <div id="editAppearanceConditionPicker" class="condition-picker" data-condition-picker="appearance"></div>
+              </div>
+              <div class="field full">
+                <label for="edit_internal_note">Ghi chú nội bộ</label>
+                <textarea id="edit_internal_note" name="internal_note"></textarea>
+              </div>
+            </div>
+            <datalist id="edit-tv-brand-options"></datalist>
+            <div class="actions">
+              <button id="saveEditButton" class="btn primary" type="submit">Lưu sửa</button>
+              <a id="createReminderFromTicket" class="btn secondary" href="appointment-reminders.html">Tạo lịch hẹn</a>
+              <button class="btn secondary" type="button" data-close-edit>Huỷ</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/tv-condition-options.js"></script>
+    <script src="js/search.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

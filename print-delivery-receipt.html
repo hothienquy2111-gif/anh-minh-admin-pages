@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="vi" class="receipt-print">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Biên nhận giao hàng - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/receipt.css">
+  </head>
+  <body class="receipt-page print-format-a5">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main receipt-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Biên nhận giao hàng</h1>
+            <p class="page-subtitle">Chọn A5 bản gọn hoặc A4 bản đầy đủ trước khi in biên nhận giao/trả máy.</p>
+          </div>
+        </div>
+
+        <div id="receiptNotice" class="notice"></div>
+
+        <section class="receipt-workspace">
+          <aside class="form-panel receipt-controls">
+            <div class="form-section">
+              <h2 class="section-title">Thông tin giao/trả và bảo hành</h2>
+              <p class="form-hint">Thông tin giao/trả và bảo hành sẽ được lưu khi hoàn thành phiếu để phục vụ tra cứu sau này.</p>
+              <fieldset class="receipt-format-control" aria-describedby="receiptFormatHint receiptSelectedFormat">
+                <legend>Khổ biên nhận</legend>
+                <label class="receipt-format-option">
+                  <input type="radio" name="receiptFormat" value="a5" checked>
+                  <span>
+                    <strong>A5 — Bản gọn</strong>
+                    <small>Phù hợp giao máy thông thường.</small>
+                  </span>
+                </label>
+                <label class="receipt-format-option">
+                  <input type="radio" name="receiptFormat" value="a4">
+                  <span>
+                    <strong>A4 — Bản đầy đủ</strong>
+                    <small>Phù hợp hồ sơ chi tiết hoặc khách doanh nghiệp.</small>
+                  </span>
+                </label>
+                <p id="receiptFormatHint" class="form-hint">Đổi khổ giấy chỉ thay đổi bản xem trước/in, không lưu dữ liệu và không gọi RPC.</p>
+              </fieldset>
+              <p id="receiptSelectedFormat" class="receipt-format-status" aria-live="polite">Khổ đang chọn: A5</p>
+
+              <div class="receipt-temp-grid">
+                <div class="field receipt-temp-field">
+                  <label for="deliveryDateInput">Ngày giao/trả</label>
+                  <input id="deliveryDateInput" type="date">
+                </div>
+
+                <fieldset class="receipt-temp-field receipt-temp-notes receipt-warranty-mode">
+                  <legend>Kiểu bảo hành</legend>
+                  <label class="receipt-radio-option">
+                    <input type="radio" name="warrantyMode" value="MANUAL_DATE_RANGE" checked>
+                    <span>Nhập ngày bảo hành thủ công</span>
+                  </label>
+                  <label class="receipt-radio-option">
+                    <input type="radio" name="warrantyMode" value="AUTO_MONTHS">
+                    <span>Tự tính theo số tháng từ hôm nay</span>
+                  </label>
+                  <label class="receipt-radio-option">
+                    <input type="radio" name="warrantyMode" value="NONE">
+                    <span>Không bảo hành</span>
+                  </label>
+                </fieldset>
+
+                <div class="receipt-temp-panel receipt-temp-notes" data-warranty-panel="MANUAL_DATE_RANGE">
+                  <div class="receipt-temp-subgrid">
+                    <div class="field receipt-temp-field">
+                      <label for="warrantyStartInput">Bảo hành từ ngày</label>
+                      <input id="warrantyStartInput" type="date">
+                    </div>
+                    <div class="field receipt-temp-field">
+                      <label for="warrantyEndInput">Bảo hành đến ngày</label>
+                      <input id="warrantyEndInput" type="date">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="receipt-temp-panel receipt-temp-notes hidden" data-warranty-panel="AUTO_MONTHS">
+                  <div class="receipt-temp-subgrid">
+                    <div class="field receipt-temp-field">
+                      <label for="warrantyAutoStartInput">Bắt đầu từ hôm nay</label>
+                      <input id="warrantyAutoStartInput" type="date" readonly>
+                    </div>
+                    <div class="field receipt-temp-field">
+                      <label for="warrantyMonthsSelect">Số tháng bảo hành</label>
+                      <select id="warrantyMonthsSelect">
+                        <option value="3">3 tháng</option>
+                        <option value="6" selected>6 tháng</option>
+                        <option value="9">9 tháng</option>
+                        <option value="12">12 tháng</option>
+                        <option value="custom">Tùy chỉnh</option>
+                      </select>
+                    </div>
+                    <div class="field receipt-temp-field hidden" id="warrantyCustomMonthsField">
+                      <label for="warrantyCustomMonthsInput">Số tháng tùy chỉnh</label>
+                      <input id="warrantyCustomMonthsInput" type="number" min="1" max="60" step="1" inputmode="numeric" placeholder="1-60">
+                    </div>
+                    <div class="field receipt-temp-field">
+                      <label for="warrantyAutoEndInput">Tự tính đến ngày</label>
+                      <input id="warrantyAutoEndInput" type="date" readonly>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="receipt-temp-panel receipt-temp-notes hidden" data-warranty-panel="NONE">
+                  <p class="form-hint receipt-none-hint">Biên nhận sẽ hiển thị “KHÔNG BẢO HÀNH” và không lưu ngày/tháng bảo hành.</p>
+                </div>
+
+                <div class="field receipt-temp-field receipt-temp-notes">
+                  <label for="warrantyContentInput">Nội dung bảo hành</label>
+                  <textarea id="warrantyContentInput" rows="2" maxlength="500" placeholder="Ví dụ: Bảo hành hạng mục đã sửa chữa/thay thế"></textarea>
+                </div>
+              </div>
+            </div>
+            <p id="receiptWorkflowHint" class="form-hint">Đang kiểm tra trạng thái workflow của phiếu...</p>
+            <div class="actions receipt-toolbar">
+              <button id="printReceiptButton" class="btn primary" type="button">In biên nhận</button>
+              <a class="btn secondary" href="search.html">Quay lại tìm kiếm</a>
+            </div>
+          </aside>
+
+          <div class="receipt-preview-wrap" id="receiptPreviewViewport">
+            <div class="receipt-preview-sizer" id="receiptPreviewSizer">
+            <article id="deliveryReceipt" class="delivery-receipt delivery-receipt-page receipt-format-a5" aria-labelledby="receiptTitle">
+              <div class="receipt-content">
+                <div class="receipt-header" role="banner">
+                  <div class="receipt-logo-wrap">
+                    <img class="receipt-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+                  </div>
+                  <div class="receipt-heading">
+                    <p class="receipt-company receipt-company-name">CÔNG TY ĐIỆN TỬ ANH MINH</p>
+                    <h2 id="receiptTitle" class="receipt-title">BIÊN NHẬN GIAO HÀNG / TRẢ MÁY SAU SỬA CHỮA</h2>
+                    <p class="receipt-phone">Điện thoại: 0905111223</p>
+                    <p class="receipt-brand-address receipt-a4-only">Địa chỉ: <span id="receiptStoreAddress">—</span></p>
+                  </div>
+                  <div class="receipt-code-box receipt-ticket-box">
+                    <span>Mã phiếu</span>
+                    <strong id="receiptCodeTop"></strong>
+                    <small class="receipt-a4-only">Ngày giao: <b id="receiptDeliveryDateTop">...... / ...... / ........</b></small>
+                  </div>
+                </div>
+
+                <div class="receipt-grid receipt-main-grid">
+                  <section class="receipt-block receipt-section">
+                    <h3 class="receipt-section-title">Thông tin khách hàng</h3>
+                    <div class="receipt-rows receipt-section-body">
+                      <div class="receipt-row">
+                        <span class="receipt-label">Mã khách:</span>
+                        <span id="receiptCustomerCode" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Họ và tên:</span>
+                        <span id="receiptCustomerName" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Số điện thoại:</span>
+                        <span id="receiptCustomerPhone" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row full receipt-address-row">
+                        <span class="receipt-label">Địa chỉ:</span>
+                        <span id="receiptCustomerAddress" class="receipt-value receipt-line multi receipt-address-value"></span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="receipt-block receipt-section">
+                    <h3 class="receipt-section-title">Thông tin thiết bị</h3>
+                    <div class="receipt-rows receipt-section-body">
+                      <div class="receipt-row">
+                        <span class="receipt-label">Thiết bị:</span>
+                        <span id="receiptDeviceType" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Hãng:</span>
+                        <span id="receiptBrand" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Model:</span>
+                        <span id="receiptModel" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Kích thước:</span>
+                        <span id="receiptSize" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Serial:</span>
+                        <span id="receiptSerial" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row full receipt-a5-compact-only">
+                        <span class="receipt-label">Tình trạng:</span>
+                        <span id="receiptInitialCondition" class="receipt-value receipt-line multi"></span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <div class="receipt-delivery-warranty-grid">
+                  <section class="receipt-block receipt-section">
+                    <h3 class="receipt-section-title">Thông tin giao hàng / trả máy</h3>
+                    <div class="receipt-rows receipt-section-body">
+                      <div class="receipt-row">
+                        <span class="receipt-label">Mã phiếu:</span>
+                        <span id="receiptCodeInfo" class="receipt-value receipt-line"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Ngày nhận máy:</span>
+                        <span id="receiptReceivedDate" class="receipt-value receipt-line">...... / ...... / ........</span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Ngày giao/trả máy:</span>
+                        <span id="receiptDeliveryDate" class="receipt-value receipt-line">...... / ...... / ........</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="receipt-block receipt-section">
+                    <h3 class="receipt-section-title">Thời hạn bảo hành</h3>
+                    <div class="receipt-rows receipt-section-body">
+                      <div class="receipt-row full">
+                        <span class="receipt-label">Kiểu bảo hành:</span>
+                        <span id="receiptWarrantyMode" class="receipt-value receipt-line multi"></span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Từ ngày:</span>
+                        <span id="receiptWarrantyStart" class="receipt-value receipt-line">...... / ...... / ........</span>
+                      </div>
+                      <div class="receipt-row">
+                        <span class="receipt-label">Đến ngày:</span>
+                        <span id="receiptWarrantyEnd" class="receipt-value receipt-line">...... / ...... / ........</span>
+                      </div>
+                      <div class="receipt-row full">
+                        <span class="receipt-label">Nội dung:</span>
+                        <span id="receiptWarrantyContent" class="receipt-value receipt-line multi"></span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <section class="receipt-block receipt-section receipt-accessories">
+                  <h3 class="receipt-section-title">Phụ kiện nhận kèm</h3>
+                  <div class="receipt-checklist receipt-accessory-list receipt-section-body" aria-label="Phụ kiện nhận kèm">
+                    <span><i aria-hidden="true"></i>Dây nguồn</span>
+                    <span><i aria-hidden="true"></i>Remote</span>
+                    <span><i aria-hidden="true"></i>Chân đế</span>
+                    <span class="receipt-other"><i aria-hidden="true"></i>Khác:<b></b></span>
+                  </div>
+                </section>
+
+                <section class="receipt-block receipt-section receipt-initial-state receipt-a4-only">
+                  <h3 class="receipt-section-title">Tình trạng lúc nhận</h3>
+                  <div class="receipt-rows receipt-section-body receipt-writing-area">
+                    <div class="receipt-row full">
+                      <span class="receipt-label">Lỗi khách báo / tình trạng máy:</span>
+                      <span id="receiptA4Condition" class="receipt-value receipt-line multi"></span>
+                    </div>
+                    <div class="receipt-row full">
+                      <span class="receipt-label">Tình trạng ngoại quan:</span>
+                      <span id="receiptA4Appearance" class="receipt-value receipt-line multi"></span>
+                    </div>
+                    <div class="receipt-row full">
+                      <span class="receipt-label">Phụ kiện nhận kèm:</span>
+                      <span id="receiptA4Accessories" class="receipt-value receipt-line multi"></span>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="receipt-block receipt-section receipt-repair-detail receipt-a4-only">
+                  <h3 class="receipt-section-title">Nội dung kiểm tra / sửa chữa</h3>
+                  <div class="receipt-rows receipt-section-body receipt-writing-area">
+                    <div class="receipt-row full">
+                      <span class="receipt-label">Kết quả kiểm tra:</span>
+                      <span id="receiptRepairContent" class="receipt-value receipt-line multi"></span>
+                    </div>
+                    <div class="receipt-row full">
+                      <span class="receipt-label">Hạng mục sửa/thay thế:</span>
+                      <span id="receiptRepairItems" class="receipt-value receipt-line multi"></span>
+                    </div>
+                    <div class="receipt-row full">
+                      <span class="receipt-label">Linh kiện thay thế:</span>
+                      <span id="receiptRepairParts" class="receipt-value receipt-line multi"></span>
+                    </div>
+                    <div class="receipt-row full">
+                      <span class="receipt-label">Ghi chú kỹ thuật:</span>
+                      <span id="receiptTechnicalNote" class="receipt-value receipt-line multi"></span>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="receipt-block receipt-section receipt-costs receipt-a4-only">
+                  <h3 class="receipt-section-title">Chi phí</h3>
+                  <div class="receipt-rows receipt-section-body receipt-cost-grid">
+                    <div class="receipt-row">
+                      <span class="receipt-label">Tiền cọc:</span>
+                      <span id="receiptDepositAmount" class="receipt-value receipt-line"></span>
+                    </div>
+                    <div class="receipt-row">
+                      <span class="receipt-label">Giá dự kiến:</span>
+                      <span id="receiptEstimatedPrice" class="receipt-value receipt-line"></span>
+                    </div>
+                    <div class="receipt-row">
+                      <span class="receipt-label">Giá cuối cùng:</span>
+                      <span id="receiptFinalPrice" class="receipt-value receipt-line"></span>
+                    </div>
+                    <div class="receipt-row">
+                      <span class="receipt-label">Còn lại:</span>
+                      <span id="receiptRemainingAmount" class="receipt-value receipt-line"></span>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="receipt-block receipt-section receipt-terms">
+                  <h3 class="receipt-section-title">Điều khoản và xác nhận</h3>
+                  <ol>
+                    <li>Khách hàng đã kiểm tra kỹ thiết bị trước khi nhận.</li>
+                    <li>Bảo hành chỉ áp dụng cho hạng mục đã sửa chữa/thay thế.</li>
+                    <li>Không bảo hành rơi vỡ, vào nước, chập điện, sét đánh, tự ý tháo sửa hoặc can thiệp bởi bên thứ ba.</li>
+                    <li>Tem bảo hành/tem niêm phong rách, mất hoặc có dấu hiệu can thiệp có thể bị từ chối bảo hành.</li>
+                    <li>Biên nhận là căn cứ đối chiếu khi phát sinh bảo hành/khiếu nại.</li>
+                  </ol>
+                </section>
+
+                <section class="receipt-block receipt-section receipt-handover-check">
+                  <h3 class="receipt-section-title">Kiểm tra khi nhận máy</h3>
+                  <div class="receipt-handover-list" aria-label="Kiểm tra khi nhận máy">
+                    <span><i aria-hidden="true"></i>Hình ảnh hiển thị bình thường</span>
+                    <span><i aria-hidden="true"></i>Âm thanh hoạt động bình thường</span>
+                    <span><i aria-hidden="true"></i>Remote/dây nguồn/phụ kiện đã nhận đủ</span>
+                    <span><i aria-hidden="true"></i>Ngoại quan thiết bị đã kiểm tra</span>
+                    <span><i aria-hidden="true"></i>Khách đã xem và đồng ý nhận máy</span>
+                  </div>
+                </section>
+              </div>
+
+              <section class="receipt-signatures" aria-label="Khu vực ký tên">
+                <div class="signature-box">
+                  <strong class="signature-title">KHÁCH HÀNG</strong>
+                  <span class="signature-note">Ký và ghi rõ họ tên</span>
+                </div>
+                <div class="signature-box">
+                  <strong class="signature-title">ĐẠI DIỆN CỬA HÀNG</strong>
+                  <span class="signature-note">Ký và ghi rõ họ tên</span>
+                </div>
+              </section>
+            </article>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/print-delivery-receipt.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

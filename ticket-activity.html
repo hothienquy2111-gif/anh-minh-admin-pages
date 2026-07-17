@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hoạt động phiếu - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="ticket-activity-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html" aria-current="page">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Hoạt động phiếu</h1>
+            <p class="page-subtitle">Theo dõi tiến độ sửa chữa và các phiếu cần ưu tiên xử lý.</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <div id="ticketActivityNotice" class="notice"></div>
+
+        <section id="workflowSection" class="dashboard-section workflow-section ticket-activity-card" aria-labelledby="workflowTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="workflowTitle" class="section-title">Hoạt động của phiếu</h2>
+              <p class="section-description">Danh sách phiếu đang sửa hoặc đang chờ bắt đầu sửa theo đúng workflow hiện tại.</p>
+            </div>
+          </div>
+
+          <div id="workflowState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải hoạt động của phiếu...
+          </div>
+
+          <div id="workflowContent" class="workflow-content" hidden>
+            <div class="workflow-table-wrap ticket-activity-table-wrap">
+              <table class="workflow-table ticket-activity-table">
+                <thead>
+                  <tr>
+                    <th>Mức ưu tiên</th>
+                    <th>Mã phiếu</th>
+                    <th>Mã khách</th>
+                    <th>Khách hàng</th>
+                    <th>Model</th>
+                    <th>Hoạt động gần nhất</th>
+                    <th>Thời gian đã chờ</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody id="workflowTableBody"></tbody>
+              </table>
+            </div>
+
+            <div id="workflowCards" class="workflow-cards"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/ticket-activity.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

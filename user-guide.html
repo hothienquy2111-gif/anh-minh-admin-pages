@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hướng dẫn sử dụng - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="user-guide-page">
+    <a class="skip-link" href="#guideContent">Bỏ qua menu và đến nội dung hướng dẫn</a>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html" aria-current="page">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main user-guide-main" id="guideContent">
+        <div class="page-header user-guide-header">
+          <div>
+            <h1 class="page-title">Hướng dẫn sử dụng</h1>
+            <p class="page-subtitle">Hướng dẫn các thao tác tiếp nhận, sửa chữa, giao trả và tra cứu bảo hành trong Anh Minh Admin.</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <section class="user-guide-intro" aria-labelledby="guideIntroTitle">
+          <div>
+            <h2 id="guideIntroTitle">Tài liệu vận hành nhanh cho nhân viên</h2>
+            <p>Chọn nội dung bên dưới để xem từng bước thao tác.</p>
+          </div>
+          <div class="guide-quick-links" aria-label="Liên kết nhanh">
+            <a class="btn secondary compact" href="new-ticket.html">Mở Tạo phiếu</a>
+            <a class="btn secondary compact" href="ticket-activity.html">Mở Hoạt động phiếu</a>
+            <a class="btn secondary compact" href="warranty-search.html">Mở Tra cứu bảo hành</a>
+            <a class="btn secondary compact" href="search.html">Mở Danh sách phiếu</a>
+            <a class="btn secondary compact" href="dashboard.html">Về Trang chủ</a>
+          </div>
+        </section>
+
+        <section class="user-guide-toolbar" aria-label="Tìm kiếm và mục lục hướng dẫn">
+          <div class="guide-search">
+            <label for="guideSearchInput">Tìm trong hướng dẫn</label>
+            <div class="guide-search-field">
+              <span aria-hidden="true">⌕</span>
+              <input
+                id="guideSearchInput"
+                type="text"
+                placeholder="Tìm trong hướng dẫn..."
+                autocomplete="off"
+                spellcheck="false"
+              >
+              <button id="guideSearchClear" class="guide-search-clear" type="button" aria-label="Xóa nội dung tìm kiếm" hidden>×</button>
+            </div>
+            <p class="guide-search-hint">Gợi ý: tạo phiếu, in tem, bảo hành, in lại, hoàn thành, tìm khách, model, kích thước, quá 48 giờ, biên nhận.</p>
+          </div>
+
+          <div class="guide-toc-select-wrap">
+            <label for="guideTocSelect">Mục lục</label>
+            <select id="guideTocSelect">
+              <option value="guide-workflow">1. Tổng quan quy trình</option>
+              <option value="guide-login-home">2. Đăng nhập và Trang chủ</option>
+              <option value="guide-create-ticket">3. Tiếp nhận khách và tạo phiếu</option>
+              <option value="guide-existing-customer">4. Tìm khách hàng cũ</option>
+              <option value="guide-tv-info">5. Nhập thông tin tivi</option>
+              <option value="guide-condition">6. Ghi tình trạng máy</option>
+              <option value="guide-label-start">7. In tem và bắt đầu sửa</option>
+              <option value="guide-repair-tracking">8. Theo dõi phiếu đang sửa</option>
+              <option value="guide-attention">9. Việc cần chú ý</option>
+              <option value="guide-complete-receipt">10. In biên nhận và hoàn thành phiếu</option>
+              <option value="guide-warranty-setup">11. Thiết lập bảo hành</option>
+              <option value="guide-warranty-search">12. Tra cứu bảo hành</option>
+              <option value="guide-reprint">13. In lại tem và biên nhận</option>
+              <option value="guide-ticket-list-edit">14. Danh sách và sửa chi tiết phiếu</option>
+              <option value="guide-overview-charts">15. Tổng quan và biểu đồ</option>
+              <option value="guide-statuses">16. Các trạng thái phiếu</option>
+              <option value="guide-faq">17. Lỗi thường gặp</option>
+              <option value="guide-safety">18. Quy tắc an toàn dữ liệu</option>
+            </select>
+          </div>
+        </section>
+
+        <div class="user-guide-layout">
+          <aside class="user-guide-toc" aria-label="Mục lục hướng dẫn">
+            <strong>Mục lục</strong>
+            <nav>
+              <a href="#guide-workflow" data-guide-target="guide-workflow">1. Tổng quan quy trình</a>
+              <a href="#guide-login-home" data-guide-target="guide-login-home">2. Đăng nhập và Trang chủ</a>
+              <a href="#guide-create-ticket" data-guide-target="guide-create-ticket">3. Tiếp nhận khách và tạo phiếu</a>
+              <a href="#guide-existing-customer" data-guide-target="guide-existing-customer">4. Tìm khách hàng cũ</a>
+              <a href="#guide-tv-info" data-guide-target="guide-tv-info">5. Nhập thông tin tivi</a>
+              <a href="#guide-condition" data-guide-target="guide-condition">6. Ghi tình trạng máy</a>
+              <a href="#guide-label-start" data-guide-target="guide-label-start">7. In tem và bắt đầu sửa</a>
+              <a href="#guide-repair-tracking" data-guide-target="guide-repair-tracking">8. Theo dõi phiếu đang sửa</a>
+              <a href="#guide-attention" data-guide-target="guide-attention">9. Việc cần chú ý</a>
+              <a href="#guide-complete-receipt" data-guide-target="guide-complete-receipt">10. In biên nhận và hoàn thành phiếu</a>
+              <a href="#guide-warranty-setup" data-guide-target="guide-warranty-setup">11. Thiết lập bảo hành</a>
+              <a href="#guide-warranty-search" data-guide-target="guide-warranty-search">12. Tra cứu bảo hành</a>
+              <a href="#guide-reprint" data-guide-target="guide-reprint">13. In lại tem và biên nhận</a>
+              <a href="#guide-ticket-list-edit" data-guide-target="guide-ticket-list-edit">14. Danh sách và sửa chi tiết phiếu</a>
+              <a href="#guide-overview-charts" data-guide-target="guide-overview-charts">15. Tổng quan và biểu đồ</a>
+              <a href="#guide-statuses" data-guide-target="guide-statuses">16. Các trạng thái phiếu</a>
+              <a href="#guide-faq" data-guide-target="guide-faq">17. Lỗi thường gặp</a>
+              <a href="#guide-safety" data-guide-target="guide-safety">18. Quy tắc an toàn dữ liệu</a>
+            </nav>
+          </aside>
+
+          <div class="user-guide-content">
+            <div id="guideEmptyState" class="guide-empty-state" hidden>Không tìm thấy nội dung hướng dẫn phù hợp.</div>
+
+            <section id="guide-workflow" class="user-guide-section" data-guide-section data-guide-keywords="workflow quy trình tạo phiếu in tem hoàn thành biên nhận bảo hành tra cứu START_REPAIR REPRINT_LABEL PRINT_AND_COMPLETE REPRINT_RECEIPT">
+              <p class="guide-kicker">Quy trình chính</p>
+              <h2>1. Tổng quan quy trình</h2>
+              <div class="guide-flow" aria-label="Luồng vận hành chính">
+                <span>Tiếp nhận khách và tạo phiếu</span>
+                <span>In tem và bắt đầu sửa</span>
+                <span>Theo dõi tiến độ</span>
+                <span>In biên nhận và hoàn thành phiếu</span>
+                <span>Lưu bảo hành</span>
+                <span>Tra cứu hoặc in lại khi cần</span>
+              </div>
+              <div class="guide-callout info">
+                <strong>Điểm cần nhớ:</strong>
+                <p>Tạo phiếu chưa có nghĩa là bắt đầu sửa. In tem lần đầu mới chuyển phiếu sang “đang sửa”. In biên nhận và hoàn thành phiếu mới chuyển database sang “đã trả”.</p>
+              </div>
+              <ul class="guide-check-list">
+                <li>In lại tem không reset thời điểm bắt đầu sửa.</li>
+                <li>In lại biên nhận không tính lại ngày bảo hành.</li>
+                <li>Bốn thao tác workflow hiện tại là: START_REPAIR, REPRINT_LABEL, PRINT_AND_COMPLETE, REPRINT_RECEIPT.</li>
+              </ul>
+            </section>
+
+            <section id="guide-login-home" class="user-guide-section" data-guide-section data-guide-keywords="đăng nhập trang chủ dashboard việc cần chú ý tổng quan menu">
+              <p class="guide-kicker">Bắt đầu ca làm</p>
+              <h2>2. Đăng nhập và Trang chủ</h2>
+              <ol class="guide-step-list">
+                <li>Mở trang đăng nhập và dùng tài khoản nội bộ được cấp.</li>
+                <li>Sau khi đăng nhập, hệ thống đưa vào Trang chủ để xem tình hình trong ngày.</li>
+                <li>Kiểm tra các card ưu tiên, “Việc cần chú ý” và các lối tắt thao tác.</li>
+              </ol>
+              <p>Trang chủ là điểm bắt đầu. Dashboard không có nút Quay lại để tránh quay ngược về đăng nhập hoặc trang không phù hợp.</p>
+            </section>
+
+            <section id="guide-create-ticket" class="user-guide-section" data-guide-section data-guide-keywords="tạo phiếu tiếp nhận khách lưu phiếu khách mới số điện thoại">
+              <p class="guide-kicker">Tiếp nhận</p>
+              <h2>3. Tiếp nhận khách và tạo phiếu</h2>
+              <ol class="guide-step-list">
+                <li>Mở “Tạo phiếu”.</li>
+                <li>Nhập số điện thoại khách.</li>
+                <li>Chọn khách cũ nếu hệ thống tìm thấy, hoặc tạo khách mới.</li>
+                <li>Nhập thông tin thiết bị: loại thiết bị, hãng, model, kích thước, serial và ngày nhận.</li>
+                <li>Ghi tình trạng máy, ngoại quan và phụ kiện đi kèm.</li>
+                <li>Kiểm tra lại rồi lưu phiếu.</li>
+              </ol>
+              <div class="guide-callout success">
+                <strong>Quy tắc mã:</strong>
+                <p>Mỗi khách có một mã KH cố định. Một khách có thể có nhiều phiếu AM. Không tạo lại khách mới nếu chỉ cần dùng đúng khách cũ đã có.</p>
+              </div>
+            </section>
+
+            <section id="guide-existing-customer" class="user-guide-section" data-guide-section data-guide-keywords="tìm khách cũ mã KH số điện thoại lịch sử khách tạo người khác cùng SĐT">
+              <p class="guide-kicker">Nhận diện khách</p>
+              <h2>4. Tìm khách hàng cũ</h2>
+              <p>Khi nhập số điện thoại hợp lệ, hệ thống tìm trong danh sách khách hiện có.</p>
+              <ul class="guide-check-list">
+                <li>Nếu có một khách phù hợp, kiểm tra mã KH, tên, số điện thoại, địa chỉ và lịch sử phiếu trước khi bấm “Dùng khách này”.</li>
+                <li>Nếu có nhiều khách dùng chung số điện thoại, chọn đúng người hoặc tạo người khác cùng số điện thoại.</li>
+                <li>Không dùng STT, số trang hoặc số điện thoại làm mã khách.</li>
+              </ul>
+              <div class="guide-callout warning">
+                <strong>Lưu ý:</strong>
+                <p>Số điện thoại giúp tìm và cảnh báo trùng, nhưng không phải khóa duy nhất tuyệt đối vì có thể có nhiều người dùng chung một số.</p>
+              </div>
+            </section>
+
+            <section id="guide-tv-info" class="user-guide-section" data-guide-section data-guide-keywords="tivi thiết bị model hãng kích thước serial gợi ý model">
+              <p class="guide-kicker">Thông tin thiết bị</p>
+              <h2>5. Nhập thông tin tivi</h2>
+              <ul class="guide-check-list">
+                <li>Nhập đúng loại thiết bị và hãng. Danh sách hãng có gợi ý nhưng vẫn cho nhập hãng khác.</li>
+                <li>Model nên ghi nguyên văn trên tem máy hoặc điều khiển, ví dụ UA55..., KD-55..., 55UP...</li>
+                <li>Kích thước có thể được gợi ý từ model, nhưng vẫn cần kiểm tra lại thực tế.</li>
+                <li>Serial nếu có nên ghi để đối chiếu khi bảo hành.</li>
+              </ul>
+            </section>
+
+            <section id="guide-condition" class="user-guide-section" data-guide-section data-guide-keywords="tình trạng máy lỗi khách báo chip chọn nhanh ngoại quan phụ kiện">
+              <p class="guide-kicker">Mô tả lỗi</p>
+              <h2>6. Ghi tình trạng máy</h2>
+              <p>Dùng chip chọn nhanh để thêm tình trạng thường gặp. Có thể chọn nhiều mục, bấm lại để bỏ chọn và vẫn nhập tay thêm nội dung riêng.</p>
+              <div class="guide-example">
+                <strong>Ví dụ tình trạng:</strong>
+                <p>Có tiếng, không có hình; màn hình tối; lỗi xuất hiện sau khoảng 20 phút.</p>
+              </div>
+              <div class="guide-example">
+                <strong>Ví dụ ngoại quan:</strong>
+                <p>Màn hình nguyên vẹn; có remote; có dây nguồn; thiếu chân đế.</p>
+              </div>
+              <ul class="guide-check-list">
+                <li>Ghi rõ lỗi khách báo và tình trạng thực tế khi nhận.</li>
+                <li>Ghi phụ kiện đi kèm, trầy vỡ, móp hoặc thiếu phụ kiện.</li>
+                <li>Nội dung tự nhập không bị mất khi chọn chip gợi ý.</li>
+              </ul>
+            </section>
+
+            <section id="guide-label-start" class="user-guide-section" data-guide-section data-guide-keywords="in tem bắt đầu sửa START_REPAIR đang sửa repair_started_at chỉ in lại tem">
+              <p class="guide-kicker">Bắt đầu sửa</p>
+              <h2>7. In tem và bắt đầu sửa</h2>
+              <ol class="guide-step-list">
+                <li>Mở phiếu.</li>
+                <li>Kiểm tra đúng khách và model.</li>
+                <li>Bấm “In tem &amp; bắt đầu sửa chữa”.</li>
+                <li>Chờ hệ thống cập nhật thành công.</li>
+                <li>Print Preview mới được mở.</li>
+                <li>In tem và dán lên đúng thiết bị.</li>
+              </ol>
+              <div class="guide-callout warning">
+                <strong>Không bấm liên tục:</strong>
+                <p>Lần đầu in tem chuyển status sang “đang sửa” và ghi repair_started_at. Nếu chỉ cần in lại, dùng “Chỉ in lại tem”.</p>
+              </div>
+            </section>
+
+            <section id="guide-repair-tracking" class="user-guide-section" data-guide-section data-guide-keywords="hoạt động phiếu theo dõi đang sửa 48 giờ 72 giờ ưu tiên in lại tem xem phiếu">
+              <p class="guide-kicker">Theo dõi sửa chữa</p>
+              <h2>8. Theo dõi phiếu đang sửa</h2>
+              <p>Trang “Hoạt động phiếu” dùng để xem máy đang sửa, thời gian đã chờ, phiếu quá 48 giờ, in lại tem, mở biên nhận giao khách và xem chi tiết phiếu.</p>
+              <ul class="guide-check-list">
+                <li>Dưới 48 giờ: theo dõi bình thường.</li>
+                <li>Từ 48 giờ: cảnh báo cần xem tiến độ.</li>
+                <li>Từ 72 giờ: ưu tiên cao.</li>
+              </ul>
+              <p>Không chỉnh status trực tiếp trong modal. Status được cập nhật bằng workflow.</p>
+            </section>
+
+            <section id="guide-attention" class="user-guide-section" data-guide-section data-guide-keywords="việc cần chú ý attention summary quá hạn tồn lâu ưu tiên trang chi tiết">
+              <p class="guide-kicker">Ưu tiên xử lý</p>
+              <h2>9. Việc cần chú ý</h2>
+              <p>Card “Việc cần chú ý” trên Trang chủ mở trang chi tiết các phiếu cần xử lý. Khung trên Trang chủ chỉ là bản xem nhanh.</p>
+              <ul class="guide-check-list">
+                <li>Phiếu tồn lâu nhất lên đầu, phiếu mới phát sinh nằm cuối.</li>
+                <li>Một phiếu chỉ xuất hiện một lần dù có nhiều lý do.</li>
+                <li>Trang chi tiết hiển thị 8 phiếu mỗi trang; phiếu thứ 9 nằm ở Trang 2.</li>
+              </ul>
+            </section>
+
+            <section id="guide-complete-receipt" class="user-guide-section" data-guide-section data-guide-keywords="in biên nhận hoàn thành phiếu PRINT_AND_COMPLETE đã trả giao khách bảo hành delivery_date warranty">
+              <p class="guide-kicker">Giao trả</p>
+              <h2>10. In biên nhận và hoàn thành phiếu</h2>
+              <ol class="guide-step-list">
+                <li>Chỉ thực hiện khi thiết bị đang được giao/trả khách.</li>
+                <li>Mở biên nhận.</li>
+                <li>Kiểm tra ngày giao/trả.</li>
+                <li>Chọn hoặc nhập chính sách bảo hành.</li>
+                <li>Kiểm tra nội dung bảo hành.</li>
+                <li>Bấm “In biên nhận &amp; hoàn thành phiếu”.</li>
+                <li>Chờ RPC thành công, sau đó Print Preview mới mở.</li>
+                <li>In cho khách kiểm tra và ký.</li>
+              </ol>
+              <div class="guide-callout success">
+                <strong>Dữ liệu bảo hành:</strong>
+                <p>Ngày giao/trả và bảo hành được lưu có cấu trúc trong Supabase để tra cứu sau này. Hệ thống không dùng ảnh, PDF hoặc HTML bản in làm nguồn bảo hành.</p>
+              </div>
+            </section>
+
+            <section id="guide-warranty-setup" class="user-guide-section" data-guide-section data-guide-keywords="thiết lập bảo hành ngày thủ công tính nhanh số tháng không bảo hành warranty_mode warranty_start_date warranty_end_date">
+              <p class="guide-kicker">Bảo hành</p>
+              <h2>11. Thiết lập bảo hành</h2>
+              <div class="guide-three-column">
+                <div>
+                  <h3>Nhập ngày thủ công</h3>
+                  <p>Tự chọn ngày bắt đầu và ngày kết thúc. Ngày kết thúc không được trước ngày bắt đầu.</p>
+                </div>
+                <div>
+                  <h3>Tính nhanh</h3>
+                  <p>Chọn 3, 6, 9, 12 tháng hoặc số tháng tùy chỉnh. Hệ thống tự tính ngày hết hạn.</p>
+                </div>
+                <div>
+                  <h3>Không bảo hành</h3>
+                  <p>Không lưu ngày bắt đầu hoặc kết thúc bảo hành.</p>
+                </div>
+              </div>
+              <p>Ngày giao/trả tự điền ngày hiện tại, vẫn cho sửa tay. Khi in lại phải giữ nguyên ngày đã lưu.</p>
+            </section>
+
+            <section id="guide-warranty-search" class="user-guide-section" data-guide-section data-guide-keywords="tra cứu bảo hành mã phiếu mã khách số điện thoại model serial còn hết bảo hành sắp hết hạn">
+              <p class="guide-kicker">Tra cứu sau bán</p>
+              <h2>12. Tra cứu bảo hành</h2>
+              <p>Có thể tìm theo mã phiếu AM, mã khách KH, số điện thoại, model và serial nếu đang hỗ trợ.</p>
+              <ul class="guide-check-list">
+                <li>Xanh: còn bảo hành trên 15 ngày.</li>
+                <li>Vàng: còn tối đa 15 ngày hoặc hết hạn hôm nay.</li>
+                <li>Đỏ: đã hết bảo hành.</li>
+                <li>Trung tính: không bảo hành hoặc chưa có thông tin.</li>
+              </ul>
+              <p>Mở trang sẽ tự hiện các phiếu gần nhất, có phân trang và gợi ý tìm kiếm. In lại không thay đổi hạn bảo hành.</p>
+            </section>
+
+            <section id="guide-reprint" class="user-guide-section" data-guide-section data-guide-keywords="in lại tem in lại biên nhận REPRINT_LABEL REPRINT_RECEIPT không đổi ngày không đổi workflow">
+              <p class="guide-kicker">In lại</p>
+              <h2>13. In lại tem và biên nhận</h2>
+              <ul class="guide-check-list">
+                <li>“Chỉ in lại tem” dùng khi tem hỏng, mất hoặc in chưa rõ.</li>
+                <li>“In lại biên nhận” dùng dữ liệu giao/trả và bảo hành đã lưu.</li>
+                <li>Không dùng nút hoàn thành lần hai để in lại.</li>
+                <li>In lại chỉ ghi nhận hoạt động, không đổi ngày bắt đầu sửa, ngày giao/trả hoặc hạn bảo hành.</li>
+              </ul>
+            </section>
+
+            <section id="guide-ticket-list-edit" class="user-guide-section" data-guide-section data-guide-keywords="danh sách phiếu sửa chi tiết tìm kiếm modal model tình trạng ghi chú optimistic concurrency">
+              <p class="guide-kicker">Tra cứu phiếu</p>
+              <h2>14. Danh sách và sửa chi tiết phiếu</h2>
+              <ul class="guide-check-list">
+                <li>Tìm theo mã AM, mã KH, tên, số điện thoại hoặc model.</li>
+                <li>Mở phiếu để xem chi tiết và lịch sử liên quan.</li>
+                <li>Chỉ sửa thông tin chi tiết được phép như model, tình trạng, ghi chú và thông tin mô tả.</li>
+                <li>Không chỉnh trạng thái trực tiếp trong modal.</li>
+                <li>Nếu dữ liệu đã được người khác cập nhật, hãy tải lại trước khi sửa tiếp.</li>
+              </ul>
+            </section>
+
+            <section id="guide-overview-charts" class="user-guide-section" data-guide-section data-guide-keywords="tổng quan biểu đồ tiến độ xử lý tuần này tuần trước phiếu tiếp nhận">
+              <p class="guide-kicker">Báo cáo nhanh</p>
+              <h2>15. Tổng quan và biểu đồ</h2>
+              <h3>Tiến độ xử lý hiện tại</h3>
+              <p>Hiển thị mới nhận, đang kiểm tra, đang sửa và các mức quá thời gian nếu có. Không tính phiếu đã hoàn thành vào tiến độ hiện tại.</p>
+              <h3>Phiếu tiếp nhận trong tuần</h3>
+              <p>Tính theo ngày nhận phiếu từ Thứ Hai đến Chủ Nhật. Phiếu đã hoàn thành vẫn được tính vào ngày đã tiếp nhận, không dùng ngày hoàn thành để vẽ biểu đồ.</p>
+            </section>
+
+            <section id="guide-statuses" class="user-guide-section" data-guide-section data-guide-keywords="trạng thái phiếu mới nhận đang kiểm tra báo giá đang sửa đã hoàn thành đã trả huỷ legacy">
+              <p class="guide-kicker">Trạng thái</p>
+              <h2>16. Các trạng thái phiếu</h2>
+              <div class="guide-table-wrap">
+                <table class="guide-table">
+                  <thead>
+                    <tr>
+                      <th>Trạng thái</th>
+                      <th>Ý nghĩa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Mới nhận</td><td>Phiếu vừa được tạo.</td></tr>
+                    <tr><td>Đang kiểm tra</td><td>Đang xác định lỗi.</td></tr>
+                    <tr><td>Báo giá</td><td>Đang chờ hoặc thực hiện báo giá.</td></tr>
+                    <tr><td>Đang sửa</td><td>Đã in tem lần đầu và bắt đầu sửa.</td></tr>
+                    <tr><td>Đã hoàn thành</td><td>Database là “đã trả”, thiết bị đã hoàn tất giao/trả.</td></tr>
+                    <tr><td>Huỷ</td><td>Phiếu không tiếp tục xử lý.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>“Legacy đã xong” chỉ là dữ liệu cũ, không phải workflow mới.</p>
+            </section>
+
+            <section id="guide-faq" class="user-guide-section" data-guide-section data-guide-keywords="FAQ lỗi thường gặp không tìm thấy khách print preview không mở bảo hành không xuất hiện in lại đổi ngày">
+              <p class="guide-kicker">Hỗ trợ nhanh</p>
+              <h2>17. Lỗi thường gặp</h2>
+              <div class="guide-faq-actions">
+                <button id="guideExpandAll" class="btn secondary compact" type="button">Mở tất cả</button>
+                <button id="guideCollapseAll" class="btn secondary compact" type="button">Đóng tất cả</button>
+              </div>
+              <div class="guide-faq-list">
+                <div class="guide-faq-item">
+                  <button class="guide-faq-question" type="button" aria-expanded="false" aria-controls="faqOldCustomer">Không tìm thấy khách cũ</button>
+                  <div id="faqOldCustomer" class="guide-faq-panel" hidden>
+                    <p>Kiểm tra định dạng số điện thoại, thử mã KH và không tạo khách trùng nếu chưa kiểm tra kỹ.</p>
+                  </div>
+                </div>
+                <div class="guide-faq-item">
+                  <button class="guide-faq-question" type="button" aria-expanded="false" aria-controls="faqPrintPreview">Bấm in nhưng Print Preview không mở</button>
+                  <div id="faqPrintPreview" class="guide-faq-panel" hidden>
+                    <p>Kiểm tra kết nối, xem thông báo RPC, không bấm liên tục và không tự đổi trạng thái bằng tay.</p>
+                  </div>
+                </div>
+                <div class="guide-faq-item">
+                  <button class="guide-faq-question" type="button" aria-expanded="false" aria-controls="faqActivityMissing">Không thấy phiếu trong Hoạt động phiếu</button>
+                  <div id="faqActivityMissing" class="guide-faq-panel" hidden>
+                    <p>Kiểm tra status có phải “đang sửa”, refresh Ctrl+Shift+R và xem phiếu đã in tem lần đầu chưa.</p>
+                  </div>
+                </div>
+                <div class="guide-faq-item">
+                  <button class="guide-faq-question" type="button" aria-expanded="false" aria-controls="faqWarrantyMissing">Bảo hành không xuất hiện</button>
+                  <div id="faqWarrantyMissing" class="guide-faq-panel" hidden>
+                    <p>Phiếu phải được hoàn thành bằng đúng nút biên nhận. Kiểm tra đã chọn chính sách bảo hành; phiếu cũ có thể chưa có dữ liệu.</p>
+                  </div>
+                </div>
+                <div class="guide-faq-item">
+                  <button class="guide-faq-question" type="button" aria-expanded="false" aria-controls="faqReprintDate">In lại bị đổi ngày</button>
+                  <div id="faqReprintDate" class="guide-faq-panel" hidden>
+                    <p>Đây là lỗi cần báo quản trị viên. In lại phải dùng dữ liệu đã lưu và không hoàn thành phiếu lần hai.</p>
+                  </div>
+                </div>
+                <div class="guide-faq-item">
+                  <button class="guide-faq-question" type="button" aria-expanded="false" aria-controls="faqEmptyList">Danh sách trống nhưng card có số</button>
+                  <div id="faqEmptyList" class="guide-faq-panel" hidden>
+                    <p>Thử tải lại, ghi nhận mã phiếu liên quan và báo quản trị viên nếu vẫn xảy ra.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section id="guide-safety" class="user-guide-section" data-guide-section data-guide-keywords="quy tắc an toàn dữ liệu service key database status mã AM mã KH đăng xuất">
+              <p class="guide-kicker">An toàn dữ liệu</p>
+              <h2>18. Quy tắc an toàn dữ liệu</h2>
+              <div class="guide-callout danger">
+                <strong>Không làm các việc sau:</strong>
+                <ul>
+                  <li>Không chia sẻ tài khoản nội bộ.</li>
+                  <li>Không tự sửa database.</li>
+                  <li>Không cung cấp service key.</li>
+                  <li>Không xóa hoặc sửa mã AM/KH thủ công.</li>
+                  <li>Không sửa status trực tiếp.</li>
+                  <li>Không bấm hoàn thành nếu máy chưa giao khách.</li>
+                  <li>Không in lại bằng action hoàn thành.</li>
+                  <li>Không ghi thông tin khách hàng vào nơi công cộng.</li>
+                </ul>
+              </div>
+              <p>Luôn kiểm tra đúng model và khách trước khi in. Đăng xuất khi rời máy dùng chung.</p>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/user-guide.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

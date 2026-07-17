@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Phiếu đang sửa chữa - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="repairing-tickets-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Phiếu đang sửa chữa</h1>
+            <p class="page-subtitle">Tra cứu và theo dõi toàn bộ thiết bị hiện đang trong quá trình sửa chữa.</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <div id="repairingNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <section id="repairingSection" class="dashboard-section repairing-section" aria-labelledby="repairingTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="repairingTitle" class="section-title">Danh sách phiếu đang sửa</h2>
+              <p class="section-description">Chỉ hiển thị các phiếu có trạng thái “đang sửa”.</p>
+            </div>
+          </div>
+
+          <div class="repairing-summary-panel" aria-live="polite">
+            <strong id="repairingSummaryMain">Đang tải danh sách phiếu đang sửa chữa...</strong>
+            <span id="repairingSummaryOverdue">Đang kiểm tra phiếu quá 48 giờ.</span>
+          </div>
+
+          <div class="repairing-toolbar">
+            <form id="repairingSearchForm" class="repairing-search-form">
+              <label class="sr-only" for="repairingSearchInput">Tìm phiếu đang sửa chữa</label>
+              <div class="repairing-search-box">
+                <svg class="repairing-search-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <input
+                  id="repairingSearchInput"
+                  class="repairing-search-input"
+                  type="search"
+                  inputmode="search"
+                  autocomplete="off"
+                  placeholder="Nhập mã AM, mã khách, tên, số điện thoại, hãng, model hoặc serial…"
+                >
+              </div>
+              <div class="repairing-search-actions">
+                <button id="repairingSearchButton" class="btn primary compact" type="submit">Tra cứu</button>
+                <button id="repairingClearButton" class="btn secondary compact" type="button">Xóa</button>
+              </div>
+            </form>
+
+            <div class="repairing-controls">
+              <div id="repairingFilterChips" class="repairing-filter-chips" aria-label="Lọc thời gian sửa"></div>
+              <label class="repairing-sort-label" for="repairingSortSelect">
+                Sắp xếp
+                <select id="repairingSortSelect" class="repairing-sort-select">
+                  <option value="priority">Ưu tiên quá hạn</option>
+                  <option value="oldest-repair">Bắt đầu sửa cũ nhất</option>
+                  <option value="newest-repair">Bắt đầu sửa mới nhất</option>
+                  <option value="newest-received">Ngày nhận mới nhất</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div id="repairingState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải danh sách phiếu đang sửa chữa...
+          </div>
+
+          <div id="repairingContent" class="repairing-content" hidden>
+            <p id="repairingListSummary" class="list-summary"></p>
+
+            <div class="repairing-table-wrap">
+              <table class="repairing-table">
+                <thead>
+                  <tr>
+                    <th>Mức ưu tiên</th>
+                    <th>Mã phiếu</th>
+                    <th>Khách hàng</th>
+                    <th>Số điện thoại</th>
+                    <th>Thiết bị</th>
+                    <th>Ngày nhận</th>
+                    <th>Thời gian sửa</th>
+                    <th>Tình trạng</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody id="repairingTableBody"></tbody>
+              </table>
+            </div>
+
+            <div id="repairingCards" class="repairing-ticket-cards"></div>
+            <nav id="repairingPagination" class="pagination" aria-label="Phân trang phiếu đang sửa chữa"></nav>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/repairing-tickets.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="auth-page">
+    <main class="auth-panel">
+      <div class="auth-brand">
+        <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+        <span class="brand-copy">
+          <strong>Anh Minh Admin</strong>
+          <span>Đang kiểm tra phiên đăng nhập...</span>
+        </span>
+      </div>
+      <div id="routeNotice" class="notice info show">Vui lòng chờ trong giây lát.</div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+      (async function () {
+        const notice = document.getElementById("routeNotice");
+        try {
+          const access = await window.AMApi.checkInternalAccess();
+          window.location.replace(access.allowed ? "dashboard.html" : "login.html");
+        } catch (error) {
+          notice.textContent = error.message || "Chưa thể kiểm tra cấu hình. Chuyển về trang đăng nhập.";
+          setTimeout(function () {
+            window.location.replace("login.html");
+          }, 1200);
+        }
+      })();
+    </script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

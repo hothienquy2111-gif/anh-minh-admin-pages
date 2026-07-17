@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lịch sử nhận phiếu - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html" aria-current="page">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Lịch sử nhận phiếu</h1>
+            <p class="page-subtitle">Danh sách toàn bộ phiếu theo đúng thời điểm được nhập vào hệ thống.</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <div id="ticketHistoryNotice" class="notice"></div>
+
+        <section id="ticketHistorySection" class="dashboard-section ticket-history-section" aria-labelledby="ticketHistoryTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="ticketHistoryTitle" class="section-title">Lịch sử nhận phiếu</h2>
+              <p class="section-description">Danh sách phiếu theo đúng thời điểm được nhập vào hệ thống.</p>
+            </div>
+          </div>
+
+          <div class="ticket-history-toolbar">
+            <label class="sr-only" for="ticketHistorySearchInput">Tìm lịch sử nhận phiếu</label>
+            <div class="ticket-history-search-box">
+              <svg class="ticket-history-search-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <input
+                id="ticketHistorySearchInput"
+                class="ticket-history-search-input"
+                type="search"
+                inputmode="search"
+                autocomplete="off"
+                placeholder="Tìm theo mã phiếu, mã KH, tên hoặc SĐT..."
+              >
+              <button
+                id="ticketHistorySearchClear"
+                class="ticket-history-search-clear"
+                type="button"
+                aria-label="Xóa tìm kiếm lịch sử"
+                hidden
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+
+          <div id="ticketHistoryState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải lịch sử...
+          </div>
+
+          <div id="ticketHistoryContent" class="ticket-history-content" hidden>
+            <p id="ticketHistorySummary" class="list-summary"></p>
+
+            <div class="ticket-history-table-wrap">
+              <table class="ticket-history-table">
+                <thead>
+                  <tr>
+                    <th>STT</th>
+                    <th>Thời gian nhận</th>
+                    <th>Mã phiếu</th>
+                    <th>Mã khách</th>
+                    <th>Họ và tên</th>
+                    <th>Số điện thoại</th>
+                    <th>Model</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody id="ticketHistoryTableBody"></tbody>
+              </table>
+            </div>
+
+            <nav id="ticketHistoryPagination" class="pagination" aria-label="Phân trang lịch sử nhận phiếu"></nav>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/ticket-history.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

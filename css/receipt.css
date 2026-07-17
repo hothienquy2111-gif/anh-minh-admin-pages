@@ -1,0 +1,1706 @@
+@media screen {
+  html.receipt-print body.receipt-page .receipt-preview-wrap {
+    overflow: auto;
+    padding: 20px 10px;
+  }
+
+  html.receipt-print body.receipt-page .delivery-receipt-page {
+    width: 148mm;
+    min-width: 148mm;
+    min-height: 210mm;
+    margin: 20px auto;
+    padding: 6mm;
+    box-sizing: border-box;
+    background: #fff;
+  }
+
+  .receipt-controls .form-section {
+    border-color: rgba(203, 213, 225, 0.9);
+    background:
+      linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  }
+
+  .receipt-temp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+    gap: 16px;
+    align-items: end;
+    min-width: 0;
+  }
+
+  .receipt-temp-field {
+    display: block;
+    min-width: 0;
+  }
+
+  .receipt-temp-field label {
+    display: block;
+    margin-bottom: 8px;
+    color: #25324a;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .receipt-temp-field input,
+  .receipt-temp-field textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .receipt-temp-field input[type="date"] {
+    min-width: 0;
+    height: 48px;
+  }
+
+  .receipt-temp-notes {
+    grid-column: 1 / -1;
+  }
+
+  .receipt-temp-notes textarea {
+    min-height: 92px;
+    resize: vertical;
+  }
+
+  .receipt-warranty-mode {
+    margin: 0;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.7);
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .receipt-warranty-mode legend {
+    padding: 0 6px;
+    color: #25324a;
+    font-weight: 900;
+  }
+
+  .receipt-radio-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    margin-top: 8px;
+    color: #16233a;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .receipt-radio-option input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    accent-color: #06264a;
+  }
+
+  .receipt-temp-panel {
+    padding: 12px;
+    border: 1px solid rgba(203, 213, 225, 0.95);
+    border-radius: 14px;
+    background: rgba(248, 250, 252, 0.9);
+  }
+
+  .receipt-temp-subgrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .receipt-temp-field select,
+  .receipt-temp-field input[type="number"] {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    height: 48px;
+  }
+
+  .receipt-temp-field input[readonly] {
+    background: #eef2f7;
+    color: #0f172a;
+    cursor: default;
+  }
+
+  .receipt-none-hint {
+    margin: 0;
+    font-weight: 800;
+  }
+
+  .receipt-handover-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .receipt-handover-list span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .receipt-handover-list i {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+    border: 1px solid #111827;
+  }
+}
+
+@media print {
+  @page receipt-a5-final {
+    size: A5 portrait;
+    margin: 0;
+  }
+
+  @page receipt-a4-final {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html.receipt-print {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 {
+    width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    overflow: hidden !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 {
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    overflow: visible !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .delivery-receipt-page {
+    page: receipt-a5-final;
+    width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-height: 210mm !important;
+    padding: 5.2mm !important;
+    overflow: hidden !important;
+    font-size: 7.8px !important;
+    line-height: 1.1 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .delivery-receipt-page {
+    page: receipt-a4-final;
+    display: block !important;
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    overflow: visible !important;
+    font-size: 9.4px !important;
+    line-height: 1.2 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-a4-only,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a5-compact-only {
+    display: none !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a4-only {
+    display: block !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-header {
+    grid-template-columns: 17mm 1fr 25mm !important;
+    min-height: 15mm !important;
+    margin-bottom: 1.3mm !important;
+    padding-bottom: 1.3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-header {
+    grid-template-columns: 25mm 1fr 34mm !important;
+    min-height: 24mm !important;
+    gap: 4mm !important;
+    margin-bottom: 4mm !important;
+    padding-bottom: 3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-logo {
+    width: 22mm !important;
+    height: 22mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-company-name {
+    font-size: 16px !important;
+    line-height: 1.1 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-title {
+    font-size: 11px !important;
+    line-height: 1.18 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-phone,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-brand-address {
+    margin: 1mm 0 0 !important;
+    font-size: 8.5px !important;
+    font-weight: 850 !important;
+    line-height: 1.15 !important;
+    text-align: center !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-ticket-box {
+    gap: 1mm !important;
+    padding: 2mm !important;
+    font-size: 9px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-main-grid,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-delivery-warranty-grid {
+    gap: 1.25mm !important;
+    margin-bottom: 1.25mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-main-grid,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-delivery-warranty-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 3mm !important;
+    margin-bottom: 3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section {
+    margin-bottom: 3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section-title {
+    padding: 1.3mm 2mm !important;
+    font-size: 8.8px !important;
+    line-height: 1.15 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section-body,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-rows {
+    padding: 1.7mm 2mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-row {
+    grid-template-columns: 31mm minmax(0, 1fr) !important;
+    gap: 2mm !important;
+    min-height: 4.4mm !important;
+    font-size: 9px !important;
+    line-height: 1.18 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-row {
+    grid-template-columns: 19mm minmax(0, 1fr) !important;
+    gap: 1mm !important;
+    min-height: 3mm !important;
+    font-size: 7.5px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-section-title {
+    padding: 0.75mm 1.2mm !important;
+    font-size: 7.1px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-section-body,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-rows {
+    padding: 0.9mm 1.2mm 1mm !important;
+  }
+
+  html.receipt-print body.receipt-page .receipt-address-value,
+  html.receipt-print body.receipt-page .receipt-value.multi {
+    max-height: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-writing-area .receipt-value.multi {
+    min-height: 9mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-cost-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.7mm 4mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-accessories,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-terms,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-handover-check {
+    margin-bottom: 1.25mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-accessory-list {
+    gap: 1mm !important;
+    padding: 0.9mm 1.2mm !important;
+    font-size: 7.1px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-accessory-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 2mm !important;
+    padding: 1.7mm 2mm !important;
+    font-size: 8.8px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-terms ol {
+    columns: 2 !important;
+    padding: 0.9mm 1.8mm 1mm 4.8mm !important;
+    font-size: 6.35px !important;
+    line-height: 1.1 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-terms ol {
+    columns: 1 !important;
+    padding: 1.8mm 4mm 2mm 6mm !important;
+    font-size: 8.7px !important;
+    line-height: 1.28 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-handover-list {
+    padding: 0.9mm 1.2mm !important;
+    font-size: 6.7px !important;
+    line-height: 1.08 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-handover-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.7mm 4mm !important;
+    padding: 1.8mm 2mm !important;
+    font-size: 8.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-signatures,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-signatures {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-signatures {
+    gap: 4mm !important;
+    margin-top: 2mm !important;
+    min-height: 24mm !important;
+    padding-top: 2mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .signature-box {
+    min-height: 23mm !important;
+    height: 23mm !important;
+    font-size: 7px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-signatures {
+    gap: 10mm !important;
+    margin-top: 6mm !important;
+    min-height: 38mm !important;
+    padding-top: 4mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .signature-box {
+    min-height: 36mm !important;
+    height: 36mm !important;
+    font-size: 8.7px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .signature-title {
+    font-size: 9px !important;
+  }
+}
+
+@media screen, print {
+  html.receipt-print body.receipt-page .receipt-brand-address.hidden {
+    display: none !important;
+  }
+}
+
+@media screen {
+  html.receipt-print body.receipt-page .receipt-preview-wrap {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: auto;
+    padding: 20px 10px;
+  }
+
+  html.receipt-print body.receipt-page .receipt-preview-sizer {
+    --receipt-preview-scale: 1;
+    --receipt-paper-width: 559px;
+    --receipt-paper-height: 794px;
+    --receipt-preview-width: 559px;
+    --receipt-preview-height: 794px;
+    position: relative;
+    width: var(--receipt-preview-width);
+    height: var(--receipt-preview-height);
+    margin-inline: auto;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-preview-sizer {
+    --receipt-paper-width: 794px;
+    --receipt-paper-height: 1123px;
+    --receipt-preview-width: 794px;
+    --receipt-preview-height: 1123px;
+  }
+
+  html.receipt-print body.receipt-page .receipt-preview-sizer .delivery-receipt-page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 0 !important;
+    transform: scale(var(--receipt-preview-scale));
+    transform-origin: top left;
+    will-change: transform;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-preview-sizer .delivery-receipt-page {
+    width: 148mm;
+    min-width: 148mm;
+    min-height: 210mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-preview-sizer .delivery-receipt-page {
+    width: 210mm;
+    min-width: 210mm;
+    min-height: 297mm;
+  }
+}
+
+@media print {
+  html.receipt-print body.receipt-page .receipt-preview-sizer {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  html.receipt-print body.receipt-page .receipt-preview-sizer .delivery-receipt-page {
+    position: static !important;
+    transform: none !important;
+    transform-origin: initial !important;
+    will-change: auto !important;
+  }
+}
+
+@media screen {
+  html.receipt-print body.receipt-page .receipt-preview-wrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: auto !important;
+    padding: 20px 10px !important;
+  }
+
+  html.receipt-print body.receipt-page .receipt-preview-sizer {
+    --receipt-preview-scale: 1;
+    --receipt-paper-width: 559px;
+    --receipt-paper-height: 794px;
+    --receipt-preview-width: 559px;
+    --receipt-preview-height: 794px;
+    position: relative !important;
+    width: var(--receipt-preview-width) !important;
+    height: var(--receipt-preview-height) !important;
+    margin-inline: auto !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-preview-sizer {
+    --receipt-paper-width: 794px;
+    --receipt-paper-height: 1123px;
+    --receipt-preview-width: 794px;
+    --receipt-preview-height: 1123px;
+  }
+
+  html.receipt-print body.receipt-page .receipt-preview-sizer .delivery-receipt-page {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    margin: 0 !important;
+    transform: scale(var(--receipt-preview-scale)) !important;
+    transform-origin: top left !important;
+    will-change: transform;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-preview-sizer .delivery-receipt-page {
+    width: 148mm !important;
+    min-width: 148mm !important;
+    min-height: 210mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-preview-sizer .delivery-receipt-page {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    min-height: 297mm !important;
+  }
+}
+
+@media print {
+  html.receipt-print body.receipt-page .receipt-preview-sizer {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  html.receipt-print body.receipt-page .receipt-preview-sizer .delivery-receipt-page {
+    position: static !important;
+    transform: none !important;
+    transform-origin: initial !important;
+    will-change: auto !important;
+  }
+}
+
+@media screen {
+  html.receipt-print body.receipt-page .receipt-a4-only {
+    display: none;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a4-only {
+    display: block;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a5-compact-only {
+    display: none;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-control {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 16px;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.7);
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-control legend {
+    padding: 0 6px;
+    color: #25324a;
+    font-weight: 900;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-option {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    min-height: 54px;
+    padding: 10px;
+    border: 1px solid rgba(203, 213, 225, 0.95);
+    border-radius: 14px;
+    background: #f8fafc;
+    color: #14243c;
+    cursor: pointer;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-option:has(input:checked) {
+    border-color: #1d4ed8;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-option input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: #06264a;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-option strong,
+  html.receipt-print body.receipt-page .receipt-format-option small {
+    display: block;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-option strong {
+    font-weight: 900;
+    line-height: 1.2;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-option small {
+    margin-top: 3px;
+    color: #52637a;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-option:focus-within {
+    outline: 3px solid rgba(37, 99, 235, 0.25);
+    outline-offset: 2px;
+  }
+
+  html.receipt-print body.receipt-page .receipt-format-status {
+    margin: -6px 0 16px;
+    color: #06264a;
+    font-weight: 900;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .delivery-receipt-page {
+    width: 148mm;
+    min-width: 148mm;
+    min-height: 210mm;
+    padding: 6mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .delivery-receipt-page {
+    width: 210mm;
+    min-width: 210mm;
+    min-height: 297mm;
+    padding: 10mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-preview-wrap {
+    padding-inline: 0;
+  }
+
+  html.receipt-print body.receipt-page .receipt-brand-address {
+    margin: 4px 0 0;
+    color: #1f2937;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  html.receipt-print body.receipt-page .receipt-address-value {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  html.receipt-print body.receipt-page .receipt-writing-area .receipt-value.multi {
+    min-height: 34px;
+  }
+
+  html.receipt-print body.receipt-page .receipt-cost-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html.receipt-print body.receipt-page .receipt-signatures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-title {
+    font-size: 1.05rem;
+    line-height: 1.2;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-main-grid,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-delivery-warranty-grid {
+    gap: 12px;
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  html.receipt-print body.receipt-page .delivery-receipt-page {
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .delivery-receipt-page,
+  html.receipt-print body.receipt-page.print-format-a5 .delivery-receipt-page {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media print {
+  @page receipt-a5 {
+    size: A5 portrait;
+    margin: 0;
+  }
+
+  @page receipt-a4 {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html.receipt-print {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 {
+    width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    overflow: hidden !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 {
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    overflow: visible !important;
+  }
+
+  html.receipt-print body.receipt-page .receipt-a4-only,
+  html.receipt-print body.receipt-page .receipt-a5-compact-only {
+    display: revert;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-a4-only,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a5-compact-only {
+    display: none !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a4-only {
+    display: block !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .delivery-receipt-page {
+    page: receipt-a5;
+    width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-height: 210mm !important;
+    padding: 5.2mm !important;
+    overflow: hidden !important;
+    font-size: 7.8px;
+    line-height: 1.1;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .delivery-receipt-page {
+    page: receipt-a4;
+    display: block !important;
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    overflow: visible !important;
+    font-size: 9.4px;
+    line-height: 1.2;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-header {
+    grid-template-columns: 17mm 1fr 25mm;
+    min-height: 15mm;
+    margin-bottom: 1.3mm;
+    padding-bottom: 1.3mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-header {
+    grid-template-columns: 25mm 1fr 34mm;
+    min-height: 24mm;
+    gap: 4mm;
+    margin-bottom: 4mm;
+    padding-bottom: 3mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-logo {
+    width: 22mm;
+    height: 22mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-company-name {
+    font-size: 16px;
+    line-height: 1.1;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-title {
+    font-size: 11px;
+    line-height: 1.18;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-phone,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-brand-address {
+    margin: 1mm 0 0;
+    font-size: 8.5px;
+    font-weight: 850;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-ticket-box {
+    gap: 1mm;
+    padding: 2mm;
+    font-size: 9px;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-main-grid,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-delivery-warranty-grid {
+    gap: 1.25mm;
+    margin-bottom: 1.25mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-main-grid,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-delivery-warranty-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 3mm;
+    margin-bottom: 3mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section {
+    margin-bottom: 3mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section-title {
+    padding: 1.3mm 2mm;
+    font-size: 8.8px;
+    line-height: 1.15;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section-body,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-rows {
+    padding: 1.7mm 2mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-row {
+    grid-template-columns: 31mm minmax(0, 1fr);
+    gap: 2mm;
+    min-height: 4.4mm;
+    font-size: 9px;
+    line-height: 1.18;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-row {
+    grid-template-columns: 19mm minmax(0, 1fr);
+    gap: 1mm;
+    min-height: 3mm;
+    font-size: 7.5px;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-section-title {
+    padding: 0.75mm 1.2mm;
+    font-size: 7.1px;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-section-body,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-rows {
+    padding: 0.9mm 1.2mm 1mm;
+  }
+
+  html.receipt-print body.receipt-page .receipt-address-value,
+  html.receipt-print body.receipt-page .receipt-value.multi {
+    max-height: none !important;
+    overflow: visible !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-address-value {
+    line-height: 1.08;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-writing-area .receipt-value.multi {
+    min-height: 9mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-cost-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.7mm 4mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-accessories,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-terms,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-handover-check {
+    margin-bottom: 1.25mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-accessory-list {
+    gap: 1mm;
+    padding: 0.9mm 1.2mm;
+    font-size: 7.1px;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-accessory-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2mm;
+    padding: 1.7mm 2mm;
+    font-size: 8.8px;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-terms ol {
+    columns: 2;
+    padding: 0.9mm 1.8mm 1mm 4.8mm;
+    font-size: 6.35px;
+    line-height: 1.1;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-terms ol {
+    columns: 1;
+    padding: 1.8mm 4mm 2mm 6mm;
+    font-size: 8.7px;
+    line-height: 1.28;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-handover-list {
+    padding: 0.9mm 1.2mm;
+    font-size: 6.7px;
+    line-height: 1.08;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-handover-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.7mm 4mm;
+    padding: 1.8mm 2mm;
+    font-size: 8.5px;
+    line-height: 1.2;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-signatures,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-signatures {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-signatures {
+    gap: 4mm;
+    margin-top: 2mm !important;
+    min-height: 24mm;
+    padding-top: 2mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .signature-box {
+    min-height: 23mm;
+    height: 23mm;
+    font-size: 7px;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-signatures {
+    gap: 10mm;
+    margin-top: 6mm !important;
+    min-height: 38mm;
+    padding-top: 4mm;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .signature-box {
+    min-height: 36mm;
+    height: 36mm;
+    font-size: 8.7px;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .signature-title {
+    font-size: 9px;
+  }
+}
+
+@media screen and (max-width: 900px) {
+  .receipt-temp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .receipt-temp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .receipt-temp-subgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  @page {
+    size: A5 portrait;
+    margin: 0;
+  }
+
+  @page delivery-receipt {
+    size: A5 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 148mm;
+    height: 210mm;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #fff !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print,
+  .app-header,
+  .app-nav,
+  .topbar,
+  .navbar,
+  .page-header,
+  .receipt-controls,
+  .receipt-toolbar,
+  .notice,
+  .actions,
+  button {
+    display: none !important;
+  }
+
+  .page-shell,
+  .page-main,
+  .receipt-workspace,
+  .receipt-preview-wrap {
+    display: block !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .delivery-receipt-page {
+    width: 148mm;
+    height: 210mm;
+    min-height: 210mm;
+    max-height: 210mm;
+    margin: 0 !important;
+    padding: 6mm !important;
+    box-sizing: border-box;
+    overflow: hidden;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-before: avoid;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    color: #000;
+    font-size: 8.2px;
+    line-height: 1.15;
+  }
+
+  .receipt-header {
+    display: grid !important;
+    grid-template-columns: 20mm 1fr 28mm;
+    align-items: center;
+    gap: 2mm;
+    min-height: 17mm;
+    margin-bottom: 1.8mm;
+    padding-bottom: 1.8mm;
+    border-bottom: 1px solid #111;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .receipt-logo {
+    width: 15mm;
+    height: 15mm;
+    object-fit: contain;
+  }
+
+  .receipt-company-name {
+    margin: 0 0 0.8mm;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.05;
+    text-align: center;
+  }
+
+  .receipt-title {
+    margin: 0;
+    font-size: 8.5px;
+    font-weight: 900;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  .receipt-phone {
+    margin: 0.8mm 0 0;
+    font-size: 7.5px;
+    font-weight: 800;
+    line-height: 1.05;
+    text-align: center;
+  }
+
+  .receipt-ticket-box {
+    display: grid;
+    gap: 0.7mm;
+    padding: 1.5mm;
+    border: 1px solid #111;
+    text-align: center;
+    font-size: 8px;
+    font-weight: 900;
+  }
+
+  .receipt-ticket-box span,
+  .receipt-ticket-box strong {
+    font-weight: 900;
+    line-height: 1.05;
+  }
+
+  .receipt-main-grid,
+  .receipt-delivery-warranty-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.8mm;
+    margin-bottom: 1.8mm;
+  }
+
+  .receipt-section {
+    margin: 0 0 1.8mm;
+    padding: 0;
+    border: 1px solid #111;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .receipt-main-grid .receipt-section,
+  .receipt-delivery-warranty-grid .receipt-section,
+  .receipt-accessories {
+    margin-bottom: 0;
+  }
+
+  .receipt-section-title {
+    margin: 0;
+    padding: 0.9mm 1.5mm;
+    border-bottom: 1px solid #111;
+    background: #f3f5f7 !important;
+    color: #000;
+    font-size: 7.5px;
+    font-weight: 900;
+    line-height: 1.05;
+    text-transform: uppercase;
+  }
+
+  .receipt-section-body,
+  .receipt-rows {
+    padding: 1.1mm 1.5mm 1.3mm;
+  }
+
+  .receipt-rows {
+    display: grid;
+    gap: 0.75mm;
+  }
+
+  .receipt-row {
+    display: grid;
+    grid-template-columns: 22mm minmax(0, 1fr);
+    gap: 1.4mm;
+    align-items: baseline;
+    min-height: 3.35mm;
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .receipt-row.full {
+    grid-template-columns: 1fr;
+    gap: 0.5mm;
+  }
+
+  .receipt-label {
+    color: #000;
+    font-weight: 900;
+  }
+
+  .receipt-line,
+  .receipt-value {
+    min-height: 3.2mm;
+    border-bottom: 1px dotted #555;
+    color: #000;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .receipt-value.multi {
+    min-height: 4.8mm;
+    max-height: 5.8mm;
+    overflow: hidden;
+  }
+
+  .receipt-accessories {
+    min-height: auto;
+    margin-bottom: 1.8mm;
+  }
+
+  .receipt-accessory-list {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.6mm;
+    align-items: center;
+    padding: 1.1mm 1.5mm;
+    font-size: 7.8px;
+    font-weight: 900;
+    line-height: 1.1;
+  }
+
+  .receipt-checklist i {
+    width: 2.6mm;
+    height: 2.6mm;
+    border: 1px solid #111;
+  }
+
+  .receipt-other b {
+    width: 14mm;
+    min-height: 2.4mm;
+    border-bottom: 1px dotted #555;
+  }
+
+  .receipt-terms {
+    margin: 0 0 1.8mm;
+  }
+
+  .receipt-terms ol {
+    columns: 2;
+    column-gap: 4mm;
+    margin: 0;
+    padding: 1.1mm 2mm 1.2mm 5mm;
+    font-size: 6.8px;
+    font-weight: 800;
+    line-height: 1.12;
+  }
+
+  .receipt-terms li {
+    margin-bottom: 0.45mm;
+    padding-left: 0;
+    break-inside: avoid;
+  }
+
+  .receipt-handover-check {
+    margin: 0 0 1.8mm;
+  }
+
+  .receipt-handover-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1mm 3mm;
+    padding: 1.25mm 1.5mm;
+    font-size: 7.3px;
+    font-weight: 850;
+    line-height: 1.12;
+  }
+
+  .receipt-handover-list span {
+    display: inline-flex;
+    align-items: center;
+    gap: 1mm;
+    min-width: 0;
+    break-inside: avoid;
+  }
+
+  .receipt-handover-list i {
+    width: 2.6mm;
+    height: 2.6mm;
+    flex: 0 0 auto;
+    border: 1px solid #111;
+  }
+
+  .receipt-handover-list span:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .receipt-signatures {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm;
+    margin-top: 1.8mm;
+    padding-top: 1.4mm;
+    border-top: 1px solid #111;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .signature-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 0;
+    height: 18mm;
+    padding: 0;
+    border-top: 0;
+    text-align: center;
+    font-size: 7px;
+    font-weight: 900;
+    line-height: 1.1;
+  }
+
+  .signature-title {
+    min-height: 0;
+    font-size: 7px;
+    font-weight: 900;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .signature-note {
+    margin-top: 0;
+    font-size: 6.8px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  html.receipt-print body.receipt-page .delivery-receipt-page {
+    width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    padding: 6mm !important;
+    display: flex !important;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  html.receipt-print body.receipt-page .receipt-content {
+    flex: 0 0 auto;
+  }
+
+  html.receipt-print body.receipt-page .receipt-header {
+    margin-bottom: 1.8mm;
+  }
+
+  html.receipt-print body.receipt-page .receipt-main-grid,
+  html.receipt-print body.receipt-page .receipt-delivery-warranty-grid {
+    gap: 1.8mm;
+    margin-bottom: 1.8mm;
+  }
+
+  html.receipt-print body.receipt-page .receipt-accessories,
+  html.receipt-print body.receipt-page .receipt-terms,
+  html.receipt-print body.receipt-page .receipt-handover-check {
+    margin-bottom: 1.8mm;
+  }
+
+  html.receipt-print body.receipt-page .receipt-accessory-list {
+    padding-top: 1.25mm;
+    padding-bottom: 1.25mm;
+  }
+
+  html.receipt-print body.receipt-page .receipt-terms ol {
+    padding-top: 1.15mm;
+    padding-bottom: 1.15mm;
+    font-size: 7px;
+    line-height: 1.16;
+  }
+
+  html.receipt-print body.receipt-page .receipt-handover-list {
+    padding-top: 1.2mm;
+    padding-bottom: 1.2mm;
+  }
+
+  html.receipt-print body.receipt-page .receipt-signatures {
+    margin-top: 6mm !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4mm;
+    min-height: 32mm;
+    padding-top: 3mm;
+    border-top: 1px solid #111;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  html.receipt-print body.receipt-page .signature-box {
+    min-height: 30mm;
+    height: 30mm;
+    font-size: 7.5px;
+    font-weight: 900;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+  }
+
+  html.receipt-print body.receipt-page .signature-title {
+    font-size: 7.4px;
+  }
+
+  html.receipt-print body.receipt-page .signature-note {
+    font-size: 7px;
+  }
+}
+
+@media print {
+  @page receipt-a5-final {
+    size: A5 portrait;
+    margin: 0;
+  }
+
+  @page receipt-a4-final {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html.receipt-print {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 {
+    width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    overflow: hidden !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 {
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    overflow: visible !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .delivery-receipt-page {
+    page: receipt-a5-final;
+    width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-height: 210mm !important;
+    padding: 5.2mm !important;
+    overflow: hidden !important;
+    font-size: 7.8px !important;
+    line-height: 1.1 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .delivery-receipt-page {
+    page: receipt-a4-final;
+    display: block !important;
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    overflow: visible !important;
+    font-size: 9.4px !important;
+    line-height: 1.2 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-a4-only,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a5-compact-only {
+    display: none !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-a4-only {
+    display: block !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-header {
+    grid-template-columns: 17mm 1fr 25mm !important;
+    min-height: 15mm !important;
+    margin-bottom: 1.3mm !important;
+    padding-bottom: 1.3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-header {
+    grid-template-columns: 25mm 1fr 34mm !important;
+    min-height: 24mm !important;
+    gap: 4mm !important;
+    margin-bottom: 4mm !important;
+    padding-bottom: 3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-logo {
+    width: 22mm !important;
+    height: 22mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-company-name {
+    font-size: 16px !important;
+    line-height: 1.1 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-title {
+    font-size: 11px !important;
+    line-height: 1.18 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-phone,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-brand-address {
+    margin: 1mm 0 0 !important;
+    font-size: 8.5px !important;
+    font-weight: 850 !important;
+    line-height: 1.15 !important;
+    text-align: center !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-ticket-box {
+    gap: 1mm !important;
+    padding: 2mm !important;
+    font-size: 9px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-main-grid,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-delivery-warranty-grid {
+    gap: 1.25mm !important;
+    margin-bottom: 1.25mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-main-grid,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-delivery-warranty-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 3mm !important;
+    margin-bottom: 3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section {
+    margin-bottom: 3mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section-title {
+    padding: 1.3mm 2mm !important;
+    font-size: 8.8px !important;
+    line-height: 1.15 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-section-body,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-rows {
+    padding: 1.7mm 2mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-row {
+    grid-template-columns: 31mm minmax(0, 1fr) !important;
+    gap: 2mm !important;
+    min-height: 4.4mm !important;
+    font-size: 9px !important;
+    line-height: 1.18 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-row {
+    grid-template-columns: 19mm minmax(0, 1fr) !important;
+    gap: 1mm !important;
+    min-height: 3mm !important;
+    font-size: 7.5px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-section-title {
+    padding: 0.75mm 1.2mm !important;
+    font-size: 7.1px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-section-body,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-rows {
+    padding: 0.9mm 1.2mm 1mm !important;
+  }
+
+  html.receipt-print body.receipt-page .receipt-address-value,
+  html.receipt-print body.receipt-page .receipt-value.multi {
+    max-height: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-writing-area .receipt-value.multi {
+    min-height: 9mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-cost-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.7mm 4mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-accessories,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-terms,
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-handover-check {
+    margin-bottom: 1.25mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-accessory-list {
+    gap: 1mm !important;
+    padding: 0.9mm 1.2mm !important;
+    font-size: 7.1px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-accessory-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 2mm !important;
+    padding: 1.7mm 2mm !important;
+    font-size: 8.8px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-terms ol {
+    columns: 2 !important;
+    padding: 0.9mm 1.8mm 1mm 4.8mm !important;
+    font-size: 6.35px !important;
+    line-height: 1.1 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-terms ol {
+    columns: 1 !important;
+    padding: 1.8mm 4mm 2mm 6mm !important;
+    font-size: 8.7px !important;
+    line-height: 1.28 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-handover-list {
+    padding: 0.9mm 1.2mm !important;
+    font-size: 6.7px !important;
+    line-height: 1.08 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-handover-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.7mm 4mm !important;
+    padding: 1.8mm 2mm !important;
+    font-size: 8.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-signatures,
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-signatures {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .receipt-signatures {
+    gap: 4mm !important;
+    margin-top: 2mm !important;
+    min-height: 24mm !important;
+    padding-top: 2mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a5 .signature-box {
+    min-height: 23mm !important;
+    height: 23mm !important;
+    font-size: 7px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .receipt-signatures {
+    gap: 10mm !important;
+    margin-top: 6mm !important;
+    min-height: 38mm !important;
+    padding-top: 4mm !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .signature-box {
+    min-height: 36mm !important;
+    height: 36mm !important;
+    font-size: 8.7px !important;
+  }
+
+  html.receipt-print body.receipt-page.print-format-a4 .signature-title {
+    font-size: 9px !important;
+  }
+}

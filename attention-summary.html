@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Việc cần chú ý - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="attention-summary-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main attention-main">
+        <div class="page-header attention-header">
+          <div>
+            <span id="attentionTodayText" class="ops-date">Đang tải ngày...</span>
+            <h1 class="page-title">Việc cần chú ý</h1>
+            <p class="page-subtitle">Tổng hợp các phiếu đang cần được ưu tiên xử lý.</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <div id="attentionNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <section class="attention-summary-panel" aria-labelledby="attentionSummaryTitle">
+          <div class="attention-summary-copy">
+            <span>Tổng việc ưu tiên</span>
+            <h2 id="attentionSummaryTitle">Đang tải danh sách...</h2>
+            <p id="attentionSummaryText">Một phiếu chỉ hiển thị một lần, kể cả khi có nhiều lý do cần chú ý.</p>
+          </div>
+          <div class="attention-summary-count" aria-live="polite">
+            <strong id="attentionTotalCount">0</strong>
+            <span>việc</span>
+          </div>
+        </section>
+
+        <section class="attention-chart-grid" aria-label="Biểu đồ tóm tắt trong ngày">
+          <article class="attention-card attention-chart-card" aria-labelledby="activeProcessingTitle">
+            <div class="attention-card-header">
+              <div>
+                <h2 id="activeProcessingTitle" class="section-title">Tiến độ xử lý hiện tại</h2>
+                <p class="section-description">Phân bố các phiếu đang còn cần tiếp tục xử lý.</p>
+              </div>
+            </div>
+            <div id="activeProcessingState" class="list-state loading attention-chart-state" role="status" aria-live="polite">
+              Đang tải dữ liệu biểu đồ…
+            </div>
+            <div id="activeProcessingContent" class="attention-chart-content" hidden>
+              <div id="activeProcessingChart" class="attention-progress-chart" role="img" aria-label="Tiến độ xử lý hiện tại"></div>
+              <p id="activeProcessingSummary" class="chart-description"></p>
+            </div>
+          </article>
+
+          <article class="attention-card attention-chart-card" aria-labelledby="weeklyIntakeTitle">
+            <div class="attention-card-header attention-weekly-header">
+              <div>
+                <h2 id="weeklyIntakeTitle" class="section-title">Phiếu tiếp nhận trong tuần</h2>
+                <p class="section-description">Số thiết bị được tiếp nhận theo từng ngày trong tuần.</p>
+                <p id="weeklyIntakeRange" class="attention-week-range">Đang tải khoảng tuần...</p>
+              </div>
+              <div class="attention-week-controls" aria-label="Chuyển tuần xem phiếu tiếp nhận">
+                <button id="weeklyIntakePrevWeek" class="btn secondary compact" type="button">← Tuần trước</button>
+                <button id="weeklyIntakeCurrentWeek" class="btn secondary compact" type="button">Tuần này</button>
+                <button id="weeklyIntakeNextWeek" class="btn secondary compact" type="button">Tuần sau →</button>
+              </div>
+            </div>
+            <div id="weeklyIntakeState" class="list-state loading attention-chart-state" role="status" aria-live="polite">
+              Đang tải dữ liệu biểu đồ…
+            </div>
+            <div id="weeklyIntakeContent" class="attention-chart-content" hidden>
+              <div id="weeklyIntakeChart" class="attention-intake-chart" role="img" aria-label="Phiếu tiếp nhận trong tuần theo từng ngày"></div>
+              <div id="weeklyIntakeStats" class="attention-chart-stats"></div>
+              <p id="weeklyIntakeSummary" class="chart-description"></p>
+            </div>
+          </article>
+        </section>
+
+        <section class="attention-card attention-task-section" aria-labelledby="attentionTaskTitle">
+          <div class="attention-card-header attention-task-header">
+            <div>
+              <h2 id="attentionTaskTitle" class="section-title">Danh sách phiếu cần chú ý</h2>
+              <p id="attentionTaskSummary" class="section-description">Đang tải danh sách việc cần chú ý...</p>
+            </div>
+          </div>
+
+          <div class="attention-chip-grid" aria-label="Lọc việc cần chú ý">
+            <button class="attention-chip active" type="button" data-filter="all" aria-pressed="true">
+              <span>Tất cả</span>
+              <strong id="attentionCountAll">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-filter="NEEDS_INSPECTION" aria-pressed="false">
+              <span>Cần kiểm tra</span>
+              <strong id="attentionCountInspection">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-filter="REPAIRING" aria-pressed="false">
+              <span>Đang sửa</span>
+              <strong id="attentionCountRepairing">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-filter="REPAIR_OVERDUE_48" aria-pressed="false">
+              <span>Quá 48 giờ</span>
+              <strong id="attentionCountRepair48">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-filter="REPAIR_OVERDUE_72" aria-pressed="false">
+              <span>Quá 72 giờ</span>
+              <strong id="attentionCountRepair72">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-filter="DELIVERY_TODAY" aria-pressed="false">
+              <span>Giao/trả hôm nay</span>
+              <strong id="attentionCountDelivery">0</strong>
+            </button>
+          </div>
+
+          <div id="attentionTaskState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải danh sách việc cần chú ý…
+          </div>
+          <div id="attentionTaskList" class="attention-task-list" hidden></div>
+          <nav id="attentionPagination" class="attention-pagination pagination" aria-label="Phân trang việc cần chú ý" hidden></nav>
+        </section>
+
+        <section id="attentionReminderSection" class="attention-card attention-reminder-section" aria-labelledby="attentionReminderTitle">
+          <div class="attention-card-header attention-reminder-header">
+            <div>
+              <h2 id="attentionReminderTitle" class="section-title">Lịch hẹn cần làm</h2>
+              <p id="attentionReminderSummary" class="section-description">Các lịch gọi khách, báo giá, giao máy hoặc việc đã hẹn cần được xử lý theo thời gian.</p>
+            </div>
+            <a class="btn secondary compact" href="appointment-reminders.html">Quản lý lịch hẹn</a>
+          </div>
+
+          <div class="attention-chip-grid attention-reminder-chips" aria-label="Lọc lịch hẹn cần làm">
+            <button class="attention-chip active" type="button" data-reminder-attention-filter="needs_action" aria-pressed="true">
+              <span>Tất cả</span>
+              <strong id="attentionReminderCountAll">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-reminder-attention-filter="overdue" aria-pressed="false">
+              <span>Quá hạn</span>
+              <strong id="attentionReminderCountOverdue">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-reminder-attention-filter="today" aria-pressed="false">
+              <span>Hôm nay</span>
+              <strong id="attentionReminderCountToday">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-reminder-attention-filter="upcoming" aria-pressed="false">
+              <span>Sắp tới</span>
+              <strong id="attentionReminderCountUpcoming">0</strong>
+            </button>
+          </div>
+
+          <div id="attentionReminderState" class="list-state loading" role="status" aria-live="polite">Đang tải lịch hẹn…</div>
+          <div id="attentionReminderList" class="attention-reminder-list" hidden></div>
+          <nav id="attentionReminderPagination" class="attention-pagination pagination" aria-label="Phân trang lịch hẹn cần làm" hidden></nav>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/reminder-utils.js"></script>
+    <script src="js/attention-summary.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

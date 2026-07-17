@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trang chủ - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="dashboard-home-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html" aria-current="page">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main dashboard-home">
+        <section class="ops-hero" aria-labelledby="opsTitle">
+          <div>
+            <span id="opsTodayText" class="ops-date">Đang tải ngày...</span>
+            <h1 id="opsTitle" class="page-title">Trung tâm điều hành hôm nay</h1>
+            <p id="welcomeText" class="page-subtitle">Đang kiểm tra quyền admin...</p>
+          </div>
+          <a id="opsSummaryCard" class="ops-hero-summary" href="attention-summary.html" aria-label="Mở trang chi tiết việc cần chú ý" aria-live="polite">
+            <span>Việc cần chú ý</span>
+            <strong id="opsSummaryCount">0</strong>
+            <p id="opsSummaryText">Đang tải dữ liệu vận hành...</p>
+            <small>Xem chi tiết →</small>
+          </a>
+        </section>
+
+        <div id="dashboardNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <section class="ops-priority-grid" aria-label="Ưu tiên hôm nay">
+          <a class="ops-priority-card" href="search.html?status=mới%20nhận" data-tone="info">
+            <span class="ops-priority-label">Cần kiểm tra</span>
+            <strong id="priorityCheckCount">0</strong>
+            <small>Phiếu mới nhận hoặc đang kiểm tra</small>
+          </a>
+          <a class="ops-priority-card" href="ticket-activity.html" data-tone="danger">
+            <span class="ops-priority-label">Đang sửa quá 48 giờ</span>
+            <strong id="priorityOverdueRepairCount">0</strong>
+            <small>Cần xem tiến độ sửa chữa</small>
+          </a>
+          <a class="ops-priority-card" href="search.html" data-tone="warning">
+            <span class="ops-priority-label">Giao/trả hôm nay</span>
+            <strong id="priorityDeliveryTodayCount">0</strong>
+            <small>Phiếu có lịch giao/trả hôm nay</small>
+          </a>
+          <a class="ops-priority-card" href="repairing-tickets.html" data-tone="repairing">
+            <span class="ops-priority-label">Đang sửa chữa</span>
+            <strong id="priorityRepairingCount">0</strong>
+            <small>Tất cả phiếu hiện đang sửa</small>
+          </a>
+        </section>
+
+        <section class="dashboard-section ops-work-section" aria-labelledby="urgentWorkTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="urgentWorkTitle" class="section-title">Việc cần xử lý ngay</h2>
+              <p class="section-description">Tối đa 8 phiếu cần chú ý trước trong ca làm việc.</p>
+            </div>
+            <a class="btn secondary compact" href="ticket-activity.html">Xem hoạt động phiếu</a>
+          </div>
+          <div id="urgentWorkState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải việc cần xử lý...
+          </div>
+          <p id="urgentWorkSummary" class="attention-list-summary" hidden></p>
+          <div id="urgentWorkList" class="ops-work-list" hidden></div>
+        </section>
+
+        <section class="dashboard-section ops-actions-section" aria-labelledby="quickActionsTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="quickActionsTitle" class="section-title">Thao tác nhanh</h2>
+              <p class="section-description">Các lối đi chính cho nhân viên kỹ thuật và tiếp nhận.</p>
+            </div>
+          </div>
+          <div class="ops-action-grid">
+            <a class="ops-action-card primary quick-action-card quick-action-card--create" href="new-ticket.html">
+              <strong>Tạo phiếu mới</strong>
+              <span>Tiếp nhận tivi hoặc thiết bị mới.</span>
+            </a>
+            <a class="ops-action-card quick-action-card quick-action-card--activity" href="ticket-activity.html">
+              <strong>Hoạt động phiếu</strong>
+              <span>Bắt đầu sửa, in tem, hoàn thành phiếu.</span>
+            </a>
+            <a class="ops-action-card quick-action-card quick-action-card--warranty" href="warranty-search.html">
+              <strong>Tra cứu bảo hành</strong>
+              <span>Kiểm tra hạn bảo hành theo mã phiếu, mã KH, SĐT.</span>
+            </a>
+            <a class="ops-action-card quick-action-card quick-action-card--tickets" href="search.html">
+              <strong>Danh sách phiếu</strong>
+              <span>Tìm, xem và cập nhật chi tiết phiếu.</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="dashboard-section ops-activity-section" aria-labelledby="recentActivityTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="recentActivityTitle" class="section-title">Hoạt động gần đây</h2>
+              <p class="section-description">5 phiếu có hoạt động mới nhất trong hệ thống.</p>
+            </div>
+            <a class="btn secondary compact" href="ticket-history.html">Xem tất cả</a>
+          </div>
+          <div id="recentActivityState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải hoạt động gần đây...
+          </div>
+          <div id="recentActivityList" class="ops-activity-list" hidden></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

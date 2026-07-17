@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tổng quan - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="overview-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html" aria-current="page">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main overview-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Tổng quan phiếu sửa chữa</h1>
+            <p id="overviewSubtitle" class="page-subtitle">Đang tải số liệu tổng quan...</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <div id="overviewNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <section class="overview-summary-grid" aria-label="Tổng thể phiếu">
+          <article class="overview-summary-card">
+            <span>Tổng số phiếu</span>
+            <strong id="overviewTotal">0</strong>
+            <small>Tất cả phiếu trong hệ thống</small>
+          </article>
+          <article class="overview-summary-card active">
+            <span>Đang hoạt động</span>
+            <strong id="overviewActive">0</strong>
+            <small>Mới nhận, kiểm tra, báo giá, đang sửa</small>
+          </article>
+          <article class="overview-summary-card success">
+            <span>Đã hoàn thành</span>
+            <strong id="overviewReturned">0</strong>
+            <small>Phiếu đã trả máy</small>
+          </article>
+          <article class="overview-summary-card muted">
+            <span>Đã huỷ</span>
+            <strong id="overviewCancelled">0</strong>
+            <small>Phiếu không tiếp tục xử lý</small>
+          </article>
+        </section>
+
+        <section class="dashboard-section overview-flow-section" aria-labelledby="overviewFlowTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="overviewFlowTitle" class="section-title">Tiến trình xử lý</h2>
+              <p class="section-description">Các trạng thái chính theo luồng sửa chữa hiện tại.</p>
+            </div>
+          </div>
+          <div id="overviewFlowState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải tiến trình...
+          </div>
+          <div id="overviewFlowList" class="overview-flow-list" hidden></div>
+        </section>
+
+        <section class="dashboard-section overview-legacy-section" aria-labelledby="overviewLegacyTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="overviewLegacyTitle" class="section-title">Dữ liệu legacy</h2>
+              <p class="section-description">Thông tin phụ để theo dõi phiếu theo trạng thái cũ.</p>
+            </div>
+          </div>
+          <article class="overview-legacy-card">
+            <div>
+              <span>Legacy đã xong</span>
+              <strong id="overviewLegacyDone">0</strong>
+            </div>
+            <p>Trạng thái cũ còn trong dữ liệu, không đặt ngang hàng với quy trình hiện tại.</p>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/overview.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lịch hẹn & nhắc việc - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="appointment-reminders-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main appointment-main">
+        <header class="page-header appointment-page-header">
+          <div>
+            <h1 class="page-title">Lịch hẹn & nhắc việc</h1>
+            <p class="page-subtitle">Quản lý các lịch gọi khách, báo giá, giao máy, nhận máy và những việc cần xử lý theo thời gian.</p>
+          </div>
+          <div class="appointment-header-actions">
+            <span class="status-pill">Nội bộ</span>
+            <button id="openReminderModal" class="btn primary appointment-create-button" type="button">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+              Tạo lịch hẹn
+            </button>
+          </div>
+        </header>
+
+        <div id="reminderNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <section class="appointment-summary-grid" aria-label="Tổng quan lịch hẹn">
+          <button class="appointment-summary-card appointment-summary-card--overdue" type="button" data-reminder-summary-filter="overdue" aria-label="Xem lịch hẹn quá hạn">
+            <span>Quá hạn</span>
+            <strong id="reminderSummaryOverdue">0</strong>
+            <small>Cần xử lý trước</small>
+          </button>
+          <button class="appointment-summary-card appointment-summary-card--today" type="button" data-reminder-summary-filter="today" aria-label="Xem lịch hẹn hôm nay">
+            <span>Hôm nay</span>
+            <strong id="reminderSummaryToday">0</strong>
+            <small>Đúng lịch trong ngày</small>
+          </button>
+          <button class="appointment-summary-card appointment-summary-card--upcoming" type="button" data-reminder-summary-filter="upcoming" aria-label="Xem lịch hẹn sắp tới">
+            <span>Sắp tới</span>
+            <strong id="reminderSummaryUpcoming">0</strong>
+            <small>Lịch tương lai</small>
+          </button>
+          <button class="appointment-summary-card appointment-summary-card--completed" type="button" data-reminder-summary-filter="completed" aria-label="Xem lịch hẹn đã hoàn thành">
+            <span>Đã hoàn thành</span>
+            <strong id="reminderSummaryCompleted">0</strong>
+            <small>Đã xử lý xong</small>
+          </button>
+        </section>
+
+        <section id="appointmentListSection" class="appointment-list-section" aria-labelledby="appointmentListTitle">
+          <div class="appointment-section-heading">
+            <div>
+              <h2 id="appointmentListTitle" class="section-title">Danh sách lịch hẹn</h2>
+              <p id="reminderListSummary" class="section-description">Đang tải danh sách lịch hẹn...</p>
+            </div>
+          </div>
+
+          <div class="appointment-toolbar">
+            <div class="appointment-filter-chips" aria-label="Lọc trạng thái lịch hẹn">
+              <button class="appointment-filter-chip active" type="button" data-reminder-filter="needs_action" aria-pressed="true">Cần làm <span id="reminderFilterNeedsAction">0</span></button>
+              <button class="appointment-filter-chip" type="button" data-reminder-filter="overdue" aria-pressed="false">Quá hạn <span id="reminderFilterOverdue">0</span></button>
+              <button class="appointment-filter-chip" type="button" data-reminder-filter="today" aria-pressed="false">Hôm nay <span id="reminderFilterToday">0</span></button>
+              <button class="appointment-filter-chip" type="button" data-reminder-filter="upcoming" aria-pressed="false">Sắp tới <span id="reminderFilterUpcoming">0</span></button>
+              <button class="appointment-filter-chip" type="button" data-reminder-filter="completed" aria-pressed="false">Đã hoàn thành <span id="reminderFilterCompleted">0</span></button>
+              <button class="appointment-filter-chip" type="button" data-reminder-filter="cancelled" aria-pressed="false">Đã hủy <span id="reminderFilterCancelled">0</span></button>
+            </div>
+
+            <div class="appointment-toolbar-controls">
+              <div class="appointment-search-area">
+                <label for="reminderSearchInput">Tìm lịch hẹn</label>
+                <form id="reminderSearchForm" class="appointment-search-form" role="search">
+                  <div class="appointment-search-control">
+                    <svg class="appointment-search-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                      <circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path>
+                    </svg>
+                    <input id="reminderSearchInput" type="search" placeholder="Mã AM, KH, tên, SĐT, model hoặc tiêu đề..." autocomplete="off" aria-autocomplete="list" aria-controls="reminderSearchSuggestions" aria-expanded="false">
+                    <span id="reminderSearchSpinner" class="appointment-search-spinner" aria-hidden="true"></span>
+                    <button id="reminderSearchClear" class="appointment-search-clear" type="button" aria-label="Xóa nội dung tìm kiếm" hidden>
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+                    </button>
+                    <div id="reminderSearchSuggestions" class="appointment-search-suggestions" role="listbox" hidden></div>
+                  </div>
+                  <button id="reminderSearchButton" class="btn primary appointment-search-button" type="submit">Tìm</button>
+                </form>
+              </div>
+
+              <label class="appointment-type-field" for="reminderTypeFilter">
+                <span>Loại hẹn</span>
+                <span class="appointment-select-control">
+                  <select id="reminderTypeFilter">
+                    <option value="all">Tất cả loại hẹn</option>
+                    <option value="CALLBACK">Gọi lại khách</option>
+                    <option value="QUOTE">Báo giá</option>
+                    <option value="CUSTOMER_PICKUP">Khách đến lấy máy</option>
+                    <option value="DELIVERY">Giao máy tận nơi</option>
+                    <option value="RECHECK">Kiểm tra lại</option>
+                    <option value="INTERNAL">Xử lý nội bộ</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+                </span>
+              </label>
+
+              <button id="reminderResetFilters" class="btn secondary appointment-reset-button" type="button">Đặt lại</button>
+            </div>
+          </div>
+
+          <div id="reminderListState" class="list-state loading appointment-list-state" role="status" aria-live="polite">
+            <span class="sr-only">Đang tải lịch hẹn…</span>
+            <div class="appointment-skeleton-list" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <div id="reminderList" class="appointment-list" hidden></div>
+          <nav id="reminderPagination" class="pagination appointment-pagination" aria-label="Phân trang lịch hẹn" hidden></nav>
+        </section>
+      </main>
+    </div>
+
+    <div id="reminderModal" class="modal-backdrop appointment-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reminderModalTitle" aria-hidden="true" hidden>
+      <div class="modal appointment-modal">
+        <div class="modal-header">
+          <div>
+            <h2 id="reminderModalTitle">Tạo lịch hẹn</h2>
+            <p id="reminderModalDescription">Chọn phiếu và ghi rõ thời điểm cần xử lý.</p>
+          </div>
+          <button id="closeReminderModal" class="close-button" type="button" aria-label="Đóng">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="reminderFormNotice" class="notice" role="status" aria-live="polite"></div>
+          <form id="reminderForm">
+            <input id="reminderId" name="reminder_id" type="hidden">
+            <input id="reminderExpectedUpdatedAt" name="expected_updated_at" type="hidden">
+            <input id="reminderTicketId" name="ticket_id" type="hidden">
+
+            <div id="reminderTicketSearchGroup" class="field appointment-ticket-search-field">
+              <label for="reminderTicketSearch">Chọn phiếu <span aria-hidden="true">*</span></label>
+              <input id="reminderTicketSearch" type="search" placeholder="Nhập mã AM, tên khách hoặc SĐT" autocomplete="off">
+              <div id="reminderTicketSuggestions" class="appointment-ticket-suggestions" role="listbox" hidden></div>
+              <p class="form-hint">Tìm và xác nhận đúng phiếu trước khi tạo lịch.</p>
+            </div>
+
+            <div id="selectedReminderTicket" class="appointment-selected-ticket" hidden aria-live="polite"></div>
+
+            <div class="appointment-form-grid">
+              <div class="field">
+                <label for="reminderType">Loại lịch hẹn <span aria-hidden="true">*</span></label>
+                <select id="reminderType" name="reminder_type" required>
+                  <option value="CALLBACK">Gọi lại khách</option>
+                  <option value="QUOTE">Báo giá</option>
+                  <option value="CUSTOMER_PICKUP">Khách đến lấy máy</option>
+                  <option value="DELIVERY">Giao máy tận nơi</option>
+                  <option value="RECHECK">Kiểm tra lại</option>
+                  <option value="INTERNAL">Xử lý nội bộ</option>
+                  <option value="OTHER">Khác</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="reminderPriority">Mức ưu tiên</label>
+                <select id="reminderPriority" name="priority">
+                  <option value="normal">Bình thường</option>
+                  <option value="high">Ưu tiên cao</option>
+                  <option value="urgent">Khẩn cấp</option>
+                </select>
+              </div>
+              <div class="field full">
+                <label for="reminderTitle">Tiêu đề <span aria-hidden="true">*</span></label>
+                <input id="reminderTitle" name="title" type="text" maxlength="160" required>
+              </div>
+              <div class="field">
+                <label for="reminderDate">Ngày hẹn <span aria-hidden="true">*</span></label>
+                <input id="reminderDate" name="date" type="date" required>
+              </div>
+              <div class="field">
+                <label for="reminderTime">Giờ hẹn <span aria-hidden="true">*</span></label>
+                <input id="reminderTime" name="time" type="time" required>
+              </div>
+              <div class="field full">
+                <label for="reminderPhone">Số điện thoại liên hệ</label>
+                <input id="reminderPhone" name="customer_phone" type="tel" maxlength="32" autocomplete="tel">
+                <p class="form-hint">Chỉ thay đổi số liên hệ của lịch hẹn này, không cập nhật hồ sơ khách hàng.</p>
+              </div>
+              <div class="field full">
+                <label for="reminderNote">Ghi chú</label>
+                <textarea id="reminderNote" name="note" maxlength="2000" rows="4"></textarea>
+              </div>
+            </div>
+
+            <div class="actions appointment-modal-actions">
+              <button id="saveReminderButton" class="btn primary" type="submit">Lưu lịch hẹn</button>
+              <button class="btn secondary" type="button" data-close-reminder>Hủy</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/reminder-utils.js"></script>
+    <script src="js/appointment-reminders.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tạo phiếu - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html" aria-current="page">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Tạo phiếu nhận thiết bị</h1>
+            <p class="page-subtitle">Chỉ nhập dữ liệu text, không lưu ảnh hoặc video.</p>
+          </div>
+        </div>
+
+        <div id="ticketNotice" class="notice"></div>
+
+        <form id="ticketForm" class="form-panel" data-back-dirty-check>
+          <section class="form-section">
+            <h2 class="section-title">Thông tin khách hàng</h2>
+            <div class="field-grid">
+              <div class="field">
+                <label for="customer_name">Tên khách</label>
+                <input id="customer_name" name="customer_name" type="text" autocomplete="name" placeholder="Ví dụ: Nguyễn Văn A">
+              </div>
+              <div class="field">
+                <label for="customer_phone">Số điện thoại</label>
+                <input id="customer_phone" name="customer_phone" type="tel" autocomplete="tel" placeholder="Số khách liên hệ">
+              </div>
+              <div class="field">
+                <label for="customer_address">Địa chỉ</label>
+                <input id="customer_address" name="customer_address" type="text" autocomplete="street-address" placeholder="Địa chỉ nhận/trả thiết bị">
+              </div>
+            </div>
+            <div id="customerLookupPanel" class="customer-lookup-panel" aria-live="polite">
+              <div id="customerLookupState" class="customer-lookup-state">
+                Nhập số điện thoại hợp lệ để nhận diện khách hàng.
+              </div>
+              <div id="customerLookupResults" class="customer-lookup-results"></div>
+              <div id="customerHistoryPanel" class="customer-history-panel hidden"></div>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h2 class="section-title">Thông tin thiết bị</h2>
+            <div class="field-grid">
+              <div class="field">
+                <label for="device_type">Loại thiết bị</label>
+                <input id="device_type" name="device_type" type="text" value="Tivi">
+              </div>
+              <div class="field">
+                <label for="brand">Hãng</label>
+                <input id="brand" name="brand" type="text" list="tv-brand-options" autocomplete="off" placeholder="Samsung, LG, Sony...">
+              </div>
+              <div class="field">
+                <label for="model">Model</label>
+                <input id="model" name="model" type="text" autocomplete="off" placeholder="Ví dụ: UA55...">
+              </div>
+              <div class="field">
+                <label for="size">Kích thước</label>
+                <input id="size" name="size" type="text" autocomplete="off" placeholder="Ví dụ: 55 inch">
+                <p id="sizeAssistHint" class="form-hint tv-size-hint" hidden></p>
+              </div>
+              <div class="field">
+                <label for="serial_number">Serial</label>
+                <input id="serial_number" name="serial_number" type="text" placeholder="Số serial nếu có">
+              </div>
+            </div>
+            <datalist id="tv-brand-options"></datalist>
+          </section>
+
+          <section class="form-section">
+            <h2 class="section-title">Lỗi khách báo / tình trạng nhận máy</h2>
+            <div class="field-grid">
+              <div class="field full">
+                <label for="condition_text">Tình trạng máy</label>
+                <textarea id="condition_text" name="condition_text" placeholder="Ghi lỗi khách báo, hiện tượng, tình trạng khi nhận"></textarea>
+                <div id="machineConditionPicker" class="condition-picker" data-condition-picker="machine"></div>
+              </div>
+              <div class="field full">
+                <label for="external_condition">Tình trạng ngoại quan</label>
+                <textarea id="external_condition" name="external_condition" placeholder="Trầy xước, vỡ màn, mất chân đế, phụ kiện đi kèm..."></textarea>
+                <div id="appearanceConditionPicker" class="condition-picker" data-condition-picker="appearance"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h2 class="section-title">Báo giá / cọc / trạng thái</h2>
+            <div class="field-grid">
+              <div class="field">
+                <label for="received_date">Ngày nhận</label>
+                <input id="received_date" name="received_date" type="date" required>
+              </div>
+              <div class="field">
+                <label for="status">Trạng thái</label>
+                <select id="status" name="status"></select>
+              </div>
+              <div class="field">
+                <label for="deposit_amount">Tiền cọc</label>
+                <input id="deposit_amount" name="deposit_amount" type="number" min="0" step="1000" placeholder="0">
+              </div>
+              <div class="field">
+                <label for="estimated_price">Giá dự kiến</label>
+                <input id="estimated_price" name="estimated_price" type="number" min="0" step="1000" placeholder="Nếu đã báo giá">
+              </div>
+              <div class="field">
+                <label for="final_price">Giá cuối cùng</label>
+                <input id="final_price" name="final_price" type="number" min="0" step="1000" placeholder="Nhập khi hoàn tất">
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h2 class="section-title">Ghi chú nội bộ</h2>
+            <div class="field-grid">
+              <div class="field full">
+                <label for="internal_note">Ghi chú nội bộ</label>
+                <textarea id="internal_note" name="internal_note" placeholder="Ghi chú cho kỹ thuật/kế toán, không in lên tem"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <div class="actions">
+            <button id="createTicketButton" class="btn primary" type="submit">Tạo phiếu</button>
+            <button class="btn secondary" type="reset">Xoá form</button>
+          </div>
+        </form>
+
+        <div id="createdActions" class="quick-actions hidden">
+          <a id="printCreatedLink" class="btn primary" href="#">In tem</a>
+          <a id="printReceiptCreatedLink" class="btn secondary" href="#">In biên nhận</a>
+          <button id="newTicketButton" class="btn secondary" type="button">Tạo phiếu mới</button>
+          <a id="viewCreatedLink" class="btn secondary" href="#">Xem chi tiết</a>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/tv-condition-options.js"></script>
+    <script src="js/new-ticket.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

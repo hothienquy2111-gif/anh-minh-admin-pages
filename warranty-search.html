@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tra cứu bảo hành - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="warranty-search-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html" aria-current="page">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Tra cứu bảo hành</h1>
+            <p class="page-subtitle">Tra cứu thời hạn bảo hành theo mã phiếu, mã khách, số điện thoại hoặc model thiết bị.</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <div id="warrantyNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <section class="dashboard-section warranty-search-section" aria-labelledby="warrantySearchTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="warrantySearchTitle" class="section-title">Thông tin bảo hành</h2>
+              <p class="section-description">Dữ liệu được đọc trực tiếp từ Supabase, không dựa trên ảnh hoặc bản in.</p>
+            </div>
+          </div>
+
+          <form id="warrantySearchForm" class="warranty-search-form">
+            <label class="sr-only" for="warrantySearchInput">Từ khóa tra cứu bảo hành</label>
+            <div class="warranty-search-box">
+              <svg class="warranty-search-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <input
+                id="warrantySearchInput"
+                class="warranty-search-input"
+                name="query"
+                type="text"
+                inputmode="search"
+                autocomplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="warrantySearchSuggestions"
+                placeholder="Nhập mã phiếu, mã khách, số điện thoại hoặc model…"
+              >
+              <button id="warrantySearchClear" class="warranty-search-clear" type="button" aria-label="Xóa nội dung tìm kiếm" hidden>&times;</button>
+              <div id="warrantySearchSuggestions" class="warranty-search-suggestions" role="listbox" hidden></div>
+            </div>
+            <button id="warrantySearchButton" class="btn primary" type="submit">Tra cứu</button>
+            <button id="warrantyResetButton" class="btn secondary" type="button">Xóa</button>
+          </form>
+
+          <div class="warranty-toolbar" id="warrantyToolbar" hidden>
+            <div id="warrantyFilterChips" class="warranty-filter-chips" aria-label="Lọc trạng thái bảo hành"></div>
+            <label class="warranty-sort">
+              <span>Sắp xếp</span>
+              <select id="warrantySortSelect">
+                <option value="newest" selected>Mới nhất</option>
+                <option value="expiry">Sắp hết hạn trước</option>
+                <option value="expiry-nearest">Hết hạn gần nhất</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="warrantyState" class="list-state empty" role="status" aria-live="polite">
+            Nhập mã phiếu, mã khách, số điện thoại hoặc model để tra cứu bảo hành.
+          </div>
+
+          <div id="warrantyResults" class="warranty-results" hidden>
+            <p id="warrantySummary" class="list-summary"></p>
+            <div id="warrantyCards" class="warranty-cards"></div>
+            <nav id="warrantyPagination" class="pagination warranty-pagination" aria-label="Phân trang tra cứu bảo hành"></nav>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/warranty-search.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

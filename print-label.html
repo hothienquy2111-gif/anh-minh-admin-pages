@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>In tem - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="label-50x30">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">In tem nhiệt</h1>
+            <p class="page-subtitle">Tem chỉ hiển thị mã phiếu và thông tin thiết bị cần thiết.</p>
+          </div>
+        </div>
+
+        <div id="labelNotice" class="notice"></div>
+
+        <section class="print-layout">
+          <div class="form-panel screen-only">
+            <div class="form-section">
+              <h2 class="section-title">Cỡ giấy</h2>
+              <div class="field">
+                <label for="labelSizeSelect">Khổ tem</label>
+                <select id="labelSizeSelect" name="label_size">
+                  <option value="50x30" selected>50 x 30mm</option>
+                  <option value="58x40">58 x 40mm</option>
+                  <option value="58x30">58 x 30mm</option>
+                  <option value="80x50">80 x 50mm</option>
+                </select>
+              </div>
+              <p id="labelWorkflowHint" class="form-hint">Đang kiểm tra trạng thái workflow của phiếu...</p>
+            </div>
+            <div class="actions">
+              <button id="printButton" class="btn primary" type="button">In tem</button>
+              <a class="btn secondary" href="search.html">Quay lại tìm kiếm</a>
+            </div>
+          </div>
+
+          <div class="label-preview-wrap">
+            <div id="thermalLabel" class="thermal-label print-label label-50x30">
+              <div class="label-brand label-header">
+                <img class="label-logo" src="assets/logo-am.jpeg" alt="AM">
+                <div class="label-brand-stack">
+                  <h1 class="label-brand-text">ĐIỆN TỬ ANH MINH</h1>
+                  <span class="label-phone">0905111223</span>
+                </div>
+              </div>
+              <p class="label-row label-code"><strong class="label-key">Mã số:</strong> <span id="labelCode" class="label-value">...</span></p>
+              <p class="label-row label-model"><strong class="label-key">Model:</strong> <span id="labelModel" class="label-value">...</span></p>
+              <p class="label-row label-condition"><strong class="label-key">Tình trạng:</strong> <span id="labelCondition" class="label-value">...</span></p>
+              <p class="label-row label-date"><strong class="label-key">Ngày nhận:</strong> <span id="labelDate" class="label-value">...</span></p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/print-label.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>
