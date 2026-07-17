@@ -3992,19 +3992,19 @@ button {
 
 .print-label .label-brand h1 {
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   color: #000;
   font-size: var(--label-title-size, 9px);
   font-weight: 900;
   line-height: 1;
   text-align: left;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
 .print-label .label-row {
   margin: var(--label-row-gap, 0.75mm) 0 0;
-  overflow: hidden;
+  overflow: visible;
   color: #000;
   font-size: var(--label-text-size, 9px);
   line-height: 1.15;
@@ -4020,8 +4020,9 @@ button {
   font-size: var(--label-code-size, 15px);
   font-weight: 900;
   line-height: 1.05;
+  overflow: visible;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 
 .print-label .label-code span {
@@ -4031,21 +4032,23 @@ button {
 .print-label .label-model {
   font-size: var(--label-model-size, 10.5px);
   font-weight: 800;
+  overflow: visible;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 
 .print-label .label-condition {
-  display: -webkit-box;
-  max-height: 2.6em;
+  display: block;
+  max-height: none;
+  overflow: visible;
   white-space: normal;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: clip;
 }
 
 .print-label .label-date {
+  overflow: visible;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 
 @media print {
@@ -4125,19 +4128,19 @@ button {
 
   .print-label .label-brand h1 {
     margin: 0;
-    overflow: hidden;
+    overflow: visible;
     color: #000;
     font-size: var(--label-title-size, 9px);
     font-weight: 900;
     line-height: 1;
     text-align: left;
-    text-overflow: ellipsis;
+    text-overflow: clip;
     white-space: nowrap;
   }
 
   .print-label .label-row {
     margin: var(--label-row-gap, 0.75mm) 0 0;
-    overflow: hidden;
+    overflow: visible;
     color: #000;
     font-size: var(--label-text-size, 9px);
     line-height: 1.15;
@@ -4153,28 +4156,31 @@ button {
     font-size: var(--label-code-size, 15px);
     font-weight: 900;
     line-height: 1.05;
+    overflow: visible;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    text-overflow: clip;
   }
 
   .print-label .label-model {
     font-size: var(--label-model-size, 10.5px);
     font-weight: 800;
+    overflow: visible;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    text-overflow: clip;
   }
 
   .print-label .label-condition {
-    display: -webkit-box;
-    max-height: 2.6em;
+    display: block;
+    max-height: none;
+    overflow: visible;
     white-space: normal;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    text-overflow: clip;
   }
 
   .print-label .label-date {
+    overflow: visible;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    text-overflow: clip;
   }
 }
 
@@ -4233,8 +4239,8 @@ button {
   -webkit-text-stroke: 0.15px #000;
   text-shadow: none;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .print-label .label-code .label-key,
@@ -4379,13 +4385,13 @@ button {
 
 .print-label .label-phone {
   margin-top: 0.25mm;
-  overflow: hidden;
+  overflow: visible;
   color: #000;
   font-size: var(--label-phone-size, 8px);
   font-weight: 750;
   line-height: 1.05;
   letter-spacing: 0.1px;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -4409,8 +4415,8 @@ button {
   font-weight: 800;
   line-height: 1.08;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .print-label .label-key {
@@ -4424,7 +4430,7 @@ button {
 .print-label .label-condition {
   display: block;
   max-height: none;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .sr-only {
@@ -4531,18 +4537,284 @@ button {
   }
 }
 
-/* Final thermal-label hierarchy override: applies to every ticket code rendered by the template. */
-.print-label .label-code {
-  margin-top: 1mm;
-  margin-bottom: 0.8mm;
+/* Final thermal-label layout: one template, physical dimensions controlled by size variables. */
+.label-preview-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.print-label {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding-bottom: var(--label-bottom-padding, var(--label-padding, 1.1mm));
+  overflow: hidden;
+  color: #000;
+}
+
+.print-label .label-device-content {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.print-label.label-50x30 {
+  --label-width: 50mm;
+  --label-height: 30mm;
+  --label-padding: 1.1mm;
+  --label-bottom-padding: 1.1mm;
+  --label-logo: 5.2mm;
+  --label-brand-gap: 0.9mm;
+  --label-brand-bottom: 0.25mm;
+  --label-title-size: 8.6px;
+  --label-phone-size: 7.2px;
+  --label-address-size: 7px;
+  --label-brand-row-size: 10px;
+  --label-brand-row-long-size: 8px;
+  --label-code-size: 20px;
+  --label-code-medium-size: 17px;
+  --label-code-long-size: 13.5px;
+  --label-model-size: 10.5px;
+  --label-model-long-size: 8.5px;
+  --label-text-size: 9px;
+  --label-condition-size: 9px;
+  --label-condition-long-size: 8px;
+  --label-condition-very-long-size: 7px;
+  --label-condition-max-height: 2.2em;
+  --label-condition-lines: 2;
+  --label-condition-date-gap: 0.35mm;
+  --label-date-bottom: 0;
+  --label-row-gap: 0.32mm;
+  --label-code-top: 0.45mm;
+  --label-code-bottom: 0.35mm;
+}
+
+.print-label.label-58x30 {
+  --label-width: 58mm;
+  --label-height: 30mm;
+  --label-padding: 1.15mm;
+  --label-bottom-padding: 1.15mm;
+  --label-logo: 5.6mm;
+  --label-brand-gap: 1mm;
+  --label-brand-bottom: 0.25mm;
+  --label-title-size: 9.2px;
+  --label-phone-size: 8px;
+  --label-address-size: 7.8px;
+  --label-brand-row-size: 10.5px;
+  --label-brand-row-long-size: 8.7px;
+  --label-code-size: 22px;
+  --label-code-medium-size: 18.5px;
+  --label-code-long-size: 14.5px;
+  --label-model-size: 11.2px;
+  --label-model-long-size: 9.2px;
+  --label-text-size: 9.5px;
+  --label-condition-size: 9.4px;
+  --label-condition-long-size: 8.4px;
+  --label-condition-very-long-size: 7.4px;
+  --label-condition-max-height: 2.2em;
+  --label-condition-lines: 2;
+  --label-condition-date-gap: 0.35mm;
+  --label-date-bottom: 0;
+  --label-row-gap: 0.32mm;
+  --label-code-top: 0.45mm;
+  --label-code-bottom: 0.35mm;
+}
+
+.print-label.label-58x40 {
+  --label-width: 58mm;
+  --label-height: 40mm;
+  --label-padding: 1.8mm;
+  --label-bottom-padding: 1.5mm;
+  --label-logo: 7mm;
+  --label-brand-gap: 1.2mm;
+  --label-brand-bottom: 0.45mm;
+  --label-title-size: 11px;
+  --label-phone-size: 8.3px;
+  --label-address-size: 8.3px;
+  --label-brand-row-size: 13.2px;
+  --label-brand-row-long-size: 11px;
+  --label-code-size: 25px;
+  --label-code-medium-size: 21px;
+  --label-code-long-size: 17px;
+  --label-model-size: 14px;
+  --label-model-long-size: 11.5px;
+  --label-text-size: 11.5px;
+  --label-condition-size: 11.5px;
+  --label-condition-long-size: 10px;
+  --label-condition-very-long-size: 9px;
+  --label-condition-max-height: 3.25em;
+  --label-condition-lines: 3;
+  --label-condition-date-gap: 0.8mm;
+  --label-date-bottom: 0;
+  --label-row-gap: 0.65mm;
+  --label-code-top: 0.75mm;
+  --label-code-bottom: 0.55mm;
+}
+
+.print-label.label-60x40 {
+  --label-width: 60mm;
+  --label-height: 40mm;
+  --label-padding: 1.8mm;
+  --label-bottom-padding: 1.5mm;
+  --label-logo: 7.2mm;
+  --label-brand-gap: 1.2mm;
+  --label-brand-bottom: 0.45mm;
+  --label-title-size: 11.4px;
+  --label-phone-size: 8.7px;
+  --label-address-size: 8.5px;
+  --label-brand-row-size: 14px;
+  --label-brand-row-long-size: 11.5px;
+  --label-code-size: 26px;
+  --label-code-medium-size: 22px;
+  --label-code-long-size: 18px;
+  --label-model-size: 14.5px;
+  --label-model-long-size: 12px;
+  --label-text-size: 11.8px;
+  --label-condition-size: 11.8px;
+  --label-condition-long-size: 10.4px;
+  --label-condition-very-long-size: 9.2px;
+  --label-condition-max-height: 3.25em;
+  --label-condition-lines: 3;
+  --label-condition-date-gap: 1mm;
+  --label-date-bottom: 0;
+  --label-row-gap: 0.65mm;
+  --label-code-top: 0.75mm;
+  --label-code-bottom: 0.55mm;
+}
+
+.print-label.label-80x50 {
+  --label-width: 80mm;
+  --label-height: 50mm;
+  --label-padding: 2.5mm;
+  --label-bottom-padding: 1.8mm;
+  --label-logo: 9mm;
+  --label-brand-gap: 1.5mm;
+  --label-brand-bottom: 0.7mm;
+  --label-title-size: 15px;
+  --label-phone-size: 11.2px;
+  --label-address-size: 10.8px;
+  --label-brand-row-size: 17.2px;
+  --label-brand-row-long-size: 14.5px;
+  --label-code-size: 32px;
+  --label-code-medium-size: 27px;
+  --label-code-long-size: 22px;
+  --label-model-size: 18px;
+  --label-model-long-size: 15px;
+  --label-text-size: 14.5px;
+  --label-condition-size: 14.5px;
+  --label-condition-long-size: 13px;
+  --label-condition-very-long-size: 11.5px;
+  --label-condition-max-height: 4.3em;
+  --label-condition-lines: 4;
+  --label-condition-date-gap: 1mm;
+  --label-date-bottom: 0;
+  --label-row-gap: 0.9mm;
+  --label-code-top: 1mm;
+  --label-code-bottom: 0.8mm;
+}
+
+.print-label .label-brand.label-header {
+  display: flex;
+  align-items: center;
+  gap: var(--label-brand-gap, 1mm);
+  min-width: 0;
+  margin: 0 0 var(--label-brand-bottom, 0.25mm);
+  padding: 0;
+  border: 0;
+}
+
+.print-label .label-logo {
+  flex: 0 0 var(--label-logo, 5.2mm);
+  width: var(--label-logo, 5.2mm);
+  height: var(--label-logo, 5.2mm);
+}
+
+.print-label .label-brand-stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  overflow: visible;
+}
+
+.print-label .label-brand .label-brand-text,
+.print-label .label-phone,
+.print-label .label-address {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  overflow: visible;
+  color: #000;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.print-label .label-brand .label-brand-text {
+  font-size: var(--label-title-size, 8.6px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.print-label .label-phone {
+  margin-top: 0.12mm;
+  font-size: var(--label-phone-size, 7.2px);
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.print-label .label-address {
+  margin-top: 0.1mm;
+  font-size: var(--label-address-size, 7px);
+  font-weight: 800;
+  line-height: 1.03;
+  letter-spacing: 0;
+}
+
+.print-label .label-device-content .label-row {
+  width: 100%;
+  margin: var(--label-row-gap, 0.32mm) 0 0;
+  padding: 0;
+  overflow: visible;
+  color: #000;
+  font-size: var(--label-text-size, 9px);
+  font-weight: 800;
+  line-height: 1.06;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.print-label .label-device-content .label-code,
+.print-label .label-device-content .label-type,
+.print-label .label-device-content .label-model {
+  flex: 0 0 auto;
+}
+
+.print-label .label-device-content .label-code {
+  margin-top: var(--label-code-top, 0.45mm);
+  margin-bottom: var(--label-code-bottom, 0.35mm);
+  overflow: visible;
+  font-size: var(--label-code-size, 20px);
   font-weight: 900;
   line-height: 1;
   letter-spacing: -0.8px;
-  -webkit-text-stroke: 0.15px #000;
+  text-overflow: clip;
   text-shadow: none;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  -webkit-text-stroke: 0.15px #000;
+}
+
+.print-label.ticket-code--medium .label-code {
+  font-size: var(--label-code-medium-size, 17px);
+}
+
+.print-label.ticket-code--long .label-code {
+  font-size: var(--label-code-long-size, 13.5px);
+  letter-spacing: -1px;
 }
 
 .print-label .label-code .label-key,
@@ -4551,48 +4823,104 @@ button {
   -webkit-text-stroke: 0.15px #000;
 }
 
-.print-label.label-50x30 {
-  --label-code-size: 21px;
-  --label-model-size: 12.5px;
-  --label-text-size: 11px;
-  --label-row-gap: 0.45mm;
+.print-label .label-device-content .label-model {
+  overflow: visible;
+  font-size: var(--label-model-size, 10.5px);
+  font-weight: 850;
+  line-height: 1.03;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
-.print-label.label-50x30 .label-code {
-  font-size: 21px;
+.print-label.label-model--long .label-model {
+  font-size: var(--label-model-long-size, 8.5px);
 }
 
-.print-label.label-58x30 {
-  --label-code-size: 23px;
-  --label-model-size: 13px;
-  --label-text-size: 11.5px;
-  --label-row-gap: 0.45mm;
+.print-label .label-device-content .label-type {
+  overflow: visible;
+  font-size: var(--label-brand-row-size, 8.5px);
+  font-weight: 850;
+  line-height: 1.03;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
-.print-label.label-58x30 .label-code {
-  font-size: 23px;
+.print-label.label-brand--long .label-type {
+  font-size: var(--label-brand-row-long-size, 7.5px);
 }
 
-.print-label.label-58x40 {
-  --label-code-size: 26px;
-  --label-model-size: 15px;
-  --label-text-size: 12.5px;
-  --label-row-gap: 0.65mm;
+.print-label .label-device-content .label-condition {
+  display: block;
+  min-height: 0;
+  flex: 1 1 auto;
+  max-height: var(--label-condition-max-height, 2.12em);
+  margin-bottom: var(--label-condition-date-gap, 0.8mm);
+  overflow: visible;
+  font-size: var(--label-condition-size, 9px);
+  font-weight: 800;
+  line-height: 1.06;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.print-label.label-58x40 .label-code {
-  font-size: 26px;
+.print-label.label-condition--long .label-condition {
+  font-size: var(--label-condition-long-size, 8px);
 }
 
-.print-label.label-80x50 {
-  --label-code-size: 34px;
-  --label-model-size: 20px;
-  --label-text-size: 16px;
-  --label-row-gap: 0.9mm;
+.print-label.label-condition--very-long .label-condition {
+  font-size: var(--label-condition-very-long-size, 7px);
 }
 
-.print-label.label-80x50 .label-code {
-  font-size: 34px;
+.print-label .label-device-content .label-condition .label-key {
+  white-space: nowrap;
+}
+
+.print-label .label-device-content .label-condition .label-value {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.print-label .label-device-content .label-date {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-bottom: var(--label-date-bottom, 1mm);
+  box-sizing: border-box;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.print-label.label-content--compact {
+  --label-brand-bottom: 0.12mm;
+  --label-row-gap: 0.18mm;
+  --label-code-top: 0.25mm;
+  --label-code-bottom: 0.2mm;
+}
+
+@media print {
+  .label-preview-wrap {
+    overflow: visible;
+  }
+
+  .print-label {
+    width: var(--label-width, 50mm);
+    height: var(--label-height, 30mm);
+    min-height: var(--label-height, 30mm);
+    transform: none !important;
+  }
+}
+
+@media screen and (max-width: 680px) {
+  .print-label-page .print-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .print-label-page .label-preview-wrap {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 /* Admin-wide typography; thermal label template remains untouched. */

@@ -7,7 +7,7 @@
     <title>In tem - Anh Minh Admin</title>
     <link rel="stylesheet" href="css/admin.css">
   </head>
-  <body class="label-50x30">
+  <body class="print-label-page label-50x30">
     <div class="page-shell">
       <header class="topbar">
         <a class="brand" href="dashboard.html">
@@ -49,6 +49,7 @@
                 <select id="labelSizeSelect" name="label_size">
                   <option value="50x30" selected>50 x 30mm</option>
                   <option value="58x40">58 x 40mm</option>
+                  <option value="60x40">60 x 40mm</option>
                   <option value="58x30">58 x 30mm</option>
                   <option value="80x50">80 x 50mm</option>
                 </select>
@@ -67,13 +68,17 @@
                 <img class="label-logo" src="assets/logo-am.jpeg" alt="AM">
                 <div class="label-brand-stack">
                   <h1 class="label-brand-text">ĐIỆN TỬ ANH MINH</h1>
-                  <span class="label-phone">0905111223</span>
+                  <span class="label-phone">0905111223 - 0774111223</span>
+                  <span class="label-address">100 Tiểu La, Đà Nẵng</span>
                 </div>
               </div>
-              <p class="label-row label-code"><strong class="label-key">Mã số:</strong> <span id="labelCode" class="label-value">...</span></p>
-              <p class="label-row label-model"><strong class="label-key">Model:</strong> <span id="labelModel" class="label-value">...</span></p>
-              <p class="label-row label-condition"><strong class="label-key">Tình trạng:</strong> <span id="labelCondition" class="label-value">...</span></p>
-              <p class="label-row label-date"><strong class="label-key">Ngày nhận:</strong> <span id="labelDate" class="label-value">...</span></p>
+              <div class="label-device-content">
+                <p class="label-row label-code"><strong class="label-key">Mã số:</strong> <span id="labelCode" class="label-value">—</span></p>
+                <p class="label-row label-type"><strong class="label-key">Loại:</strong> <span id="labelBrand" class="label-value">—</span></p>
+                <p class="label-row label-model"><strong class="label-key">Model:</strong> <span id="labelModel" class="label-value">—</span></p>
+                <p class="label-row label-condition"><strong class="label-key">Tình trạng:</strong> <span id="labelCondition" class="label-value">—</span></p>
+                <p class="label-row label-date label-received-date"><strong class="label-key">Ngày nhận:</strong> <span id="labelDate" class="label-value">—</span></p>
+              </div>
             </div>
           </div>
         </section>

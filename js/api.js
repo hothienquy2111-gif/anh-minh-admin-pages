@@ -2497,7 +2497,7 @@
       const id = String((params && params.id) || "").trim();
       let query = client
         .from("service_tickets")
-        .select("id,ticket_code,model,condition_text,received_date,status");
+        .select("id,ticket_code,brand,model,condition_text,received_date,status");
 
       if (code) {
         query = query.eq("ticket_code", code);
