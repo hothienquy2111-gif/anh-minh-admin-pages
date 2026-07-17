@@ -7261,9 +7261,10 @@ button[type="submit"] {
 }
 
 .attention-priority-high {
-  border-color: #fed7aa;
-  background: #fff7ed;
-  color: #c2410c;
+  border-color: #b91c1c;
+  background-color: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.18);
 }
 
 .attention-priority-attention {
