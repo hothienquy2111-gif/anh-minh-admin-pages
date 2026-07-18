@@ -144,6 +144,8 @@
     "Màn hình bị vỡ",
     "Có đầy đủ chân đế",
     "Mất chân đế",
+    "Mất chân",
+    "Không có chân",
     "Có remote",
     "Không có remote",
     "Có dây nguồn",
@@ -181,6 +183,8 @@
       options: [
         "Có đầy đủ chân đế",
         "Mất chân đế",
+        "Mất chân",
+        "Không có chân",
         "Thiếu một chân đế",
         "Chân đế bị gãy",
         "Chân đế bị trầy",

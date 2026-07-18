@@ -491,6 +491,9 @@
     attachLogout();
     fillStatusOptions();
     setDefaultDate();
+    if (window.AMMoneyUtils && typeof window.AMMoneyUtils.attachInputs === "function") {
+      window.AMMoneyUtils.attachInputs(form);
+    }
     if (window.AMTvUtils && typeof window.AMTvUtils.attachTvModelAssist === "function") {
       deviceAssist = window.AMTvUtils.attachTvModelAssist({
         brandInput,

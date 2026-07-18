@@ -1066,6 +1066,10 @@
       }
     });
 
+    if (window.AMMoneyUtils && typeof window.AMMoneyUtils.formatInputs === "function") {
+      window.AMMoneyUtils.formatInputs(editForm);
+    }
+
     if (editDeviceAssist) {
       editDeviceAssist.reset({ keepValue: true });
       editDeviceAssist.refresh();
@@ -1302,6 +1306,9 @@
 
   async function initSearch() {
     attachLogout();
+    if (window.AMMoneyUtils && typeof window.AMMoneyUtils.attachInputs === "function") {
+      window.AMMoneyUtils.attachInputs(editForm);
+    }
     if (window.AMTvUtils && typeof window.AMTvUtils.attachTvModelAssist === "function") {
       editDeviceAssist = window.AMTvUtils.attachTvModelAssist({
         brandInput: editBrandInput,

@@ -34,6 +34,7 @@
     "Skyworth",
     "Coocaa",
     "Casper",
+    "Asanzo",
     "Philips",
     "Hitachi"
   ];
@@ -737,6 +738,100 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function moneyDigits(value) {
+    if (value === null || value === undefined || value === "") {
+      return "";
+    }
+
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? String(Math.trunc(value)) : "";
+    }
+
+    const text = String(value).trim();
+    const databaseDecimal = text.match(/^(\d+)[.,]00$/);
+    const digits = (databaseDecimal ? databaseDecimal[1] : text).replace(/\D/g, "");
+    return digits.replace(/^0+(?=\d)/, "");
+  }
+
+  function formatMoneyValue(value) {
+    const digits = moneyDigits(value);
+    return digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
+  }
+
+  function normalizeMoneyValue(value) {
+    const digits = moneyDigits(value);
+
+    if (!digits) {
+      return null;
+    }
+
+    const parsed = Number(digits);
+
+    if (!Number.isSafeInteger(parsed)) {
+      throw new Error("Số tiền quá lớn để lưu chính xác. Vui lòng kiểm tra lại giá trị.");
+    }
+
+    return parsed;
+  }
+
+  function sanitizeMoneyTyping(value) {
+    return String(value || "").replace(/[^0-9.,]/g, "");
+  }
+
+  function formatMoneyInput(input) {
+    if (input) {
+      input.value = formatMoneyValue(input.value);
+    }
+  }
+
+  function attachMoneyInput(input) {
+    if (!input || input.dataset.moneyInputAttached === "true") {
+      return;
+    }
+
+    input.dataset.moneyInputAttached = "true";
+    input.inputMode = "numeric";
+
+    input.addEventListener("input", () => {
+      const original = input.value;
+      const caret = input.selectionStart;
+      const sanitized = sanitizeMoneyTyping(original);
+
+      if (sanitized === original) {
+        return;
+      }
+
+      input.value = sanitized;
+
+      if (Number.isInteger(caret) && typeof input.setSelectionRange === "function") {
+        const nextCaret = sanitizeMoneyTyping(original.slice(0, caret)).length;
+        input.setSelectionRange(nextCaret, nextCaret);
+      }
+    });
+
+    input.addEventListener("paste", () => {
+      window.setTimeout(() => formatMoneyInput(input), 0);
+    });
+    input.addEventListener("blur", () => formatMoneyInput(input));
+    formatMoneyInput(input);
+  }
+
+  function attachMoneyInputs(root) {
+    if (!root) {
+      return;
+    }
+
+    root.querySelectorAll("[data-money-input]").forEach(attachMoneyInput);
+  }
+
+  function formatMoneyInputs(root) {
+    if (!root) {
+      return;
+    }
+
+    root.querySelectorAll("[data-money-input]").forEach(formatMoneyInput);
+  }
+
   function normalizeVNPhone(value) {
     const digits = String(value || "").replace(/[^0-9]/g, "");
     let phone = null;
@@ -1411,7 +1506,12 @@
       }
 
       if (MONEY_FIELDS.includes(field)) {
-        payload[field] = normalizeNumber(data[field]);
+        payload[field] = normalizeMoneyValue(data[field]);
+        return;
+      }
+
+      if (field === "brand") {
+        payload[field] = normalizeBrand(data[field]) || null;
         return;
       }
 
@@ -3675,6 +3775,16 @@
     formatTvSize,
     populateBrandDatalist,
     attachTvModelAssist
+  };
+
+  window.AMMoneyUtils = {
+    digits: moneyDigits,
+    format: formatMoneyValue,
+    normalize: normalizeMoneyValue,
+    attachInput: attachMoneyInput,
+    attachInputs: attachMoneyInputs,
+    formatInput: formatMoneyInput,
+    formatInputs: formatMoneyInputs
   };
 
   window.AMApi = {
