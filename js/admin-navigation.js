@@ -2,6 +2,7 @@
   "use strict";
 
   const APPOINTMENT_PAGE = "appointment-reminders.html";
+  const HANDOVER_PAGE = "handover-tickets.html";
   const CLOSE_DELAY_MS = 180;
   const EXIT_DURATION_MS = 140;
 
@@ -61,6 +62,24 @@
     return link;
   }
 
+  function createHandoverLink(isCurrentPage) {
+    const link = document.createElement("a");
+
+    link.className = "admin-more-menu-item";
+    link.href = HANDOVER_PAGE;
+    link.setAttribute("role", "menuitem");
+    link.appendChild(createMenuCopy(
+      "Bàn giao tivi",
+      "Theo dõi tivi đã sửa xong và đang chờ giao hoặc khách đến nhận."
+    ));
+
+    if (isCurrentPage) {
+      link.setAttribute("aria-current", "page");
+    }
+
+    return link;
+  }
+
   function prepareLogoutButton(button) {
     button.classList.add("admin-more-menu-item", "admin-more-logout");
     button.setAttribute("role", "menuitem");
@@ -81,13 +100,16 @@
 
     nav.dataset.adminMoreReady = "true";
 
-    const isAppointmentPage = currentPageName() === APPOINTMENT_PAGE;
+    const pageName = currentPageName();
+    const isAppointmentPage = pageName === APPOINTMENT_PAGE;
+    const isHandoverPage = pageName === HANDOVER_PAGE;
     const wrapper = document.createElement("div");
     const trigger = createTrigger();
     const menu = document.createElement("div");
     const menuHeading = document.createElement("span");
     const divider = document.createElement("span");
     const appointmentLink = createAppointmentLink(isAppointmentPage);
+    const handoverLink = createHandoverLink(isHandoverPage);
     let closeTimerId = null;
     let hideTimerId = null;
     let openFrameId = null;
@@ -107,11 +129,11 @@
     divider.className = "admin-more-menu-divider";
     divider.setAttribute("aria-hidden", "true");
 
-    if (isAppointmentPage) {
+    if (isAppointmentPage || isHandoverPage) {
       trigger.classList.add("active");
     }
 
-    menu.append(menuHeading, appointmentLink, divider, prepareLogoutButton(logoutButton));
+    menu.append(menuHeading, appointmentLink, handoverLink, divider, prepareLogoutButton(logoutButton));
     wrapper.append(trigger, menu);
     nav.appendChild(wrapper);
 

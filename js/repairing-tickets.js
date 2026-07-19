@@ -187,6 +187,7 @@
       "đang kiểm tra": "status-checking",
       "báo giá": "status-quote",
       "đang sửa": "status-repairing",
+      "chờ bàn giao": "status-handover",
       "đã xong": "status-done",
       "đã trả": "status-returned",
       "huỷ": "status-cancelled"
@@ -240,7 +241,7 @@
       createActionLink("Xem phiếu", `search.html${suffix}`, false),
       createActionLink("Mở Hoạt động phiếu", `ticket-activity.html${suffix}`, false),
       createActionLink("Chỉ in lại tem", `print-label.html${suffix}`, false),
-      createActionLink("In biên nhận & hoàn thành phiếu", `print-delivery-receipt.html${suffix}`, true)
+      createActionLink("Hoàn thành sửa chữa", `ticket-activity.html${suffix}`, true)
     );
     return actions;
   }

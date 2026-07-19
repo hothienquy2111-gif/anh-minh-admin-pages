@@ -9,13 +9,16 @@
     "đang kiểm tra",
     "báo giá",
     "đang sửa",
+    "chờ bàn giao",
     "đã xong",
     "đã trả",
     "huỷ"
   ];
+  const CREATABLE_TICKET_STATUSES = TICKET_STATUSES.filter((status) => status !== "chờ bàn giao");
   const PRE_REPAIR_STATUSES = ["mới nhận", "đang kiểm tra", "báo giá"];
   const WORKFLOW_ACTIONS = [
     "START_REPAIR",
+    "READY_FOR_HANDOVER",
     "PRINT_AND_COMPLETE",
     "REPRINT_LABEL",
     "REPRINT_RECEIPT"
@@ -172,6 +175,7 @@
   const SEARCH_TICKET_SELECT_FIELDS = [
     RECEIPT_TICKET_SELECT_FIELDS,
     "repair_started_at",
+    "ready_for_handover_at",
     "completed_at",
     "last_activity_at"
   ].join(",");
@@ -219,6 +223,7 @@
   const WORKFLOW_TICKET_FIELDS = [
     "id",
     "repair_started_at",
+    "ready_for_handover_at",
     "completed_at",
     "last_activity_at"
   ].join(",");
@@ -238,6 +243,7 @@
     "warranty_mode",
     "warranty_end_date",
     "repair_started_at",
+    "ready_for_handover_at",
     "completed_at",
     "last_activity_at",
     "customer:customers!service_tickets_customer_id_fkey(id,customer_code,name,phone)"
@@ -266,6 +272,10 @@
     "last_activity_at",
     "customer:customers!service_tickets_customer_id_fkey(id,customer_code,name,phone,phone_normalized,address)"
   ].join(",");
+  const HANDOVER_TICKET_SELECT_FIELDS = [
+    REPAIRING_TICKET_SELECT_FIELDS,
+    "ready_for_handover_at"
+  ].join(",");
   const ATTENTION_SELECT_FIELDS = [
     "id",
     "ticket_code",
@@ -285,11 +295,16 @@
     "last_activity_at",
     "customer:customers!service_tickets_customer_id_fkey(id,customer_code,name,phone)"
   ].join(",");
+  const HANDOVER_ATTENTION_SELECT_FIELDS = [
+    ATTENTION_SELECT_FIELDS,
+    "ready_for_handover_at"
+  ].join(",");
   const ATTENTION_TYPES = {
     REPAIR_OVERDUE: "REPAIR_OVERDUE",
     REPAIRING: "REPAIRING",
     NEEDS_INSPECTION: "NEEDS_INSPECTION",
-    DELIVERY_TODAY: "DELIVERY_TODAY"
+    DELIVERY_TODAY: "DELIVERY_TODAY",
+    HANDOVER_OVERDUE: "HANDOVER_OVERDUE"
   };
   const ACTIVE_PROCESSING_GROUPS = [
     { key: "new", label: "Mới nhận", tone: "blue" },
@@ -297,13 +312,15 @@
     { key: "repair_under_48", label: "Đang sửa dưới 48 giờ", tone: "green" },
     { key: "repair_over_48", label: "Đang sửa quá 48 giờ", tone: "amber" },
     { key: "repair_over_72", label: "Đang sửa quá 72 giờ", tone: "red" },
+    { key: "handover_waiting", label: "Bàn giao tivi", tone: "blue" },
     { key: "repair_missing_start", label: "Thiếu thời điểm bắt đầu sửa", tone: "neutral" }
   ];
   const ACTIVE_PROGRESS_STATUSES = [
     { status: "mới nhận", label: "Mới nhận", href: "search.html" },
     { status: "đang kiểm tra", label: "Đang kiểm tra", href: "search.html" },
     { status: "báo giá", label: "Chờ báo giá", href: "search.html" },
-    { status: "đang sửa", label: "Đang sửa", href: "ticket-activity.html" }
+    { status: "đang sửa", label: "Đang sửa", href: "ticket-activity.html" },
+    { status: "chờ bàn giao", label: "Bàn giao tivi", href: "handover-tickets.html" }
   ];
 
   function getConfig() {
@@ -562,6 +579,7 @@
     const code = String((error && error.code) || "").toLowerCase();
     const message = String((error && (error.message || error.details || error.hint)) || "").toLowerCase();
     return message.includes("repair_started_at")
+      || message.includes("ready_for_handover_at")
       || message.includes("completed_at")
       || message.includes("last_activity_at")
       || message.includes("delivery_date")
@@ -668,7 +686,15 @@
     }
 
     if (normalized.includes("ticket is already completed")) {
-      return createWorkflowError("Phiếu đã hoàn thành. Hãy dùng chức năng Chỉ in lại biên nhận.", {
+      return createWorkflowError("Phiếu đã bàn giao. Hãy dùng chức năng Chỉ in lại biên nhận.", {
+        type: "business",
+        clearRequestId: true,
+        originalError: error
+      });
+    }
+
+    if (normalized.includes("repair is already ready for handover")) {
+      return createWorkflowError("Phiếu đã được chuyển sang Bàn giao tivi.", {
         type: "business",
         clearRequestId: true,
         originalError: error
@@ -685,6 +711,14 @@
 
     if (normalized.includes("ticket has not been completed correctly")) {
       return createWorkflowError("Phiếu chưa đủ điều kiện in lại biên nhận.", {
+        type: "business",
+        clearRequestId: true,
+        originalError: error
+      });
+    }
+
+    if (normalized.includes("action not allowed for current ticket status")) {
+      return createWorkflowError("Trạng thái phiếu vừa thay đổi hoặc chưa đủ điều kiện cho thao tác này. Vui lòng tải lại.", {
         type: "business",
         clearRequestId: true,
         originalError: error
@@ -1166,6 +1200,7 @@
         activity_id: result.activity_id,
         activity_created_at: result.activity_created_at,
         repair_started_at: result.repair_started_at,
+        ready_for_handover_at: result.ready_for_handover_at,
         completed_at: result.completed_at,
         last_activity_at: result.last_activity_at,
         delivery_date: result.delivery_date,
@@ -1340,6 +1375,10 @@
       request = request.or(filterExpression);
     }
 
+    if (TICKET_STATUSES.includes(params.status)) {
+      request = request.eq("status", params.status);
+    }
+
     return request
       .order("received_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -1356,7 +1395,8 @@
     const context = {
       keyword,
       customerIds,
-      year: params.year
+      year: params.year,
+      status: params.status
     };
 
     async function execute(selectFields) {
@@ -1480,6 +1520,151 @@
     query = applyRepairingFilter(query, params.filter || "all");
     query = applyRepairingSearch(query, params.keyword, params.customerIds || []);
     return query;
+  }
+
+  function handoverThresholdIso(hours) {
+    return new Date(Date.now() - (hours * 60 * 60 * 1000)).toISOString();
+  }
+
+  function formatTicketStatusLabel(status, fallback) {
+    const normalized = String(status || "").trim();
+    const labels = {
+      "mới nhận": "Mới nhận",
+      "đang kiểm tra": "Đang kiểm tra",
+      "báo giá": "Báo giá",
+      "đang sửa": "Đang sửa",
+      "chờ bàn giao": "Bàn giao tivi",
+      "đã trả": "Đã bàn giao",
+      "đã xong": "Legacy đã xong",
+      "huỷ": "Huỷ"
+    };
+
+    return labels[normalized] || normalized || fallback || "—";
+  }
+
+  function parseHandoverTime(value) {
+    const time = Date.parse(String(value || ""));
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function formatHandoverElapsed(milliseconds) {
+    const totalMinutes = Math.max(0, Math.floor(milliseconds / 60000));
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+      return `${days} ngày ${hours} giờ`;
+    }
+
+    if (hours > 0) {
+      return `${hours} giờ ${minutes} phút`;
+    }
+
+    return `${minutes} phút`;
+  }
+
+  function classifyHandoverTiming(ticket, nowValue) {
+    const readyTime = parseHandoverTime(ticket && ticket.ready_for_handover_at);
+
+    if (!readyTime) {
+      return {
+        level: "neutral",
+        badge: "THIẾU MỐC THỜI GIAN",
+        text: "Chưa có thời điểm sửa xong"
+      };
+    }
+
+    const now = Number.isFinite(Number(nowValue)) ? Number(nowValue) : Date.now();
+    const elapsed = Math.max(0, now - readyTime);
+    const hours = elapsed / 3600000;
+
+    if (hours >= 48) {
+      return {
+        level: "danger",
+        badge: "QUÁ 48 GIỜ",
+        text: `Quá hạn bàn giao ${formatHandoverElapsed(elapsed)}`
+      };
+    }
+
+    if (hours >= 24) {
+      return {
+        level: "warning",
+        badge: "CẦN THEO DÕI",
+        text: `Chờ bàn giao ${formatHandoverElapsed(elapsed)}`
+      };
+    }
+
+    return {
+      level: "normal",
+      badge: "BÌNH THƯỜNG",
+      text: `Chờ bàn giao ${formatHandoverElapsed(elapsed)}`
+    };
+  }
+
+  function formatHandoverDateTime(value) {
+    const time = parseHandoverTime(value);
+
+    if (!time) {
+      return "Chưa có";
+    }
+
+    return new Intl.DateTimeFormat("vi-VN", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).format(new Date(time));
+  }
+
+  function applyHandoverFilter(query, filter) {
+    const key = String(filter || "all");
+
+    if (key === "under24") {
+      return query.gt("ready_for_handover_at", handoverThresholdIso(24));
+    }
+
+    if (key === "warning") {
+      return query
+        .lte("ready_for_handover_at", handoverThresholdIso(24))
+        .gt("ready_for_handover_at", handoverThresholdIso(48));
+    }
+
+    if (key === "over48") {
+      return query.lte("ready_for_handover_at", handoverThresholdIso(48));
+    }
+
+    return query;
+  }
+
+  function buildHandoverTicketsQuery(client, options, selectFields, selectOptions) {
+    const params = options || {};
+    let query = client
+      .from("service_tickets")
+      .select(selectFields, selectOptions || {})
+      .eq("status", "chờ bàn giao")
+      .not("ready_for_handover_at", "is", null);
+
+    query = applyHandoverFilter(query, params.filter || "all");
+    query = applyRepairingSearch(query, params.keyword, params.customerIds || []);
+    return query;
+  }
+
+  async function countHandoverTickets(options, customerIds, filter) {
+    const { count, error } = await buildHandoverTicketsQuery(getClient(), {
+      keyword: options.keyword,
+      customerIds,
+      filter
+    }, "id", { count: "exact", head: true });
+
+    if (error) {
+      throw error;
+    }
+
+    return count || 0;
   }
 
   async function countRepairingTickets(options, customerIds, filter) {
@@ -1999,6 +2184,7 @@
       const result = await runTicketSearchRequest({
         keyword: params.query,
         year: params.year,
+        status: params.status,
         from,
         to,
         countExact: true,
@@ -2094,6 +2280,7 @@
       const result = await runTicketSearchRequest({
         keyword: params.query,
         year: params.year,
+        status: params.status,
         from: offset,
         to: offset + limit - 1,
         countExact: params.includeCount === true,
@@ -2867,6 +3054,7 @@
       receivedAt: ticket && ticket.received_at ? ticket.received_at : null,
       receivedDate: ticket && ticket.received_date ? ticket.received_date : null,
       repairStartedAt: ticket && ticket.repair_started_at ? ticket.repair_started_at : null,
+      readyForHandoverAt: ticket && ticket.ready_for_handover_at ? ticket.ready_for_handover_at : null,
       deliveryDate: ticket && ticket.delivery_date ? ticket.delivery_date : null,
       attentionStartedAt: null,
       ageMinutes: 0,
@@ -2905,6 +3093,11 @@
     if (!currentTime || (nextTime && nextTime < currentTime)) {
       task.attentionStartedAt = reason.startedAt;
       task.relevantDate = reason.startedAt;
+      task.actionHref = reason.actionHref || task.actionHref;
+      task.actionLabel = reason.actionLabel || task.actionLabel;
+    }
+
+    if (reason.forceAction === true) {
       task.actionHref = reason.actionHref || task.actionHref;
       task.actionLabel = reason.actionLabel || task.actionLabel;
     }
@@ -2965,6 +3158,23 @@
       ticket && ticket.created_at,
       ymdStartTimestamp(ticket && ticket.received_date)
     ]);
+  }
+
+  function handoverOverdueDescription(readyAt) {
+    const overdueMinutes = Math.max(0, Math.floor((hoursSinceTimestamp(readyAt) - 48) * 60));
+    const days = Math.floor(overdueMinutes / 1440);
+    const hours = Math.floor((overdueMinutes % 1440) / 60);
+    const minutes = overdueMinutes % 60;
+
+    if (days > 0) {
+      return `Chờ bàn giao quá ${days} ngày ${hours} giờ`;
+    }
+
+    if (hours > 0) {
+      return `Chờ bàn giao quá ${hours} giờ ${minutes} phút`;
+    }
+
+    return `Chờ bàn giao quá ${minutes} phút`;
   }
 
   function buildAttentionTasks(groups) {
@@ -3045,6 +3255,24 @@
       });
     });
 
+    (groups.handoverOverdue || []).forEach((ticket) => {
+      if (ticket.status !== "chờ bàn giao" || !ticket.ready_for_handover_at) {
+        return;
+      }
+
+      addAttentionReason(taskMap, ticket, {
+        type: ATTENTION_TYPES.HANDOVER_OVERDUE,
+        label: "Quá 48 giờ",
+        description: handoverOverdueDescription(ticket.ready_for_handover_at),
+        startedAt: ticket.ready_for_handover_at,
+        actionHref: ticket.ticket_code
+          ? `handover-tickets.html?code=${encodeURIComponent(ticket.ticket_code)}`
+          : "handover-tickets.html",
+        actionLabel: "Mở Bàn giao tivi",
+        forceAction: true
+      });
+    });
+
     return sortAttentionTasks(Array.from(taskMap.values()).map(finalizeAttentionTask));
   }
 
@@ -3066,7 +3294,8 @@
       repairing: uniqueTasks.filter((task) => taskHasReason(task, ATTENTION_TYPES.REPAIRING)).length,
       repairOverdue48: uniqueTasks.filter((task) => taskHasRepairOverdue(task, 48)).length,
       repairOverdue72: uniqueTasks.filter((task) => taskHasRepairOverdue(task, 72)).length,
-      deliveryToday: uniqueTasks.filter((task) => taskHasReason(task, ATTENTION_TYPES.DELIVERY_TODAY)).length
+      deliveryToday: uniqueTasks.filter((task) => taskHasReason(task, ATTENTION_TYPES.DELIVERY_TODAY)).length,
+      handoverOverdue48: uniqueTasks.filter((task) => taskHasReason(task, ATTENTION_TYPES.HANDOVER_OVERDUE)).length
     };
 
     counts.repairOverdue = counts.repairOverdue48;
@@ -3129,7 +3358,21 @@
         .select(ATTENTION_SELECT_FIELDS)
         .eq("delivery_date", today)
         .order("created_at", { ascending: true })
-        .range(from, to))
+        .range(from, to)),
+      handoverOverdue: runAttentionQuery("handoverOverdue", (from, to) => client
+        .from("service_tickets")
+        .select(HANDOVER_ATTENTION_SELECT_FIELDS)
+        .eq("status", "chờ bàn giao")
+        .not("ready_for_handover_at", "is", null)
+        .lte("ready_for_handover_at", handoverThresholdIso(48))
+        .order("ready_for_handover_at", { ascending: true })
+        .order("ticket_code", { ascending: true })
+        .range(from, to)).catch((error) => {
+          if (isWorkflowSchemaError(error)) {
+            return [];
+          }
+          throw error;
+        })
     };
     const entries = Object.entries(requests);
     const results = await Promise.allSettled(entries.map((entry) => entry[1]));
@@ -3217,6 +3460,10 @@
       return "checking";
     }
 
+    if (status === "chờ bàn giao") {
+      return "handover_waiting";
+    }
+
     if (status !== "đang sửa") {
       return null;
     }
@@ -3275,7 +3522,7 @@
       const rows = await runPagedRows("activeProcessing", (from, to) => client
         .from("service_tickets")
         .select("id,status,repair_started_at,created_at")
-        .in("status", ["mới nhận", "đang kiểm tra", "đang sửa"])
+        .in("status", ["mới nhận", "đang kiểm tra", "đang sửa", "chờ bàn giao"])
         .order("status", { ascending: true })
         .order("repair_started_at", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
@@ -3478,6 +3725,74 @@
       };
     } catch (error) {
       throw friendlyError(error, "Không tải được danh sách phiếu đang sửa chữa.");
+    }
+  }
+
+  async function getHandoverTickets(params) {
+    try {
+      const client = getClient();
+      const options = params || {};
+      const pageSize = Math.min(Math.max(Number(options.pageSize) || 20, 1), 50);
+      const page = Math.max(Number(options.page) || 1, 1);
+      const keyword = String(options.keyword || "").trim();
+      const filter = options.filter || "all";
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const customerIds = keyword ? await findTicketHistoryCustomerIds(keyword) : [];
+      let query = buildHandoverTicketsQuery(client, {
+        keyword,
+        customerIds,
+        filter
+      }, HANDOVER_TICKET_SELECT_FIELDS, { count: "exact" });
+
+      query = query
+        .order("ready_for_handover_at", { ascending: true, nullsFirst: false })
+        .order("ticket_code", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to);
+
+      const countFilters = ["all", "under24", "warning", "over48"];
+      const [{ data, error, count }, countValues] = await Promise.all([
+        query,
+        Promise.all(countFilters.map((key) => countHandoverTickets({ keyword }, customerIds, key)))
+      ]);
+
+      if (error) {
+        throw error;
+      }
+
+      const filterCounts = {};
+      countFilters.forEach((key, index) => {
+        filterCounts[key] = countValues[index] || 0;
+      });
+
+      const totalCount = count || 0;
+
+      return {
+        available: true,
+        tickets: mapTickets((data || []).map((ticket) => Object.assign({}, ticket, { workflow_available: true }))),
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+        filterCounts,
+        message: ""
+      };
+    } catch (error) {
+      if (isWorkflowSchemaError(error)) {
+        return {
+          available: false,
+          tickets: [],
+          totalCount: 0,
+          page: 1,
+          pageSize: Math.min(Math.max(Number(params && params.pageSize) || 20, 1), 50),
+          totalPages: 1,
+          filterCounts: { all: 0, under24: 0, warning: 0, over48: 0 },
+          message: "Khu Bàn giao tivi sẽ sẵn sàng sau khi backend được kích hoạt."
+        };
+      }
+
+      throw friendlyError(error, "Không tải được danh sách tivi chờ bàn giao.");
     }
   }
 
@@ -3789,10 +4104,14 @@
 
   window.AMApi = {
     TICKET_STATUSES,
+    CREATABLE_TICKET_STATUSES,
     PRE_REPAIR_STATUSES,
     WORKFLOW_ACTIONS,
     getClient,
     normalizeVNPhone,
+    formatTicketStatusLabel,
+    classifyHandoverTiming,
+    formatHandoverDateTime,
     getCurrentUser,
     checkInternalAccess,
     requireInternalAccess,
@@ -3804,6 +4123,7 @@
     getDashboardCustomers,
     getTicketReceiptHistory,
     getRepairingTickets,
+    getHandoverTickets,
     getReminderSummary,
     getAttentionReminderCounts,
     getRemindersPage,

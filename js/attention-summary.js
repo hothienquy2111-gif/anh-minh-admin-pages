@@ -34,6 +34,16 @@
     today: document.getElementById("attentionReminderCountToday"),
     upcoming: document.getElementById("attentionReminderCountUpcoming")
   };
+  const handoverSection = document.getElementById("attentionHandoverSection");
+  const handoverSummary = document.getElementById("attentionHandoverSummary");
+  const handoverState = document.getElementById("attentionHandoverState");
+  const handoverList = document.getElementById("attentionHandoverList");
+  const handoverCountMap = {
+    all: document.getElementById("attentionHandoverCountAll"),
+    under24: document.getElementById("attentionHandoverCountUnder24"),
+    warning: document.getElementById("attentionHandoverCountWarning"),
+    over48: document.getElementById("attentionHandoverCountOver48")
+  };
 
   const countMap = {
     all: document.getElementById("attentionCountAll"),
@@ -41,18 +51,21 @@
     repairing: document.getElementById("attentionCountRepairing"),
     repair48: document.getElementById("attentionCountRepair48"),
     repair72: document.getElementById("attentionCountRepair72"),
-    deliveryToday: document.getElementById("attentionCountDelivery")
+    deliveryToday: document.getElementById("attentionCountDelivery"),
+    handoverOverdue: document.getElementById("attentionCountHandover")
   };
 
   const PAGE_SIZE = 8;
   const REMINDER_PAGE_SIZE = 6;
+  const HANDOVER_PREVIEW_SIZE = 6;
   const FILTER_LABELS = {
     all: "Tất cả",
     NEEDS_INSPECTION: "Cần kiểm tra",
     REPAIRING: "Đang sửa",
     REPAIR_OVERDUE_48: "Quá 48 giờ",
     REPAIR_OVERDUE_72: "Quá 72 giờ",
-    DELIVERY_TODAY: "Giao/trả hôm nay"
+    DELIVERY_TODAY: "Giao/trả hôm nay",
+    HANDOVER_OVERDUE: "Bàn giao quá 48 giờ"
   };
 
   let allTasks = [];
@@ -69,6 +82,9 @@
   let reminderTotal = 0;
   let reminderImmediateCount = 0;
   let reminderRequestId = 0;
+  let handoverFilter = "all";
+  let handoverRows = [];
+  let handoverRequestId = 0;
 
   function showNotice(type, message) {
     if (!notice) {
@@ -235,10 +251,22 @@
     });
   }
 
+  function refreshHandoverReason(task, reason) {
+    if (!reason || reason.type !== "HANDOVER_OVERDUE" || !task.readyForHandoverAt) {
+      return reason;
+    }
+
+    const overdueMinutes = Math.max(0, minutesSince(task.readyForHandoverAt) - (48 * 60));
+    return Object.assign({}, reason, {
+      label: "Quá 48 giờ",
+      description: `Chờ bàn giao quá ${formatAgeMinutes(overdueMinutes)}`
+    });
+  }
+
   function refreshTask(task) {
     const ageMinutes = minutesSince(task.attentionStartedAt);
     const priority = priorityFromAge(ageMinutes);
-    const reasons = (task.reasons || []).map((reason) => refreshRepairReason(task, reason));
+    const reasons = (task.reasons || []).map((reason) => refreshHandoverReason(task, refreshRepairReason(task, reason)));
 
     return Object.assign({}, task, priority, {
       ageMinutes,
@@ -255,6 +283,7 @@
       "đang kiểm tra": "status-checking",
       "báo giá": "status-quote",
       "đang sửa": "status-repairing",
+      "chờ bàn giao": "status-handover",
       "đã xong": "status-done",
       "đã trả": "status-returned",
       "huỷ": "status-cancelled"
@@ -264,15 +293,7 @@
   }
 
   function statusLabel(status) {
-    if (status === "đã trả") {
-      return "Đã hoàn thành";
-    }
-
-    if (status === "đã xong") {
-      return "Legacy đã xong";
-    }
-
-    return textOrDash(status);
+    return window.AMApi.formatTicketStatusLabel(status, "—");
   }
 
   function createStatusBadge(status) {
@@ -328,7 +349,8 @@
       repairing: countByFilter("REPAIRING"),
       repair48: countByFilter("REPAIR_OVERDUE_48"),
       repair72: countByFilter("REPAIR_OVERDUE_72"),
-      deliveryToday: countByFilter("DELIVERY_TODAY")
+      deliveryToday: countByFilter("DELIVERY_TODAY"),
+      handoverOverdue: countByFilter("HANDOVER_OVERDUE")
     };
 
     Object.entries(countMap).forEach(([key, element]) => {
@@ -844,12 +866,13 @@
     renderCounts();
     renderTasks(false);
     refreshVisibleReminders();
+    refreshVisibleHandovers();
   }
 
   function startRefreshTimer() {
     stopRefreshTimer();
 
-    if (!allTasks.length && !reminderRows.length) {
+    if (!allTasks.length && !reminderRows.length && !handoverRows.length) {
       return;
     }
 
@@ -899,6 +922,201 @@
   function reminderText(value) {
     const text = String(value || "").trim();
     return text || "—";
+  }
+
+  function handoverCustomerName(ticket) {
+    return ticket.customer_master_name || ticket.customer_name || "";
+  }
+
+  function handoverCustomerPhone(ticket) {
+    return ticket.customer_master_phone || ticket.customer_phone || "";
+  }
+
+  function createHandoverDetail(label, value, className) {
+    const detail = document.createElement("div");
+    const key = document.createElement("span");
+    const content = document.createElement("strong");
+
+    detail.className = "attention-handover-detail";
+    key.textContent = label;
+    content.textContent = reminderText(value);
+    if (className) {
+      content.className = className;
+    }
+    detail.append(key, content);
+    return detail;
+  }
+
+  function renderAttentionHandover(ticket) {
+    const timing = window.AMApi.classifyHandoverTiming(ticket);
+    const item = document.createElement("article");
+    const main = document.createElement("div");
+    const heading = document.createElement("div");
+    const code = document.createElement("h3");
+    const badge = document.createElement("span");
+    const details = document.createElement("div");
+    const actions = document.createElement("div");
+    const view = document.createElement("a");
+    const complete = document.createElement("a");
+    const query = ticket.ticket_code
+      ? `code=${encodeURIComponent(ticket.ticket_code)}`
+      : `id=${encodeURIComponent(ticket.id || "")}`;
+
+    item.className = `attention-handover-item attention-handover-item--${timing.level}`;
+    item.dataset.attentionHandoverId = ticket.id || "";
+    main.className = "attention-handover-main";
+    heading.className = "attention-handover-heading";
+    code.textContent = reminderText(ticket.ticket_code);
+    badge.className = `handover-alert handover-alert--${timing.level}`;
+    badge.dataset.attentionHandoverBadge = ticket.id || "";
+    badge.textContent = timing.badge;
+    heading.append(code, badge);
+
+    details.className = "attention-handover-detail-grid";
+    details.append(
+      createHandoverDetail("Mã khách", ticket.customer_code, "attention-handover-code"),
+      createHandoverDetail("Khách hàng", handoverCustomerName(ticket)),
+      createHandoverDetail("Số điện thoại", handoverCustomerPhone(ticket)),
+      createHandoverDetail("Hãng / Model", [ticket.brand, ticket.model].filter(Boolean).join(" ")),
+      createHandoverDetail("Sửa xong lúc", window.AMApi.formatHandoverDateTime(ticket.ready_for_handover_at)),
+      createHandoverDetail("Thời gian chờ", timing.text, `attention-handover-wait attention-handover-wait--${timing.level}`)
+    );
+    details.lastElementChild.querySelector("strong").dataset.attentionHandoverWait = ticket.id || "";
+    main.append(heading, details);
+
+    actions.className = "attention-handover-actions";
+    view.className = "btn secondary compact";
+    view.href = `search.html?${query}`;
+    view.textContent = "Xem phiếu";
+    complete.className = "btn primary compact";
+    complete.href = `print-delivery-receipt.html?${query}`;
+    complete.textContent = "Hoàn tất bàn giao";
+    actions.append(view, complete);
+    item.append(main, actions);
+    return item;
+  }
+
+  function setHandoverState(type, message, retryHandler) {
+    const hasVisibleData = !handoverList.hidden && handoverList.childElementCount > 0;
+    if (type === "loading" && hasVisibleData) {
+      handoverState.textContent = "";
+      window.AMUI.setSectionState({
+        section: handoverSection,
+        stateElement: handoverState,
+        dataElement: handoverList
+      }, "refreshing");
+      return;
+    }
+
+    handoverState.replaceChildren(document.createTextNode(message));
+    window.AMUI.setSectionState({
+      section: handoverSection,
+      stateElement: handoverState,
+      dataElement: handoverList
+    }, type);
+
+    if (retryHandler) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "btn secondary compact";
+      retry.textContent = "Thử lại";
+      retry.addEventListener("click", retryHandler, { once: true });
+      handoverState.appendChild(retry);
+    }
+  }
+
+  function renderHandoverCounts(counts) {
+    Object.entries(handoverCountMap).forEach(([key, element]) => {
+      element.textContent = String(Number(counts && counts[key]) || 0);
+    });
+  }
+
+  function renderHandoverRows(payload) {
+    handoverRows = (payload.tickets || []).slice(0, HANDOVER_PREVIEW_SIZE);
+    renderHandoverCounts(payload.filterCounts || {});
+
+    if (!handoverRows.length) {
+      handoverSummary.textContent = "Hiện không có tivi chờ bàn giao.";
+      setHandoverState("empty", "Hiện không có tivi chờ bàn giao.");
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    handoverRows.forEach((ticket) => fragment.appendChild(renderAttentionHandover(ticket)));
+    handoverList.replaceChildren(fragment);
+    handoverState.textContent = "";
+    window.AMUI.setSectionState({
+      section: handoverSection,
+      stateElement: handoverState,
+      dataElement: handoverList
+    }, "data");
+    handoverSummary.textContent = `Đang hiển thị ${handoverRows.length} trên tổng số ${payload.totalCount || 0} tivi chờ bàn giao.`;
+  }
+
+  function refreshVisibleHandovers() {
+    handoverRows.forEach((ticket) => {
+      const id = ticket.id || "";
+      const timing = window.AMApi.classifyHandoverTiming(ticket);
+      const item = handoverList.querySelector(`[data-attention-handover-id="${id}"]`);
+      const badge = handoverList.querySelector(`[data-attention-handover-badge="${id}"]`);
+      const wait = handoverList.querySelector(`[data-attention-handover-wait="${id}"]`);
+
+      if (item) {
+        item.className = `attention-handover-item attention-handover-item--${timing.level}`;
+      }
+      if (badge) {
+        badge.className = `handover-alert handover-alert--${timing.level}`;
+        badge.textContent = timing.badge;
+      }
+      if (wait) {
+        wait.className = `attention-handover-wait attention-handover-wait--${timing.level}`;
+        wait.textContent = timing.text;
+      }
+    });
+  }
+
+  async function loadAttentionHandovers(shouldScroll) {
+    const requestId = handoverRequestId + 1;
+    handoverRequestId = requestId;
+    setHandoverState("loading", "Đang tải danh sách bàn giao…");
+
+    try {
+      const payload = await window.AMApi.getHandoverTickets({
+        page: 1,
+        pageSize: HANDOVER_PREVIEW_SIZE,
+        filter: handoverFilter
+      });
+
+      if (requestId !== handoverRequestId) {
+        return;
+      }
+
+      if (!payload.available) {
+        handoverRows = [];
+        renderHandoverCounts(payload.filterCounts || {});
+        handoverSummary.textContent = "Chức năng bàn giao đang chờ kích hoạt.";
+        setHandoverState("unavailable", payload.message || "Chức năng Bàn giao tivi chưa được kích hoạt trên Supabase.");
+        return;
+      }
+
+      renderHandoverRows(payload);
+      startRefreshTimer();
+
+      if (shouldScroll === true) {
+        const reduceMotion = window.AMUI
+          ? window.AMUI.prefersReducedMotion()
+          : window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        handoverSection.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      }
+    } catch (error) {
+      if (requestId !== handoverRequestId) {
+        return;
+      }
+      handoverRows = [];
+      renderHandoverCounts({});
+      handoverSummary.textContent = "Không thể tải dữ liệu bàn giao.";
+      setHandoverState("error", "Không thể tải danh sách bàn giao. Vui lòng thử lại.", () => loadAttentionHandovers(false));
+    }
   }
 
   function createReminderBadge(reminder) {
@@ -1170,7 +1388,7 @@
 
   function attachEvents() {
     document.querySelectorAll(".attention-chip").forEach((button) => {
-      if (button.hasAttribute("data-reminder-attention-filter")) {
+      if (button.hasAttribute("data-reminder-attention-filter") || button.hasAttribute("data-handover-attention-filter")) {
         return;
       }
       button.addEventListener("click", function () {
@@ -1190,6 +1408,22 @@
           chip.setAttribute("aria-pressed", String(active));
         });
         loadAttentionReminders(true);
+      });
+    });
+
+    document.querySelectorAll("[data-handover-attention-filter]").forEach((button) => {
+      button.addEventListener("click", function () {
+        const nextFilter = button.dataset.handoverAttentionFilter || "all";
+        if (nextFilter === handoverFilter) {
+          return;
+        }
+        handoverFilter = nextFilter;
+        document.querySelectorAll("[data-handover-attention-filter]").forEach((chip) => {
+          const active = chip === button;
+          chip.classList.toggle("active", active);
+          chip.setAttribute("aria-pressed", String(active));
+        });
+        loadAttentionHandovers(true);
       });
     });
 
@@ -1255,7 +1489,8 @@
         loadAttentionTasks(),
         loadActiveProcessingChart(),
         loadWeeklyIntakeChart(),
-        loadAttentionReminders(false)
+        loadAttentionReminders(false),
+        loadAttentionHandovers(false)
       ]);
     } catch (error) {
       showNotice("error", error.message || "Không tải được trang việc cần chú ý.");

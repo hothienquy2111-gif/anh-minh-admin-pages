@@ -9,10 +9,19 @@
     tableBody: document.getElementById("workflowTableBody"),
     cards: document.getElementById("workflowCards")
   };
+  const readyModal = {
+    backdrop: document.getElementById("readyHandoverModal"),
+    dialog: document.getElementById("readyHandoverDialog"),
+    cancel: document.getElementById("readyHandoverCancel"),
+    confirm: document.getElementById("readyHandoverConfirm")
+  };
 
   const WORKFLOW_MAX_ITEMS = 20;
   const WORKFLOW_PRE_REPAIR_STATUSES = ["mới nhận", "đang kiểm tra", "báo giá"];
   let workflowRequestId = 0;
+  let pendingReadyTicket = null;
+  let readyActionPending = false;
+  let readyModalReturnFocus = null;
 
   function showNotice(type, message) {
     if (!notice) {
@@ -83,6 +92,7 @@
       "đang kiểm tra": "status-checking",
       "báo giá": "status-quote",
       "đang sửa": "status-repairing",
+      "chờ bàn giao": "status-handover",
       "đã xong": "status-done",
       "đã trả": "status-returned",
       "huỷ": "status-cancelled"
@@ -92,15 +102,7 @@
   }
 
   function statusLabel(status) {
-    if (status === "đã trả") {
-      return "Đã hoàn thành";
-    }
-
-    if (status === "đã xong") {
-      return "Legacy đã xong";
-    }
-
-    return textOrDash(status);
+    return window.AMApi.formatTicketStatusLabel(status, "—");
   }
 
   function canStartRepair(ticket) {
@@ -109,9 +111,10 @@
       && !ticket.completed_at;
   }
 
-  function canPrintAndComplete(ticket) {
+  function canReadyForHandover(ticket) {
     return ticket.status === "đang sửa"
       && Boolean(ticket.repair_started_at)
+      && !ticket.ready_for_handover_at
       && !ticket.completed_at;
   }
 
@@ -158,7 +161,7 @@
 
   function workflowActivityText(ticket) {
     if (ticket.status === "đã trả") {
-      return "Đã hoàn thành";
+      return "Đã bàn giao";
     }
 
     if (ticket.status === "đã xong") {
@@ -167,6 +170,10 @@
 
     if (ticket.status === "đang sửa") {
       return "Đang sửa chữa";
+    }
+
+    if (ticket.status === "chờ bàn giao") {
+      return "Hoàn thành sửa chữa — đang chờ bàn giao";
     }
 
     if (ticket.status === "huỷ") {
@@ -226,6 +233,102 @@
     return link;
   }
 
+  function createWorkflowButton(label, primary, onClick) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `btn ${primary ? "primary" : "secondary"} compact workflow-action`;
+    button.textContent = label;
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function closeReadyModal(options) {
+    if (!readyModal.backdrop || readyActionPending) {
+      return;
+    }
+
+    readyModal.backdrop.hidden = true;
+    document.body.classList.remove("workflow-modal-open");
+    pendingReadyTicket = null;
+
+    if ((!options || options.returnFocus !== false) && readyModalReturnFocus) {
+      readyModalReturnFocus.focus();
+    }
+    readyModalReturnFocus = null;
+  }
+
+  function openReadyModal(ticket, trigger) {
+    if (!readyModal.backdrop || !ticket || readyActionPending) {
+      return;
+    }
+
+    pendingReadyTicket = ticket;
+    readyModalReturnFocus = trigger || document.activeElement;
+    readyModal.backdrop.hidden = false;
+    document.body.classList.add("workflow-modal-open");
+    readyModal.dialog.focus();
+  }
+
+  async function confirmReadyForHandover() {
+    const ticket = pendingReadyTicket;
+    const action = "READY_FOR_HANDOVER";
+
+    if (!ticket || readyActionPending) {
+      return;
+    }
+
+    readyActionPending = true;
+    readyModal.confirm.disabled = true;
+    readyModal.cancel.disabled = true;
+    readyModal.confirm.textContent = "Đang chuyển phiếu...";
+
+    try {
+      const clientRequestId = window.AMApi.ensureWorkflowClientRequestId(ticket.id, action);
+      const result = await window.AMApi.recordTicketWorkflowAction(ticket.id, action, clientRequestId);
+      window.AMApi.clearWorkflowClientRequestId(ticket.id, action);
+      readyActionPending = false;
+      closeReadyModal({ returnFocus: false });
+      showNotice(
+        "success",
+        result.was_replayed
+          ? "Phiếu đã được chuyển sang Bàn giao tivi trước đó."
+          : "Đã xác nhận sửa xong và chuyển phiếu sang Bàn giao tivi."
+      );
+      await loadWorkflowTickets();
+    } catch (error) {
+      if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
+        window.AMApi.clearWorkflowClientRequestId(ticket.id, action);
+      }
+      showNotice("error", error.message || "Không thể chuyển phiếu sang Bàn giao tivi.");
+    } finally {
+      readyActionPending = false;
+      readyModal.confirm.disabled = false;
+      readyModal.cancel.disabled = false;
+      readyModal.confirm.textContent = "Chuyển sang bàn giao";
+    }
+  }
+
+  function attachReadyModal() {
+    if (!readyModal.backdrop || readyModal.backdrop.dataset.ready === "true") {
+      return;
+    }
+
+    readyModal.backdrop.dataset.ready = "true";
+    readyModal.cancel.addEventListener("click", () => closeReadyModal());
+    readyModal.confirm.addEventListener("click", confirmReadyForHandover);
+    readyModal.backdrop.addEventListener("click", (event) => {
+      if (event.target === readyModal.backdrop) {
+        closeReadyModal();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !readyModal.backdrop.hidden) {
+        event.preventDefault();
+        closeReadyModal();
+      }
+    });
+  }
+
   function createWorkflowActions(ticket) {
     const actions = document.createElement("div");
     const code = encodeURIComponent(ticket.ticket_code || "");
@@ -236,8 +339,10 @@
 
     if (canStartRepair(ticket)) {
       actions.appendChild(createWorkflowLink("In tem & bắt đầu sửa chữa", `print-label.html?${ticketQuery}`, true));
-    } else if (canPrintAndComplete(ticket)) {
-      actions.appendChild(createWorkflowLink("In biên nhận & hoàn thành phiếu", `print-delivery-receipt.html?${ticketQuery}`, true));
+    } else if (canReadyForHandover(ticket)) {
+      let readyButton;
+      readyButton = createWorkflowButton("Hoàn thành sửa chữa", true, () => openReadyModal(ticket, readyButton));
+      actions.appendChild(readyButton);
       actions.appendChild(createWorkflowLink("Chỉ in lại tem", `print-label.html?${ticketQuery}`, false));
     } else if (canReprintReceipt(ticket)) {
       actions.appendChild(createWorkflowLink("Chỉ in lại biên nhận", `print-delivery-receipt.html?${ticketQuery}`, false));
@@ -451,6 +556,7 @@
 
   async function initTicketActivity() {
     attachLogout();
+    attachReadyModal();
 
     try {
       const access = await window.AMApi.requireInternalAccess();

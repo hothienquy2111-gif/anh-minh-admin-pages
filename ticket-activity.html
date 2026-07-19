@@ -76,6 +76,28 @@
             <div id="workflowCards" class="workflow-cards"></div>
           </div>
         </section>
+
+        <div id="readyHandoverModal" class="workflow-confirm-backdrop" hidden>
+          <section
+            id="readyHandoverDialog"
+            class="workflow-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="readyHandoverTitle"
+            aria-describedby="readyHandoverDescription"
+            tabindex="-1"
+          >
+            <h2 id="readyHandoverTitle">Hoàn thành sửa chữa?</h2>
+            <p id="readyHandoverDescription">Tivi sẽ được chuyển sang khu Bàn giao tivi. Thao tác này chưa đánh dấu khách đã nhận máy và chưa hoàn tất phiếu.</p>
+            <ul class="workflow-confirm-list">
+              <li>Thời gian chờ bàn giao bắt đầu ngay sau khi xác nhận.</li>
+            </ul>
+            <div class="workflow-confirm-actions">
+              <button id="readyHandoverCancel" class="btn secondary" type="button">Hủy</button>
+              <button id="readyHandoverConfirm" class="btn primary" type="button">Chuyển sang bàn giao</button>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
 

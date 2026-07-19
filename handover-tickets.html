@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bàn giao tivi - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css">
+  </head>
+  <body class="handover-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main handover-main">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Bàn giao tivi</h1>
+            <p class="page-subtitle">Danh sách tivi đã sửa xong và đang chờ giao hoặc khách đến nhận.</p>
+          </div>
+          <span class="status-pill">Nội bộ</span>
+        </div>
+
+        <div id="handoverNotice" class="notice" role="status" aria-live="polite"></div>
+
+        <section class="handover-summary-grid" aria-label="Tổng quan chờ bàn giao">
+          <article class="handover-summary-card">
+            <span>Đang chờ bàn giao</span>
+            <strong id="handoverCountAll">0</strong>
+            <small>Tất cả tivi đã sửa xong</small>
+          </article>
+          <article class="handover-summary-card normal">
+            <span>Dưới 24 giờ</span>
+            <strong id="handoverCountUnder24">0</strong>
+            <small>Trong thời gian xử lý bình thường</small>
+          </article>
+          <article class="handover-summary-card warning">
+            <span>Từ 24 đến 48 giờ</span>
+            <strong id="handoverCountWarning">0</strong>
+            <small>Cần chủ động liên hệ bàn giao</small>
+          </article>
+          <article class="handover-summary-card danger">
+            <span>Quá 48 giờ</span>
+            <strong id="handoverCountOver48">0</strong>
+            <small>Cần xử lý ưu tiên</small>
+          </article>
+        </section>
+
+        <section id="handoverSection" class="dashboard-section handover-section" aria-labelledby="handoverListTitle">
+          <div class="dashboard-section-header">
+            <div>
+              <h2 id="handoverListTitle" class="section-title">Danh sách chờ bàn giao</h2>
+              <p class="section-description">Phiếu chờ lâu nhất được xếp trước; thời gian tính từ lúc kỹ thuật xác nhận sửa xong.</p>
+            </div>
+          </div>
+
+          <div class="handover-toolbar">
+            <form id="handoverSearchForm" class="handover-search-form">
+              <label class="sr-only" for="handoverSearchInput">Tìm trong danh sách chờ bàn giao</label>
+              <div class="handover-search-box">
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <input
+                  id="handoverSearchInput"
+                  type="search"
+                  inputmode="search"
+                  autocomplete="off"
+                  placeholder="Tìm mã AM, mã KH, tên, SĐT, hãng, model hoặc serial…"
+                >
+              </div>
+              <button id="handoverClearButton" class="btn secondary compact" type="button">Xóa</button>
+            </form>
+            <div id="handoverFilterChips" class="handover-filter-chips" aria-label="Lọc thời gian chờ bàn giao"></div>
+          </div>
+
+          <div id="handoverState" class="list-state loading" role="status" aria-live="polite">
+            Đang tải danh sách bàn giao tivi...
+          </div>
+
+          <div id="handoverContent" class="handover-content" hidden>
+            <p id="handoverListSummary" class="list-summary"></p>
+
+            <div class="handover-table-wrap">
+              <table class="handover-table">
+                <thead>
+                  <tr>
+                    <th>Cảnh báo</th>
+                    <th>Mã phiếu</th>
+                    <th>Khách hàng</th>
+                    <th>Số điện thoại</th>
+                    <th>Hãng / Model</th>
+                    <th>Sửa xong lúc</th>
+                    <th>Thời gian chờ</th>
+                    <th>Tình trạng</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody id="handoverTableBody"></tbody>
+              </table>
+            </div>
+
+            <div id="handoverCards" class="handover-cards"></div>
+            <nav id="handoverPagination" class="pagination" aria-label="Phân trang tivi chờ bàn giao"></nav>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui-feedback.js"></script>
+    <script src="js/handover-tickets.js"></script>
+    <script src="js/admin-navigation.js"></script>
+    <script src="js/back-navigation.js"></script>
+  </body>
+</html>

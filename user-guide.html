@@ -131,18 +131,19 @@
                 <span>Tiếp nhận khách và tạo phiếu</span>
                 <span>In tem và bắt đầu sửa</span>
                 <span>Theo dõi tiến độ</span>
-                <span>In biên nhận và hoàn thành phiếu</span>
+                <span>Chuyển sang Bàn giao tivi</span>
+                <span>In biên nhận và hoàn tất bàn giao</span>
                 <span>Lưu bảo hành</span>
                 <span>Tra cứu hoặc in lại khi cần</span>
               </div>
               <div class="guide-callout info">
                 <strong>Điểm cần nhớ:</strong>
-                <p>Tạo phiếu chưa có nghĩa là bắt đầu sửa. In tem lần đầu mới chuyển phiếu sang “đang sửa”. In biên nhận và hoàn thành phiếu mới chuyển database sang “đã trả”.</p>
+                <p>Tạo phiếu chưa có nghĩa là bắt đầu sửa. In tem lần đầu mới chuyển phiếu sang “đang sửa”. Kỹ thuật xác nhận sửa xong để chuyển sang “chờ bàn giao”; chỉ khi giao/trả máy mới in biên nhận và chuyển database sang “đã trả”.</p>
               </div>
               <ul class="guide-check-list">
                 <li>In lại tem không reset thời điểm bắt đầu sửa.</li>
                 <li>In lại biên nhận không tính lại ngày bảo hành.</li>
-                <li>Bốn thao tác workflow hiện tại là: START_REPAIR, REPRINT_LABEL, PRINT_AND_COMPLETE, REPRINT_RECEIPT.</li>
+                <li>Năm thao tác workflow hiện tại là: START_REPAIR, REPRINT_LABEL, READY_FOR_HANDOVER, PRINT_AND_COMPLETE, REPRINT_RECEIPT.</li>
               </ul>
             </section>
 
@@ -261,14 +262,14 @@
 
             <section id="guide-complete-receipt" class="user-guide-section" data-guide-section data-guide-keywords="in biên nhận hoàn thành phiếu PRINT_AND_COMPLETE đã trả giao khách bảo hành delivery_date warranty">
               <p class="guide-kicker">Giao trả</p>
-              <h2>10. In biên nhận và hoàn thành phiếu</h2>
+              <h2>10. In biên nhận và hoàn tất bàn giao</h2>
               <ol class="guide-step-list">
                 <li>Chỉ thực hiện khi thiết bị đang được giao/trả khách.</li>
                 <li>Mở biên nhận.</li>
                 <li>Kiểm tra ngày giao/trả.</li>
                 <li>Chọn hoặc nhập chính sách bảo hành.</li>
                 <li>Kiểm tra nội dung bảo hành.</li>
-                <li>Bấm “In biên nhận &amp; hoàn thành phiếu”.</li>
+                <li>Bấm “In biên nhận &amp; hoàn tất bàn giao”.</li>
                 <li>Chờ RPC thành công, sau đó Print Preview mới mở.</li>
                 <li>In cho khách kiểm tra và ký.</li>
               </ol>
@@ -338,12 +339,12 @@
               <p class="guide-kicker">Báo cáo nhanh</p>
               <h2>15. Tổng quan và biểu đồ</h2>
               <h3>Tiến độ xử lý hiện tại</h3>
-              <p>Hiển thị mới nhận, đang kiểm tra, đang sửa và các mức quá thời gian nếu có. Không tính phiếu đã hoàn thành vào tiến độ hiện tại.</p>
+              <p>Hiển thị mới nhận, đang kiểm tra, đang sửa và các mức quá thời gian nếu có. Không tính phiếu đã bàn giao vào tiến độ hiện tại.</p>
               <h3>Phiếu tiếp nhận trong tuần</h3>
-              <p>Tính theo ngày nhận phiếu từ Thứ Hai đến Chủ Nhật. Phiếu đã hoàn thành vẫn được tính vào ngày đã tiếp nhận, không dùng ngày hoàn thành để vẽ biểu đồ.</p>
+              <p>Tính theo ngày nhận phiếu từ Thứ Hai đến Chủ Nhật. Phiếu đã bàn giao vẫn được tính vào ngày đã tiếp nhận, không dùng ngày bàn giao để vẽ biểu đồ.</p>
             </section>
 
-            <section id="guide-statuses" class="user-guide-section" data-guide-section data-guide-keywords="trạng thái phiếu mới nhận đang kiểm tra báo giá đang sửa đã hoàn thành đã trả huỷ legacy">
+            <section id="guide-statuses" class="user-guide-section" data-guide-section data-guide-keywords="trạng thái phiếu mới nhận đang kiểm tra báo giá đang sửa bàn giao tivi đã bàn giao đã trả huỷ legacy">
               <p class="guide-kicker">Trạng thái</p>
               <h2>16. Các trạng thái phiếu</h2>
               <div class="guide-table-wrap">
@@ -359,7 +360,8 @@
                     <tr><td>Đang kiểm tra</td><td>Đang xác định lỗi.</td></tr>
                     <tr><td>Báo giá</td><td>Đang chờ hoặc thực hiện báo giá.</td></tr>
                     <tr><td>Đang sửa</td><td>Đã in tem lần đầu và bắt đầu sửa.</td></tr>
-                    <tr><td>Đã hoàn thành</td><td>Database là “đã trả”, thiết bị đã hoàn tất giao/trả.</td></tr>
+                    <tr><td>Bàn giao tivi</td><td>Database là “chờ bàn giao”, thiết bị đã sửa xong nhưng khách chưa nhận hoặc cửa hàng chưa giao.</td></tr>
+                    <tr><td>Đã bàn giao</td><td>Database là “đã trả”, thiết bị đã hoàn tất giao/trả.</td></tr>
                     <tr><td>Huỷ</td><td>Phiếu không tiếp tục xử lý.</td></tr>
                   </tbody>
                 </table>

@@ -170,10 +170,22 @@
     });
   }
 
+  function refreshHandoverReason(task, reason) {
+    if (!reason || reason.type !== "HANDOVER_OVERDUE" || !task.readyForHandoverAt) {
+      return reason;
+    }
+
+    const overdueMinutes = Math.max(0, minutesSince(task.readyForHandoverAt) - (48 * 60));
+    return Object.assign({}, reason, {
+      label: "Quá 48 giờ",
+      description: `Chờ bàn giao quá ${formatAgeMinutes(overdueMinutes)}`
+    });
+  }
+
   function refreshAttentionTask(task) {
     const ageMinutes = minutesSince(task.attentionStartedAt);
     const priority = priorityFromAge(ageMinutes);
-    const reasons = (task.reasons || []).map((reason) => refreshRepairReason(task, reason));
+    const reasons = (task.reasons || []).map((reason) => refreshHandoverReason(task, refreshRepairReason(task, reason)));
 
     return Object.assign({}, task, priority, {
       ageMinutes,
@@ -209,6 +221,7 @@
       "đang kiểm tra": "status-checking",
       "báo giá": "status-quote",
       "đang sửa": "status-repairing",
+      "chờ bàn giao": "status-handover",
       "đã xong": "status-done",
       "đã trả": "status-returned",
       "huỷ": "status-cancelled"
@@ -218,21 +231,14 @@
   }
 
   function statusLabel(status) {
-    if (status === "đã trả") {
-      return "Đã hoàn thành";
-    }
-
-    if (status === "đã xong") {
-      return "Legacy đã xong";
-    }
-
-    return textOrDash(status);
+    return window.AMApi.formatTicketStatusLabel(status, "—");
   }
 
   function ticketTime(ticket) {
     return Math.max(
       parseTime(ticket.last_activity_at),
       parseTime(ticket.completed_at),
+      parseTime(ticket.ready_for_handover_at),
       parseTime(ticket.repair_started_at),
       parseTime(ticket.created_at),
       parseTime(ticket.received_date)
@@ -507,7 +513,11 @@
 
   function activityReason(ticket) {
     if (ticket.completed_at) {
-      return "Đã hoàn thành phiếu";
+      return "Đã bàn giao phiếu";
+    }
+
+    if (ticket.ready_for_handover_at) {
+      return "Hoàn thành sửa chữa — đang chờ bàn giao";
     }
 
     if (ticket.repair_started_at) {
@@ -591,6 +601,7 @@
       repairOverdue72: 0,
       needsInspection: 0,
       deliveryToday: 0,
+      handoverOverdue48: 0,
       repairing: 0
     };
 

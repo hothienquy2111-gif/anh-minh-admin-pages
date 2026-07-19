@@ -119,7 +119,7 @@
     const formatLabel = getCurrentFormatLabel();
 
     if (currentWorkflowAction === "PRINT_AND_COMPLETE") {
-      printButton.textContent = `In biên nhận ${formatLabel} & hoàn thành phiếu`;
+      printButton.textContent = `In biên nhận ${formatLabel} & hoàn tất bàn giao`;
       return;
     }
 
@@ -727,8 +727,9 @@
   }
 
   function canPrintAndComplete(ticket) {
-    return ticket.status === "đang sửa"
+    return ticket.status === "chờ bàn giao"
       && Boolean(ticket.repair_started_at)
+      && Boolean(ticket.ready_for_handover_at)
       && !ticket.completed_at;
   }
 
@@ -751,7 +752,7 @@
     if (canPrintAndComplete(ticket)) {
       currentWorkflowAction = "PRINT_AND_COMPLETE";
       updatePrintButtonText();
-      setWorkflowHint("Chỉ bấm khi thiết bị đang được giao/trả cho khách. RPC thành công mới mở Print Preview và lưu thông tin bảo hành.");
+      setWorkflowHint("Chỉ xác nhận khi khách đã nhận hoặc cửa hàng đã giao tivi. RPC thành công mới lưu bảo hành, chuyển sang Đã bàn giao và mở Print Preview.");
       return;
     }
 
@@ -765,7 +766,7 @@
 
     printButton.disabled = true;
     printButton.textContent = "Chưa đủ điều kiện in";
-    setWorkflowHint("Phiếu chưa bắt đầu sửa hoặc dữ liệu workflow cũ chưa đầy đủ. Vui lòng kiểm tra lại trước khi in biên nhận.");
+    setWorkflowHint("Phiếu phải được kỹ thuật xác nhận Hoàn thành sửa chữa và chuyển sang Bàn giao tivi trước khi hoàn tất bàn giao.");
   }
 
   async function runWorkflowAndPrint() {
@@ -788,7 +789,10 @@
 
     if (
       action === "PRINT_AND_COMPLETE"
-      && !window.confirm("Chỉ tiếp tục khi đang giao/trả thiết bị cho khách.\nThao tác này sẽ lưu thông tin bảo hành và hoàn thành phiếu.")
+      && !window.confirm(
+        "Xác nhận khách đã nhận hoặc cửa hàng đã giao tivi?\n\n"
+        + "Sau khi cập nhật thành công, biên nhận sẽ được mở để in và phiếu chuyển sang Đã bàn giao."
+      )
     ) {
       return;
     }
@@ -807,6 +811,7 @@
       currentTicket = Object.assign({}, currentTicket, {
         status: result.status,
         repair_started_at: result.repair_started_at,
+        ready_for_handover_at: result.ready_for_handover_at,
         completed_at: result.completed_at,
         last_activity_at: result.last_activity_at || result.activity_created_at,
         delivery_date: result.delivery_date,

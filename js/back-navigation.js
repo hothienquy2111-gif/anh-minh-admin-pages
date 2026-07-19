@@ -9,6 +9,7 @@
 
   const ALLOWED_BACK_TARGET_PAGES = new Set([
     "ticket-activity.html",
+    "handover-tickets.html",
     "appointment-reminders.html",
     "user-guide.html",
     "repairing-tickets.html",
@@ -25,6 +26,7 @@
 
   const FALLBACKS = {
     "ticket-activity.html": "dashboard.html",
+    "handover-tickets.html": "dashboard.html",
     "appointment-reminders.html": "dashboard.html",
     "user-guide.html": "dashboard.html",
     "repairing-tickets.html": "dashboard.html",

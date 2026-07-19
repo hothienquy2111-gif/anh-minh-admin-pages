@@ -53,6 +53,7 @@
       "đang kiểm tra": "status-checking",
       "báo giá": "status-quote",
       "đang sửa": "status-repairing",
+      "chờ bàn giao": "status-handover",
       "đã xong": "status-done",
       "đã trả": "status-returned",
       "huỷ": "status-cancelled"
@@ -62,15 +63,7 @@
   }
 
   function statusLabel(status) {
-    if (status === "đã trả") {
-      return "Đã hoàn thành";
-    }
-
-    if (status === "đã xong") {
-      return "Legacy đã xong";
-    }
-
-    return textOrDash(status);
+    return window.AMApi.formatTicketStatusLabel(status, "—");
   }
 
   function createCell(text, className) {

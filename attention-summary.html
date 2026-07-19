@@ -128,6 +128,10 @@
               <span>Giao/trả hôm nay</span>
               <strong id="attentionCountDelivery">0</strong>
             </button>
+            <button class="attention-chip" type="button" data-filter="HANDOVER_OVERDUE" aria-pressed="false">
+              <span>Bàn giao quá 48 giờ</span>
+              <strong id="attentionCountHandover">0</strong>
+            </button>
           </div>
 
           <div id="attentionTaskState" class="list-state loading" role="status" aria-live="polite">
@@ -168,6 +172,38 @@
           <div id="attentionReminderState" class="list-state loading" role="status" aria-live="polite">Đang tải lịch hẹn…</div>
           <div id="attentionReminderList" class="attention-reminder-list" hidden></div>
           <nav id="attentionReminderPagination" class="attention-pagination pagination" aria-label="Phân trang lịch hẹn cần làm" hidden></nav>
+        </section>
+
+        <section id="attentionHandoverSection" class="attention-card attention-handover-section" aria-labelledby="attentionHandoverTitle">
+          <div class="attention-card-header attention-handover-header">
+            <div>
+              <h2 id="attentionHandoverTitle" class="section-title">Bàn giao tivi</h2>
+              <p id="attentionHandoverSummary" class="section-description">Các tivi đã sửa xong và đang chờ khách nhận hoặc cửa hàng giao.</p>
+            </div>
+            <a class="btn secondary compact" href="handover-tickets.html">Quản lý bàn giao</a>
+          </div>
+
+          <div class="attention-chip-grid attention-handover-chips" aria-label="Lọc tivi chờ bàn giao">
+            <button class="attention-chip active" type="button" data-handover-attention-filter="all" aria-pressed="true">
+              <span>Tất cả</span>
+              <strong id="attentionHandoverCountAll">0</strong>
+            </button>
+            <button class="attention-chip" type="button" data-handover-attention-filter="under24" aria-pressed="false">
+              <span>Dưới 24 giờ</span>
+              <strong id="attentionHandoverCountUnder24">0</strong>
+            </button>
+            <button class="attention-chip attention-handover-chip--warning" type="button" data-handover-attention-filter="warning" aria-pressed="false">
+              <span>Từ 24–48 giờ</span>
+              <strong id="attentionHandoverCountWarning">0</strong>
+            </button>
+            <button class="attention-chip attention-handover-chip--danger" type="button" data-handover-attention-filter="over48" aria-pressed="false">
+              <span>Quá 48 giờ</span>
+              <strong id="attentionHandoverCountOver48">0</strong>
+            </button>
+          </div>
+
+          <div id="attentionHandoverState" class="list-state loading" role="status" aria-live="polite">Đang tải danh sách bàn giao…</div>
+          <div id="attentionHandoverList" class="attention-handover-list" hidden></div>
         </section>
       </main>
     </div>

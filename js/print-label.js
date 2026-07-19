@@ -296,6 +296,7 @@
       currentTicket = Object.assign({}, currentTicket, {
         status: result.status,
         repair_started_at: result.repair_started_at,
+        ready_for_handover_at: result.ready_for_handover_at,
         completed_at: result.completed_at,
         last_activity_at: result.activity_created_at,
         workflow_available: true

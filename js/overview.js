@@ -19,7 +19,8 @@
     { status: "mới nhận", label: "Mới nhận", description: "Phiếu vừa nhập vào hệ thống" },
     { status: "đang kiểm tra", label: "Đang kiểm tra", description: "Kỹ thuật đang kiểm tra lỗi" },
     { status: "báo giá", label: "Báo giá", description: "Đang chờ báo giá hoặc xác nhận" },
-    { status: "đang sửa", label: "Đang sửa", description: "Đang xử lý sửa chữa" }
+    { status: "đang sửa", label: "Đang sửa", description: "Đang xử lý sửa chữa" },
+    { status: "chờ bàn giao", label: "Bàn giao tivi", description: "Đã sửa xong, đang chờ giao hoặc khách đến nhận" }
   ];
 
   function showNotice(type, message) {

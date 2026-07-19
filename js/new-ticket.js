@@ -380,7 +380,7 @@
   function fillStatusOptions() {
     statusSelect.innerHTML = "";
 
-    window.AMApi.TICKET_STATUSES.forEach((status) => {
+    window.AMApi.CREATABLE_TICKET_STATUSES.forEach((status) => {
       const option = document.createElement("option");
       option.value = status;
       option.textContent = status;

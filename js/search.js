@@ -6,6 +6,7 @@
   const searchButton = document.getElementById("searchButton");
   const searchClear = document.getElementById("searchClear");
   const searchSuggestions = document.getElementById("searchSuggestions");
+  const searchStatusSelect = document.getElementById("searchStatusSelect");
   const searchYearSelect = document.getElementById("searchYearSelect");
   const exportExcelButton = document.getElementById("exportExcelButton");
   const exportStatus = document.getElementById("exportStatus");
@@ -39,6 +40,7 @@
   let listRequestId = 0;
   let currentPage = 1;
   let currentKeyword = "";
+  let currentStatus = "";
   let currentYear = "";
   let totalCount = 0;
   let totalPages = 1;
@@ -180,6 +182,87 @@
     }).format(date);
   }
 
+  function formatElapsedFrom(value) {
+    const startedAt = Date.parse(String(value || ""));
+
+    if (!Number.isFinite(startedAt)) {
+      return "";
+    }
+
+    const totalMinutes = Math.max(0, Math.floor((Date.now() - startedAt) / 60000));
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+      return `${days} ngày ${hours} giờ`;
+    }
+
+    if (hours > 0) {
+      return `${hours} giờ ${minutes} phút`;
+    }
+
+    return `${minutes} phút`;
+  }
+
+  function createTicketTimeline(ticket) {
+    const milestones = [];
+
+    if (ticket.repair_started_at) {
+      milestones.push({
+        label: "Bắt đầu sửa",
+        detail: formatDateTime(ticket.repair_started_at)
+      });
+    }
+
+    if (ticket.ready_for_handover_at) {
+      milestones.push({
+        label: "Hoàn thành sửa chữa",
+        detail: formatDateTime(ticket.ready_for_handover_at)
+      });
+    }
+
+    if (ticket.status === "chờ bàn giao" && ticket.ready_for_handover_at) {
+      milestones.push({
+        label: "Đang chờ bàn giao",
+        detail: `Đã chờ ${formatElapsedFrom(ticket.ready_for_handover_at)}`
+      });
+    }
+
+    if (ticket.status === "đã trả" && ticket.completed_at && ticket.ready_for_handover_at) {
+      milestones.push({
+        label: "Đã bàn giao cho khách",
+        detail: formatDateTime(ticket.completed_at)
+      });
+    }
+
+    if (milestones.length === 0) {
+      return null;
+    }
+
+    const timeline = document.createElement("div");
+    timeline.className = "search-ticket-timeline";
+    timeline.setAttribute("aria-label", "Tiến trình phiếu");
+
+    milestones.forEach((milestone) => {
+      const item = document.createElement("div");
+      const marker = document.createElement("span");
+      const content = document.createElement("div");
+      const label = document.createElement("strong");
+      const detail = document.createElement("small");
+      item.className = "search-ticket-timeline-item";
+      marker.className = "search-ticket-timeline-marker";
+      marker.setAttribute("aria-hidden", "true");
+      label.textContent = milestone.label;
+      detail.textContent = milestone.detail;
+      content.append(label, detail);
+      item.append(marker, content);
+      timeline.appendChild(item);
+    });
+
+    return timeline;
+  }
+
   function formatDateForExport(value) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
     return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
@@ -206,6 +289,7 @@
       "đang kiểm tra": "status-checking",
       "báo giá": "status-quote",
       "đang sửa": "status-repairing",
+      "chờ bàn giao": "status-handover",
       "đã xong": "status-done",
       "đã trả": "status-returned",
       "huỷ": "status-cancelled"
@@ -215,15 +299,7 @@
   }
 
   function statusLabel(status) {
-    if (status === "đã trả") {
-      return "Đã hoàn thành";
-    }
-
-    if (status === "đã xong") {
-      return "Legacy đã xong";
-    }
-
-    return status || "Chưa có trạng thái";
+    return window.AMApi.formatTicketStatusLabel(status, "Chưa có trạng thái");
   }
 
   function setSuggestionsExpanded(isExpanded) {
@@ -424,9 +500,16 @@
       && !ticket.completed_at;
   }
 
-  function canPrintAndComplete(ticket) {
+  function canReadyForHandover(ticket) {
     return ticket.status === "đang sửa"
       && Boolean(ticket.repair_started_at)
+      && !ticket.ready_for_handover_at
+      && !ticket.completed_at;
+  }
+
+  function canCompleteHandover(ticket) {
+    return ticket.status === "chờ bàn giao"
+      && Boolean(ticket.ready_for_handover_at)
       && !ticket.completed_at;
   }
 
@@ -464,8 +547,14 @@
       return;
     }
 
-    if (canPrintAndComplete(ticket)) {
-      actions.appendChild(createActionLink("In biên nhận & hoàn thành phiếu", `print-delivery-receipt.html?${ticketQuery}`, true));
+    if (canReadyForHandover(ticket)) {
+      actions.appendChild(createActionLink("Hoàn thành sửa chữa", `ticket-activity.html?${ticketQuery}`, true));
+      actions.appendChild(createActionLink("Chỉ in lại tem", `print-label.html?${ticketQuery}`, false));
+      return;
+    }
+
+    if (canCompleteHandover(ticket)) {
+      actions.appendChild(createActionLink("Mở Bàn giao tivi", `handover-tickets.html?${ticketQuery}`, true));
       actions.appendChild(createActionLink("Chỉ in lại tem", `print-label.html?${ticketQuery}`, false));
       return;
     }
@@ -582,6 +671,10 @@
       }
 
       row.append(identity, facts, condition, actions);
+      const timeline = createTicketTimeline(ticket);
+      if (timeline) {
+        row.appendChild(timeline);
+      }
       resultsList.appendChild(row);
     });
   }
@@ -705,6 +798,7 @@
       const result = await window.AMApi.getTicketsPage({
         query: currentKeyword,
         year: currentYear,
+        status: currentStatus,
         page: currentPage,
         pageSize: PAGE_SIZE
       });
@@ -792,6 +886,8 @@
 
       currentYear = "all";
       searchYearSelect.value = "all";
+      currentStatus = "";
+      searchStatusSelect.value = "";
       searchInput.value = first.customer_code || first.customer_phone || first.customer_name || "";
       updateSearchClearVisibility();
       await performSearch(searchInput.value);
@@ -845,6 +941,7 @@
       { header: "Tình trạng ngoại quan", field: "external_condition", width: 30 },
       { header: "Trạng thái", field: "status", width: 18, value: (ticket) => statusLabel(ticket.status) },
       { header: "Thời điểm bắt đầu sửa", field: "repair_started_at", width: 22, value: (ticket) => formatDateTime(ticket.repair_started_at) },
+      { header: "Hoàn thành sửa chữa", field: "ready_for_handover_at", width: 22, value: (ticket) => formatDateTime(ticket.ready_for_handover_at) },
       { header: "Ngày giao/trả", field: "delivery_date", width: 16, value: (ticket) => formatDateForExport(ticket.delivery_date) },
       { header: "Giá dự kiến", field: "estimated_price", width: 16, type: "money", value: (ticket) => numericValue(ticket.estimated_price) },
       { header: "Tiền cọc", field: "deposit_amount", width: 16, type: "money", value: (ticket) => numericValue(ticket.deposit_amount) },
@@ -973,6 +1070,7 @@
         const batch = await window.AMApi.getTicketsForExport({
           query: currentKeyword,
           year: currentYear,
+          status: currentStatus,
           offset,
           limit: EXPORT_BATCH_SIZE,
           includeCount: offset === 0
@@ -1216,6 +1314,27 @@
     searchYearSelect.value = currentYear;
   }
 
+  function populateStatusOptions() {
+    const statuses = Array.isArray(window.AMApi.TICKET_STATUSES)
+      ? window.AMApi.TICKET_STATUSES
+      : [];
+    const fragment = document.createDocumentFragment();
+    const allOption = document.createElement("option");
+    allOption.value = "";
+    allOption.textContent = "Tất cả trạng thái";
+    fragment.appendChild(allOption);
+
+    statuses.forEach((status) => {
+      const option = document.createElement("option");
+      option.value = status;
+      option.textContent = statusLabel(status);
+      fragment.appendChild(option);
+    });
+
+    searchStatusSelect.replaceChildren(fragment);
+    searchStatusSelect.value = currentStatus;
+  }
+
   function attachEvents() {
     searchForm.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -1237,6 +1356,13 @@
 
     searchYearSelect.addEventListener("change", function () {
       currentYear = searchYearSelect.value || currentVietnamYear();
+      currentPage = 1;
+      closeSuggestions();
+      loadTickets({ scroll: true });
+    });
+
+    searchStatusSelect.addEventListener("change", function () {
+      currentStatus = searchStatusSelect.value || "";
       currentPage = 1;
       closeSuggestions();
       loadTickets({ scroll: true });
@@ -1345,6 +1471,7 @@
 
       currentYear = currentVietnamYear();
       populateYearOptions([]);
+      populateStatusOptions();
 
       try {
         populateYearOptions(await window.AMApi.getTicketYears());
@@ -1355,12 +1482,22 @@
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
       const customerId = params.get("customer_id");
+      const requestedStatus = params.get("status");
+
+      if (window.AMApi.TICKET_STATUSES.includes(requestedStatus)) {
+        currentStatus = requestedStatus;
+        searchStatusSelect.value = currentStatus;
+      }
 
       if (customerId) {
+        currentStatus = "";
+        searchStatusSelect.value = "";
         currentYear = "all";
         searchYearSelect.value = "all";
         await loadCustomerHistory(customerId);
       } else if (code) {
+        currentStatus = "";
+        searchStatusSelect.value = "";
         currentYear = "all";
         searchYearSelect.value = "all";
         searchInput.value = code;
