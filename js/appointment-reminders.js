@@ -245,7 +245,7 @@
     trigger.type = "button";
     trigger.className = "appointment-more-trigger";
     trigger.textContent = "⋯";
-    trigger.setAttribute("aria-label", `Mở thêm thao tác cho ${textOrDash(reminder.ticket_code)}`);
+    trigger.setAttribute("aria-label", `Mở thêm thao tác cho ${window.AMApi.formatTicketCode(reminder.ticket_code)}`);
     trigger.setAttribute("aria-haspopup", "menu");
     trigger.setAttribute("aria-expanded", "false");
     trigger.dataset.reminderMenuTrigger = reminder.id;
@@ -308,8 +308,8 @@
     header.append(heading, badges);
 
     details.append(
-      createMeta("Mã phiếu", reminder.ticket_code, "appointment-code"),
-      createMeta("Mã khách", reminder.customer_code),
+      createMeta("Mã phiếu", window.AMApi.formatTicketCode(reminder.ticket_code), "appointment-code"),
+      createMeta("Mã khách", window.AMApi.formatCustomerCode(reminder.customer_code)),
       createMeta("Khách hàng", reminder.customer_name),
       createMeta("Số điện thoại", reminder.customer_phone),
       createMeta("Hãng / Model", formatDevice(reminder)),
@@ -463,7 +463,7 @@
       button.setAttribute("role", "option");
       button.dataset.searchValue = reminder.ticket_code || reminder.title || "";
       button.append(
-        createTextElement("strong", "", `${textOrDash(reminder.ticket_code)} · ${textOrDash(reminder.customer_code)} · ${textOrDash(reminder.customer_name)}`),
+        createTextElement("strong", "", `${window.AMApi.formatTicketCode(reminder.ticket_code)} · ${window.AMApi.formatCustomerCode(reminder.customer_code)} · ${textOrDash(reminder.customer_name)}`),
         createTextElement("span", "", `${textOrDash(formatDevice(reminder))} · ${textOrDash(reminder.title)}`)
       );
       searchSuggestions.appendChild(button);
@@ -603,11 +603,11 @@
       selectedTicket.hidden = true;
       return;
     }
-    const title = createTextElement("strong", "", textOrDash(ticket.ticket_code));
+    const title = createTextElement("strong", "", window.AMApi.formatTicketCode(ticket.ticket_code));
     const details = createTextElement(
       "span",
       "",
-      `${textOrDash(ticket.customer_code)} · ${textOrDash(ticket.customer_name)} · ${textOrDash(ticket.brand || ticket.model ? [ticket.brand, ticket.model].filter(Boolean).join(" ") : "")}`
+      `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${textOrDash(ticket.customer_name)} · ${textOrDash(ticket.brand || ticket.model ? [ticket.brand, ticket.model].filter(Boolean).join(" ") : "")}`
     );
     selectedTicket.append(title, details);
     selectedTicket.hidden = false;
@@ -616,7 +616,7 @@
   function selectTicket(ticket) {
     selectedTicketData = ticket;
     form.elements.ticket_id.value = ticket.id || "";
-    ticketSearch.value = ticket.ticket_code || "";
+    ticketSearch.value = window.AMApi.formatTicketCode(ticket.ticket_code);
     form.elements.customer_phone.value = ticket.customer_phone || (ticket.customer && ticket.customer.phone) || "";
     ticketSuggestions.hidden = true;
     ticketSuggestions.replaceChildren();
@@ -638,7 +638,7 @@
       button.setAttribute("role", "option");
       button.dataset.ticketId = ticket.id;
       button.append(
-        createTextElement("strong", "", textOrDash(ticket.ticket_code)),
+        createTextElement("strong", "", window.AMApi.formatTicketCode(ticket.ticket_code)),
         createTextElement("span", "", `${textOrDash(ticket.customer_name)} · ${textOrDash(ticket.customer_phone)} · ${textOrDash(ticket.model)}`)
       );
       ticketSuggestions.appendChild(button);
@@ -770,7 +770,7 @@
     const schedule = vietnamDateTimeParts(reminder.scheduled_at);
     form.elements.date.value = schedule.date;
     form.elements.time.value = schedule.time;
-    ticketSearch.value = reminder.ticket_code || "";
+    ticketSearch.value = window.AMApi.formatTicketCode(reminder.ticket_code);
     ticketSearch.disabled = true;
     ticketSearchGroup.hidden = true;
     renderSelectedTicket(selectedTicketData);
@@ -869,7 +869,7 @@
     }
     try {
       await window.AMApi.completeTicketReminder(reminder);
-      showSuccess(`Đã hoàn thành lịch hẹn của ${textOrDash(reminder.ticket_code)}.`);
+      showSuccess(`Đã hoàn thành lịch hẹn của ${window.AMApi.formatTicketCode(reminder.ticket_code)}.`);
       await Promise.allSettled([loadSummary(), loadReminders()]);
     } catch (error) {
       showNotice(notice, "error", error.message);

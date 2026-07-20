@@ -161,7 +161,7 @@
   }
 
   function customerCode(ticket) {
-    return firstText(ticket.customer_code);
+    return window.AMApi.formatCustomerCode(ticket.customer_code);
   }
 
   function statusLabel(status) {
@@ -333,7 +333,7 @@
     const option = document.createElement("button");
     const main = createEl("span", "warranty-suggestion-main");
     const sub = createEl("span", "warranty-suggestion-sub");
-    const ticketCode = textOrDash(ticket.ticket_code);
+    const ticketCode = window.AMApi.formatTicketCode(ticket.ticket_code);
     const name = customerName(ticket);
     const device = joinVisibleParts(ticket.brand, ticket.model);
     const phone = maskPhone(customerPhone(ticket));
@@ -428,7 +428,9 @@
   }
 
   function selectSuggestion(ticket) {
-    const value = String((ticket && ticket.ticket_code) || "").trim() || input.value.trim();
+    const value = window.AMApi.formatTicketCode(ticket && ticket.ticket_code) !== "—"
+      ? window.AMApi.formatTicketCode(ticket.ticket_code)
+      : input.value.trim();
 
     if (!value) {
       return;
@@ -587,8 +589,8 @@
     const card = createEl("article", "warranty-card");
     const top = createEl("div", "warranty-card-top");
     const title = createEl("div", "warranty-card-title");
-    const code = createEl("strong", "", textOrDash(ticket.ticket_code));
-    const customer = createEl("span", "", `${textOrDash(customerCode(ticket))} · ${textOrDash(customerName(ticket))}`);
+    const code = createEl("strong", "", window.AMApi.formatTicketCode(ticket.ticket_code));
+    const customer = createEl("span", "", `${customerCode(ticket)} · ${textOrDash(customerName(ticket))}`);
     const status = warrantyStatus(ticket);
     const warrantyBadge = createBadge(status.label, `warranty-status-badge ${status.className}`);
     const ticketStatus = createBadge(statusLabel(ticket.status), `status-pill ${statusClass(ticket.status)}`.trim());

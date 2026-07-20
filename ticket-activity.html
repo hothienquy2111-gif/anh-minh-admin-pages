@@ -45,8 +45,23 @@
           <div class="dashboard-section-header">
             <div>
               <h2 id="workflowTitle" class="section-title">Hoạt động của phiếu</h2>
-              <p class="section-description">Danh sách phiếu đang sửa hoặc đang chờ bắt đầu sửa theo đúng workflow hiện tại.</p>
+              <p class="section-description">Danh sách phiếu đang sửa theo đúng workflow hiện tại, ưu tiên phiếu đã chờ lâu.</p>
             </div>
+          </div>
+
+          <div class="ticket-activity-toolbar">
+            <form id="workflowSearchForm" class="ticket-activity-search" role="search">
+              <label class="sr-only" for="workflowSearchInput">Tìm phiếu đang sửa</label>
+              <input
+                id="workflowSearchInput"
+                type="search"
+                autocomplete="off"
+                placeholder="Tìm mã AM, mã KH, tên, SĐT, hãng, model hoặc serial..."
+              >
+              <button id="workflowSearchButton" class="btn primary" type="submit">Tìm</button>
+              <button id="workflowSearchClear" class="btn secondary" type="button">Xóa</button>
+            </form>
+            <span id="workflowRefreshIndicator" class="ticket-activity-refresh" role="status" hidden>Đang cập nhật...</span>
           </div>
 
           <div id="workflowState" class="list-state loading" role="status" aria-live="polite">
@@ -54,6 +69,7 @@
           </div>
 
           <div id="workflowContent" class="workflow-content" hidden>
+            <p id="workflowListSummary" class="ticket-activity-list-summary" aria-live="polite"></p>
             <div class="workflow-table-wrap ticket-activity-table-wrap">
               <table class="workflow-table ticket-activity-table">
                 <thead>
@@ -74,30 +90,10 @@
             </div>
 
             <div id="workflowCards" class="workflow-cards"></div>
+            <nav id="workflowPagination" class="pagination ticket-activity-pagination" aria-label="Phân trang hoạt động phiếu"></nav>
           </div>
         </section>
 
-        <div id="readyHandoverModal" class="workflow-confirm-backdrop" hidden>
-          <section
-            id="readyHandoverDialog"
-            class="workflow-confirm-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="readyHandoverTitle"
-            aria-describedby="readyHandoverDescription"
-            tabindex="-1"
-          >
-            <h2 id="readyHandoverTitle">Hoàn thành sửa chữa?</h2>
-            <p id="readyHandoverDescription">Tivi sẽ được chuyển sang khu Bàn giao tivi. Thao tác này chưa đánh dấu khách đã nhận máy và chưa hoàn tất phiếu.</p>
-            <ul class="workflow-confirm-list">
-              <li>Thời gian chờ bàn giao bắt đầu ngay sau khi xác nhận.</li>
-            </ul>
-            <div class="workflow-confirm-actions">
-              <button id="readyHandoverCancel" class="btn secondary" type="button">Hủy</button>
-              <button id="readyHandoverConfirm" class="btn primary" type="button">Chuyển sang bàn giao</button>
-            </div>
-          </section>
-        </div>
       </main>
     </div>
 

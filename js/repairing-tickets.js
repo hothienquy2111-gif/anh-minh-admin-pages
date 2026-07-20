@@ -231,6 +231,25 @@
     return link;
   }
 
+  function createActionButton(label, ticket, primary) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `btn ${primary ? "primary" : "secondary"} compact repairing-action`;
+    button.textContent = label;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.AMUI.completeRepairInPlace({
+        ticketId: ticket.id,
+        expectedStatus: ticket.status,
+        button,
+        source: "repairing-tickets",
+        onSuccess: () => loadRepairingTickets(false)
+      });
+    });
+    return button;
+  }
+
   function createActions(ticket) {
     const actions = document.createElement("div");
     const query = ticketQuery(ticket);
@@ -240,9 +259,12 @@
     actions.append(
       createActionLink("Xem phiếu", `search.html${suffix}`, false),
       createActionLink("Mở Hoạt động phiếu", `ticket-activity.html${suffix}`, false),
-      createActionLink("Chỉ in lại tem", `print-label.html${suffix}`, false),
-      createActionLink("Hoàn thành sửa chữa", `ticket-activity.html${suffix}`, true)
+      createActionLink("Chỉ in lại tem", `print-label.html${suffix}`, false)
     );
+
+    if (ticket.status === "đang sửa" && ticket.repair_started_at && !ticket.completed_at) {
+      actions.appendChild(createActionButton("Hoàn thành sửa chữa", ticket, true));
+    }
     return actions;
   }
 
@@ -266,14 +288,14 @@
 
   function createTicketCell(ticket) {
     const cell = createCell("repairing-ticket-code");
-    appendTextLine(cell, "repairing-cell-strong", textOrDash(ticket.ticket_code));
+    appendTextLine(cell, "repairing-cell-strong", window.AMApi.formatTicketCode(ticket.ticket_code));
     cell.appendChild(createStatusBadge(ticket.status));
     return cell;
   }
 
   function createCustomerCell(ticket) {
     const cell = createCell("repairing-customer-cell");
-    appendTextLine(cell, "repairing-cell-strong", textOrDash(ticket.customer_code));
+    appendTextLine(cell, "repairing-cell-strong", window.AMApi.formatCustomerCode(ticket.customer_code));
     appendTextLine(cell, "repairing-cell-muted", textOrDash(customerName(ticket)));
     return cell;
   }
@@ -418,8 +440,8 @@
       meta.className = "repairing-card-meta";
       condition.className = "repairing-card-condition";
 
-      code.textContent = textOrDash(ticket.ticket_code);
-      customer.textContent = `${textOrDash(ticket.customer_code)} · ${textOrDash(customerName(ticket))}`;
+      code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
+      customer.textContent = `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${textOrDash(customerName(ticket))}`;
       condition.textContent = textOrDash(ticket.condition_text);
       title.append(code, customer);
       top.append(title, createDurationBadge(ticket));

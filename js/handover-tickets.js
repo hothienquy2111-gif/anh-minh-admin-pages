@@ -169,9 +169,9 @@
       row.dataset.ticketCode = ticket.ticket_code || "";
       row.className = `handover-row handover-row--${timing.level}`;
       alertCell.appendChild(createBadge(ticket));
-      appendLine(codeCell, "handover-cell-strong", ticket.ticket_code);
+      appendLine(codeCell, "handover-cell-strong", window.AMApi.formatTicketCode(ticket.ticket_code));
       appendLine(codeCell, "handover-cell-muted", "Bàn giao tivi");
-      appendLine(customerCell, "handover-cell-strong", ticket.customer_code);
+      appendLine(customerCell, "handover-cell-strong", window.AMApi.formatCustomerCode(ticket.customer_code));
       appendLine(customerCell, "handover-cell-muted", customerName(ticket));
       appendLine(deviceCell, "handover-cell-strong", [ticket.brand, ticket.model].filter(Boolean).join(" "));
       appendLine(deviceCell, "handover-cell-muted", ticket.device_type || "Tivi");
@@ -224,8 +224,8 @@
       title.className = "handover-card-title";
       meta.className = "handover-card-meta";
       condition.className = "handover-card-condition";
-      code.textContent = textOrDash(ticket.ticket_code);
-      customer.textContent = `${textOrDash(ticket.customer_code)} · ${textOrDash(customerName(ticket))}`;
+      code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
+      customer.textContent = `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${textOrDash(customerName(ticket))}`;
       title.append(code, customer);
       top.append(title, createBadge(ticket));
       meta.append(

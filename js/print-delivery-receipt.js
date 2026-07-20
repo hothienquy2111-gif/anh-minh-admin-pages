@@ -521,8 +521,8 @@
     const condition = ticket.condition_text;
 
     return {
-      ticketCode: ticket.ticket_code || "",
-      customerCode: ticket.customer_code,
+      ticketCode: window.AMApi.formatTicketCode(ticket.ticket_code),
+      customerCode: window.AMApi.formatCustomerCode(ticket.customer_code),
       customerName,
       customerPhone,
       customerAddress,

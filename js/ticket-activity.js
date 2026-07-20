@@ -4,24 +4,32 @@
   const notice = document.getElementById("ticketActivityNotice");
   const workflow = {
     section: document.getElementById("workflowSection"),
+    form: document.getElementById("workflowSearchForm"),
+    searchInput: document.getElementById("workflowSearchInput"),
+    searchButton: document.getElementById("workflowSearchButton"),
+    clearButton: document.getElementById("workflowSearchClear"),
+    refreshing: document.getElementById("workflowRefreshIndicator"),
     state: document.getElementById("workflowState"),
     content: document.getElementById("workflowContent"),
+    listSummary: document.getElementById("workflowListSummary"),
     tableBody: document.getElementById("workflowTableBody"),
-    cards: document.getElementById("workflowCards")
-  };
-  const readyModal = {
-    backdrop: document.getElementById("readyHandoverModal"),
-    dialog: document.getElementById("readyHandoverDialog"),
-    cancel: document.getElementById("readyHandoverCancel"),
-    confirm: document.getElementById("readyHandoverConfirm")
+    cards: document.getElementById("workflowCards"),
+    pagination: document.getElementById("workflowPagination")
   };
 
-  const WORKFLOW_MAX_ITEMS = 20;
-  const WORKFLOW_PRE_REPAIR_STATUSES = ["mới nhận", "đang kiểm tra", "báo giá"];
+  const PAGE_SIZE = 8;
+  const SEARCH_DELAY = 280;
+  const PRE_REPAIR_STATUSES = Array.isArray(window.AMApi && window.AMApi.PRE_REPAIR_STATUSES)
+    ? window.AMApi.PRE_REPAIR_STATUSES
+    : ["mới nhận", "đang kiểm tra", "báo giá"];
   let workflowRequestId = 0;
-  let pendingReadyTicket = null;
-  let readyActionPending = false;
-  let readyModalReturnFocus = null;
+  let totalCount = 0;
+  let totalPages = 1;
+  let searchTimer = null;
+  const state = {
+    page: 1,
+    keyword: ""
+  };
 
   function showNotice(type, message) {
     if (!notice) {
@@ -106,7 +114,7 @@
   }
 
   function canStartRepair(ticket) {
-    return WORKFLOW_PRE_REPAIR_STATUSES.includes(ticket.status)
+    return PRE_REPAIR_STATUSES.includes(ticket.status)
       && !ticket.repair_started_at
       && !ticket.completed_at;
   }
@@ -142,7 +150,7 @@
       };
     }
 
-    if (WORKFLOW_PRE_REPAIR_STATUSES.includes(ticket.status)) {
+    if (PRE_REPAIR_STATUSES.includes(ticket.status)) {
       return {
         rank: 3,
         className: "priority-neutral",
@@ -233,100 +241,23 @@
     return link;
   }
 
-  function createWorkflowButton(label, primary, onClick) {
+  function createWorkflowButton(label, primary, ticket, onSuccess) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `btn ${primary ? "primary" : "secondary"} compact workflow-action`;
     button.textContent = label;
-    button.addEventListener("click", onClick);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.AMUI.completeRepairInPlace({
+        ticketId: ticket.id,
+        expectedStatus: ticket.status,
+        button,
+        source: "ticket-activity",
+        onSuccess
+      });
+    });
     return button;
-  }
-
-  function closeReadyModal(options) {
-    if (!readyModal.backdrop || readyActionPending) {
-      return;
-    }
-
-    readyModal.backdrop.hidden = true;
-    document.body.classList.remove("workflow-modal-open");
-    pendingReadyTicket = null;
-
-    if ((!options || options.returnFocus !== false) && readyModalReturnFocus) {
-      readyModalReturnFocus.focus();
-    }
-    readyModalReturnFocus = null;
-  }
-
-  function openReadyModal(ticket, trigger) {
-    if (!readyModal.backdrop || !ticket || readyActionPending) {
-      return;
-    }
-
-    pendingReadyTicket = ticket;
-    readyModalReturnFocus = trigger || document.activeElement;
-    readyModal.backdrop.hidden = false;
-    document.body.classList.add("workflow-modal-open");
-    readyModal.dialog.focus();
-  }
-
-  async function confirmReadyForHandover() {
-    const ticket = pendingReadyTicket;
-    const action = "READY_FOR_HANDOVER";
-
-    if (!ticket || readyActionPending) {
-      return;
-    }
-
-    readyActionPending = true;
-    readyModal.confirm.disabled = true;
-    readyModal.cancel.disabled = true;
-    readyModal.confirm.textContent = "Đang chuyển phiếu...";
-
-    try {
-      const clientRequestId = window.AMApi.ensureWorkflowClientRequestId(ticket.id, action);
-      const result = await window.AMApi.recordTicketWorkflowAction(ticket.id, action, clientRequestId);
-      window.AMApi.clearWorkflowClientRequestId(ticket.id, action);
-      readyActionPending = false;
-      closeReadyModal({ returnFocus: false });
-      showNotice(
-        "success",
-        result.was_replayed
-          ? "Phiếu đã được chuyển sang Bàn giao tivi trước đó."
-          : "Đã xác nhận sửa xong và chuyển phiếu sang Bàn giao tivi."
-      );
-      await loadWorkflowTickets();
-    } catch (error) {
-      if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
-        window.AMApi.clearWorkflowClientRequestId(ticket.id, action);
-      }
-      showNotice("error", error.message || "Không thể chuyển phiếu sang Bàn giao tivi.");
-    } finally {
-      readyActionPending = false;
-      readyModal.confirm.disabled = false;
-      readyModal.cancel.disabled = false;
-      readyModal.confirm.textContent = "Chuyển sang bàn giao";
-    }
-  }
-
-  function attachReadyModal() {
-    if (!readyModal.backdrop || readyModal.backdrop.dataset.ready === "true") {
-      return;
-    }
-
-    readyModal.backdrop.dataset.ready = "true";
-    readyModal.cancel.addEventListener("click", () => closeReadyModal());
-    readyModal.confirm.addEventListener("click", confirmReadyForHandover);
-    readyModal.backdrop.addEventListener("click", (event) => {
-      if (event.target === readyModal.backdrop) {
-        closeReadyModal();
-      }
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !readyModal.backdrop.hidden) {
-        event.preventDefault();
-        closeReadyModal();
-      }
-    });
   }
 
   function createWorkflowActions(ticket) {
@@ -340,8 +271,12 @@
     if (canStartRepair(ticket)) {
       actions.appendChild(createWorkflowLink("In tem & bắt đầu sửa chữa", `print-label.html?${ticketQuery}`, true));
     } else if (canReadyForHandover(ticket)) {
-      let readyButton;
-      readyButton = createWorkflowButton("Hoàn thành sửa chữa", true, () => openReadyModal(ticket, readyButton));
+      const readyButton = createWorkflowButton(
+        "Hoàn thành sửa chữa",
+        true,
+        ticket,
+        () => loadWorkflowTickets({ refresh: true })
+      );
       actions.appendChild(readyButton);
       actions.appendChild(createWorkflowLink("Chỉ in lại tem", `print-label.html?${ticketQuery}`, false));
     } else if (canReprintReceipt(ticket)) {
@@ -368,7 +303,8 @@
     window.AMUI.setSectionState({
       section: workflow.section,
       stateElement: workflow.state,
-      dataElement: workflow.content
+      dataElement: workflow.content,
+      refreshingElement: workflow.refreshing
     }, type);
   }
 
@@ -393,29 +329,9 @@
     window.AMUI.setSectionState({
       section: workflow.section,
       stateElement: workflow.state,
-      dataElement: workflow.content
+      dataElement: workflow.content,
+      refreshingElement: workflow.refreshing
     }, "data");
-  }
-
-  function sortWorkflowTickets(tickets) {
-    return (tickets || []).slice().sort((a, b) => {
-      const pa = workflowPriority(a);
-      const pb = workflowPriority(b);
-      const aTie = String(a.ticket_code || a.id || "");
-      const bTie = String(b.ticket_code || b.id || "");
-
-      if (pa.rank !== pb.rank) {
-        return pa.rank - pb.rank;
-      }
-
-      if (pa.rank === 1 || pa.rank === 2 || pa.rank === 3) {
-        const waitDiff = pb.wait - pa.wait;
-        return waitDiff || bTie.localeCompare(aTie, "vi", { numeric: true });
-      }
-
-      const timeDiff = parseTicketTime(b.last_activity_at || b.created_at) - parseTicketTime(a.last_activity_at || a.created_at);
-      return timeDiff || bTie.localeCompare(aTie, "vi", { numeric: true });
-    });
   }
 
   function renderWorkflowRows(tickets) {
@@ -435,8 +351,8 @@
 
       row.append(
         priorityCell,
-        createCell(textOrDash(ticket.ticket_code), "workflow-ticket-code"),
-        createCell(textOrDash(ticket.customer_code), "workflow-customer-code"),
+        createCell(window.AMApi.formatTicketCode(ticket.ticket_code), "workflow-ticket-code"),
+        createCell(window.AMApi.formatCustomerCode(ticket.customer_code), "workflow-customer-code"),
         createCell(textOrDash(ticket.customer_name || ticket.customer_master_name), "workflow-customer-name"),
         createCell(textOrDash(ticket.model)),
         createCell(workflowActivityText(ticket)),
@@ -477,8 +393,8 @@
       title.className = "workflow-card-title";
       meta.className = "workflow-card-meta";
 
-      code.textContent = textOrDash(ticket.ticket_code);
-      customer.textContent = `${textOrDash(ticket.customer_code)} · ${textOrDash(ticket.customer_name || ticket.customer_master_name)}`;
+      code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
+      customer.textContent = `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${textOrDash(ticket.customer_name || ticket.customer_master_name)}`;
       title.append(code, customer);
       top.append(title, createPriorityBadge(ticket));
 
@@ -494,49 +410,196 @@
     });
   }
 
-  function renderWorkflow(tickets) {
-    const visibleTickets = sortWorkflowTickets(tickets)
-      .filter((ticket) => ticket.status === "đang sửa" && ticket.repair_started_at && !ticket.completed_at)
-      .slice(0, WORKFLOW_MAX_ITEMS);
+  function createPaginationButton(label, page, options) {
+    const config = options || {};
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `pagination-button ${config.active ? "active" : ""}`.trim();
+    button.textContent = label;
+    button.dataset.page = String(page);
+    button.disabled = Boolean(config.disabled);
+    button.setAttribute("aria-label", config.ariaLabel || `Trang ${page}`);
 
-    if (visibleTickets.length === 0) {
-      setWorkflowState("empty", "Chưa có phiếu đang sửa cần theo dõi.");
+    if (config.active) {
+      button.setAttribute("aria-current", "page");
+    }
+
+    return button;
+  }
+
+  function paginationItems(pageCount, currentPage) {
+    if (pageCount <= 7) {
+      return Array.from({ length: pageCount }, (_, index) => index + 1);
+    }
+
+    const items = [1];
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(pageCount - 1, currentPage + 1);
+
+    if (start > 2) {
+      items.push("ellipsis");
+    }
+
+    for (let page = start; page <= end; page += 1) {
+      items.push(page);
+    }
+
+    if (end < pageCount - 1) {
+      items.push("ellipsis");
+    }
+
+    items.push(pageCount);
+    return items;
+  }
+
+  function renderPagination() {
+    workflow.pagination.replaceChildren();
+    workflow.pagination.hidden = totalPages <= 1 || totalCount === 0;
+
+    if (workflow.pagination.hidden) {
       return;
     }
 
-    renderWorkflowRows(visibleTickets);
-    renderWorkflowCards(visibleTickets);
-    showWorkflowContent();
+    workflow.pagination.appendChild(createPaginationButton("← Trước", state.page - 1, {
+      disabled: state.page === 1,
+      ariaLabel: "Trang trước"
+    }));
 
-    const requestedCode = new URLSearchParams(window.location.search).get("code");
-    if (requestedCode) {
-      const match = Array.from(workflow.section.querySelectorAll("[data-ticket-code]"))
-        .find((element) => element.dataset.ticketCode === requestedCode);
-      if (match) {
-        match.classList.add("workflow-focus-ticket");
-        const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        window.setTimeout(() => match.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" }), 0);
+    paginationItems(totalPages, state.page).forEach((item) => {
+      if (item === "ellipsis") {
+        const ellipsis = document.createElement("span");
+        ellipsis.className = "pagination-ellipsis";
+        ellipsis.textContent = "…";
+        ellipsis.setAttribute("aria-hidden", "true");
+        workflow.pagination.appendChild(ellipsis);
+        return;
       }
+
+      workflow.pagination.appendChild(createPaginationButton(String(item), item, {
+        active: item === state.page,
+        ariaLabel: `Trang ${item}`
+      }));
+    });
+
+    workflow.pagination.appendChild(createPaginationButton("Sau →", state.page + 1, {
+      disabled: state.page === totalPages,
+      ariaLabel: "Trang sau"
+    }));
+  }
+
+  function renderSummary(tickets) {
+    if (totalCount === 0) {
+      workflow.listSummary.textContent = state.keyword
+        ? "Không tìm thấy phiếu phù hợp."
+        : "Chưa có phiếu đang sửa cần theo dõi.";
+      return;
+    }
+
+    const start = (state.page - 1) * PAGE_SIZE + 1;
+    const end = Math.min(start + tickets.length - 1, totalCount);
+    workflow.listSummary.textContent = `Hiển thị ${start}–${end} trên tổng số ${totalCount} phiếu.`;
+  }
+
+  function highlightRequestedTicket() {
+    const requestedCode = new URLSearchParams(window.location.search).get("code");
+
+    if (!requestedCode) {
+      return;
+    }
+
+    const canonical = window.AMApi.expandCompactBusinessCode(requestedCode, "AM");
+    const match = Array.from(workflow.section.querySelectorAll("[data-ticket-code]"))
+      .find((element) => element.dataset.ticketCode === canonical);
+
+    if (match) {
+      match.classList.add("workflow-focus-ticket");
     }
   }
 
-  async function loadWorkflowTickets() {
+  function renderWorkflow(tickets) {
+    renderSummary(tickets);
+
+    if (totalCount === 0) {
+      workflow.tableBody.replaceChildren();
+      workflow.cards.replaceChildren();
+      renderPagination();
+      setWorkflowState(
+        "empty",
+        state.keyword ? "Không tìm thấy phiếu phù hợp." : "Chưa có phiếu đang sửa cần theo dõi."
+      );
+      return;
+    }
+
+    renderWorkflowRows(tickets);
+    renderWorkflowCards(tickets);
+    renderPagination();
+    showWorkflowContent();
+    highlightRequestedTicket();
+  }
+
+  function readStateFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    if (code) {
+      state.keyword = code;
+      workflow.searchInput.value = code;
+    }
+  }
+
+  function setPage(page) {
+    const nextPage = Math.min(Math.max(Number(page) || 1, 1), totalPages);
+
+    if (nextPage === state.page) {
+      return;
+    }
+
+    state.page = nextPage;
+    loadWorkflowTickets({ refresh: true });
+  }
+
+  async function loadWorkflowTickets(options) {
     if (!workflow.section) {
       return;
     }
 
     const requestId = ++workflowRequestId;
-    setWorkflowLoading();
+    const hasVisibleData = !workflow.content.hidden && workflow.tableBody.childElementCount > 0;
+    const isRefresh = Boolean(options && options.refresh) || hasVisibleData;
+
+    if (isRefresh) {
+      window.AMUI.setSectionState({
+        section: workflow.section,
+        stateElement: workflow.state,
+        dataElement: workflow.content,
+        refreshingElement: workflow.refreshing
+      }, "refreshing");
+    } else {
+      setWorkflowState("loading", "Đang tải hoạt động của phiếu...");
+    }
 
     try {
-      const result = await window.AMApi.getDashboardWorkflowTickets(WORKFLOW_MAX_ITEMS);
+      const result = await window.AMApi.getTicketActivityTickets({
+        page: state.page,
+        pageSize: PAGE_SIZE,
+        keyword: state.keyword
+      });
 
       if (requestId !== workflowRequestId) {
         return;
       }
 
       if (!result.available) {
-        setWorkflowState("info", result.message || "Workflow chưa được kích hoạt.");
+        setWorkflowState("unavailable", result.message || "Workflow chưa được kích hoạt.");
+        return;
+      }
+
+      totalCount = Number(result.totalCount || 0);
+      totalPages = Math.max(1, Number(result.totalPages || 1));
+
+      if (totalCount > 0 && state.page > totalPages) {
+        state.page = totalPages;
+        await loadWorkflowTickets({ refresh: true });
         return;
       }
 
@@ -547,6 +610,12 @@
       }
 
       setWorkflowState("error", "Không tải được hoạt động của phiếu. Vui lòng thử lại.");
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "btn secondary list-state-action";
+      retry.textContent = "Thử lại";
+      retry.addEventListener("click", () => loadWorkflowTickets({ refresh: true }));
+      workflow.state.appendChild(retry);
     } finally {
       if (requestId === workflowRequestId) {
         workflow.section.setAttribute("aria-busy", "false");
@@ -554,9 +623,66 @@
     }
   }
 
+  function runSearchNow() {
+    if (searchTimer) {
+      window.clearTimeout(searchTimer);
+      searchTimer = null;
+    }
+
+    const keyword = workflow.searchInput.value.trim();
+
+    if (keyword === state.keyword && state.page === 1) {
+      return;
+    }
+
+    state.keyword = keyword;
+    state.page = 1;
+    loadWorkflowTickets({ refresh: true });
+  }
+
+  function scheduleSearch() {
+    if (searchTimer) {
+      window.clearTimeout(searchTimer);
+    }
+
+    searchTimer = window.setTimeout(runSearchNow, SEARCH_DELAY);
+  }
+
+  function clearSearch() {
+    if (searchTimer) {
+      window.clearTimeout(searchTimer);
+      searchTimer = null;
+    }
+
+    if (!state.keyword && state.page === 1 && !workflow.searchInput.value) {
+      return;
+    }
+
+    workflow.searchInput.value = "";
+    state.keyword = "";
+    state.page = 1;
+    loadWorkflowTickets({ refresh: true });
+  }
+
   async function initTicketActivity() {
     attachLogout();
-    attachReadyModal();
+    readStateFromUrl();
+
+    workflow.form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      runSearchNow();
+    });
+    workflow.searchInput.addEventListener("input", scheduleSearch);
+    workflow.clearButton.addEventListener("click", clearSearch);
+    workflow.pagination.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-page]");
+
+      if (!button || button.disabled) {
+        return;
+      }
+
+      setPage(button.dataset.page);
+    });
 
     try {
       const access = await window.AMApi.requireInternalAccess();

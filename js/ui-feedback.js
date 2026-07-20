@@ -16,6 +16,8 @@
     "error",
     "info"
   ]);
+  const workflowActionLocks = new Set();
+  let repairDialogState = null;
 
   function prefersReducedMotion() {
     return Boolean(
@@ -194,7 +196,206 @@
     return state;
   }
 
+  function createElement(tagName, className, text) {
+    const element = document.createElement(tagName);
+
+    if (className) {
+      element.className = className;
+    }
+
+    if (text !== undefined) {
+      element.textContent = text;
+    }
+
+    return element;
+  }
+
+  function ensureRepairCompletionDialog() {
+    if (repairDialogState) {
+      return repairDialogState;
+    }
+
+    const backdrop = createElement("div", "workflow-confirm-backdrop no-print");
+    const dialog = createElement("section", "workflow-confirm-dialog");
+    const title = createElement("h2", "", "Hoàn thành sửa chữa?");
+    const description = createElement(
+      "p",
+      "",
+      "Tivi sẽ được chuyển sang khu Bàn giao tivi. Thao tác này chưa đánh dấu khách đã nhận máy và chưa hoàn tất phiếu."
+    );
+    const actions = createElement("div", "workflow-confirm-actions");
+    const cancel = createElement("button", "btn secondary", "Huỷ");
+    const confirm = createElement("button", "btn primary", "Chuyển sang bàn giao");
+
+    backdrop.id = "sharedReadyHandoverModal";
+    backdrop.hidden = true;
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "sharedReadyHandoverTitle");
+    dialog.setAttribute("aria-describedby", "sharedReadyHandoverDescription");
+    dialog.tabIndex = -1;
+    title.id = "sharedReadyHandoverTitle";
+    description.id = "sharedReadyHandoverDescription";
+    cancel.type = "button";
+    confirm.type = "button";
+    actions.append(cancel, confirm);
+    dialog.append(title, description, actions);
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+
+    repairDialogState = {
+      backdrop,
+      dialog,
+      cancel,
+      confirm,
+      returnFocus: null,
+      resolve: null
+    };
+
+    function close(result) {
+      const state = repairDialogState;
+
+      if (!state || state.backdrop.hidden || !state.resolve) {
+        return;
+      }
+
+      const resolve = state.resolve;
+      const returnFocus = state.returnFocus;
+      state.resolve = null;
+      state.returnFocus = null;
+      state.backdrop.hidden = true;
+      document.body.classList.remove("workflow-modal-open");
+
+      if (returnFocus && document.contains(returnFocus)) {
+        returnFocus.focus({ preventScroll: true });
+      }
+
+      resolve(result);
+    }
+
+    cancel.addEventListener("click", () => close(false));
+    confirm.addEventListener("click", () => close(true));
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close(false);
+      }
+    });
+    backdrop.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close(false);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = [cancel, confirm].filter((element) => !element.disabled);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (!first || !last) {
+        event.preventDefault();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    });
+
+    repairDialogState.close = close;
+    return repairDialogState;
+  }
+
+  function confirmRepairCompletion(trigger) {
+    const state = ensureRepairCompletionDialog();
+
+    if (state.resolve) {
+      return Promise.resolve(false);
+    }
+
+    state.returnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+    state.backdrop.hidden = false;
+    document.body.classList.add("workflow-modal-open");
+    state.dialog.focus({ preventScroll: true });
+
+    return new Promise((resolve) => {
+      state.resolve = resolve;
+    });
+  }
+
+  async function completeRepairInPlace(options) {
+    const config = options || {};
+    const ticketId = String(config.ticketId || "").trim();
+    const action = "READY_FOR_HANDOVER";
+    const lockKey = `${ticketId}:${action}`;
+    const button = config.button instanceof HTMLElement ? config.button : null;
+
+    if (!ticketId || workflowActionLocks.has(lockKey)) {
+      return { ok: false, ignored: true };
+    }
+
+    const confirmed = await confirmRepairCompletion(button);
+
+    if (!confirmed || workflowActionLocks.has(lockKey)) {
+      return { ok: false, cancelled: !confirmed };
+    }
+
+    workflowActionLocks.add(lockKey);
+    setButtonBusy(button, true, {
+      busyText: "Đang chuyển phiếu...",
+      idleText: config.idleText || "Hoàn thành sửa chữa"
+    });
+
+    try {
+      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action);
+      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId);
+      window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+
+      if (typeof config.onSuccess === "function") {
+        try {
+          await config.onSuccess(result);
+        } catch (refreshError) {
+          toast("Phiếu đã chuyển sang Bàn giao tivi, nhưng vùng dữ liệu hiện tại chưa tải lại được.", {
+            type: "warning",
+            duration: 6000
+          });
+          return { ok: true, result, refreshError };
+        }
+      }
+
+      toast(
+        result.was_replayed
+          ? "Phiếu đã ở khu Bàn giao tivi. Dữ liệu hiện tại đã được đồng bộ."
+          : "Đã chuyển phiếu sang Bàn giao tivi.",
+        { type: "success" }
+      );
+      return { ok: true, result };
+    } catch (error) {
+      if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
+        window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+      }
+
+      toast(error.message || "Không thể chuyển phiếu sang Bàn giao tivi.", {
+        type: "error",
+        duration: 6000
+      });
+      return { ok: false, error };
+    } finally {
+      workflowActionLocks.delete(lockKey);
+      if (button && document.contains(button)) {
+        setButtonBusy(button, false, {
+          idleText: config.idleText || "Hoàn thành sửa chữa"
+        });
+      }
+    }
+  }
+
   window.AMUI = Object.freeze({
+    completeRepairInPlace,
     dismissToast,
     prefersReducedMotion,
     setButtonBusy,

@@ -25,6 +25,10 @@
   ];
   const WORKFLOW_STORAGE_PREFIX = "am-workflow:";
   const WORKFLOW_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
+  const BUSINESS_CODE_WIDTHS = Object.freeze({
+    AM: 6,
+    KH: 6
+  });
   const TV_BRANDS = [
     "Samsung",
     "LG",
@@ -891,6 +895,70 @@
     return null;
   }
 
+  function parseBusinessCode(value, expectedPrefix) {
+    const raw = String(value || "").trim().toUpperCase();
+    const prefix = String(expectedPrefix || "").trim().toUpperCase();
+    const match = raw.match(/^([A-Z]+)(\d+)$/);
+
+    if (!match || (prefix && match[1] !== prefix)) {
+      return null;
+    }
+
+    return {
+      raw,
+      prefix: match[1],
+      digits: match[2]
+    };
+  }
+
+  function formatCompactBusinessCode(value, expectedPrefix) {
+    const raw = String(value || "").trim().toUpperCase();
+    const parsed = parseBusinessCode(raw, expectedPrefix);
+
+    if (!raw) {
+      return "—";
+    }
+
+    if (!parsed) {
+      return raw;
+    }
+
+    const compactDigits = parsed.digits.replace(/^0+(?=\d)/, "");
+    return `${parsed.prefix}${compactDigits}`;
+  }
+
+  function expandCompactBusinessCode(value, expectedPrefix) {
+    const raw = String(value || "").trim().toUpperCase();
+    const parsed = parseBusinessCode(raw, expectedPrefix);
+    const width = parsed ? BUSINESS_CODE_WIDTHS[parsed.prefix] : null;
+
+    if (!parsed || !width || parsed.digits.length > width) {
+      return raw;
+    }
+
+    return `${parsed.prefix}${parsed.digits.padStart(width, "0")}`;
+  }
+
+  function businessCodeSearchVariants(value, expectedPrefix) {
+    const raw = String(value || "").trim().toUpperCase();
+
+    if (!raw) {
+      return [];
+    }
+
+    const expanded = expandCompactBusinessCode(raw, expectedPrefix);
+    const compact = formatCompactBusinessCode(raw, expectedPrefix);
+    return Array.from(new Set([raw, expanded, compact].filter(Boolean)));
+  }
+
+  function formatTicketCode(value) {
+    return formatCompactBusinessCode(value, "AM");
+  }
+
+  function formatCustomerCode(value) {
+    return formatCompactBusinessCode(value, "KH");
+  }
+
   function mapTicket(ticket) {
     if (!ticket) {
       return ticket;
@@ -1224,7 +1292,7 @@
     const client = getClient();
     const rawKeyword = String(keyword || "").trim();
     const safeKeyword = cleanPostgrestSearchValue(rawKeyword);
-    const normalizedCode = safeKeyword.toUpperCase();
+    const customerCodeVariants = businessCodeSearchVariants(rawKeyword, "KH");
     const normalizedPhone = normalizeVNPhone(rawKeyword);
     const limit = Math.min(Math.max(Number(resultLimit) || 200, 1), 1000);
     const searches = [];
@@ -1233,12 +1301,17 @@
       return [];
     }
 
+    customerCodeVariants.forEach((code) => {
+      searches.push(
+        client
+          .from("customers")
+          .select("id")
+          .ilike("customer_code", `%${code}%`)
+          .limit(limit)
+      );
+    });
+
     searches.push(
-      client
-        .from("customers")
-        .select("id")
-        .ilike("customer_code", `%${normalizedCode}%`)
-        .limit(limit),
       client
         .from("customers")
         .select("id")
@@ -1274,16 +1347,16 @@
 
   function buildTicketHistoryFilter(keyword, customerIds) {
     const safeKeyword = cleanPostgrestSearchValue(keyword);
-    const normalizedCode = safeKeyword.toUpperCase();
+    const ticketCodeVariants = businessCodeSearchVariants(keyword, "AM");
     const phoneDigits = String(keyword || "").replace(/\D/g, "");
     const filters = [];
 
     if (safeKeyword) {
       filters.push(
-        `ticket_code.ilike.%${normalizedCode}%`,
         `customer_name.ilike.%${safeKeyword}%`,
         `customer_phone.ilike.%${safeKeyword}%`
       );
+      ticketCodeVariants.forEach((code) => filters.push(`ticket_code.ilike.%${code}%`));
     }
 
     if (phoneDigits && phoneDigits !== safeKeyword) {
@@ -1300,14 +1373,13 @@
   function buildTicketSearchFilters(keyword, customerIds) {
     const rawKeyword = String(keyword || "").trim();
     const safeKeyword = cleanPostgrestSearchValue(rawKeyword);
-    const normalizedCode = safeKeyword.toUpperCase();
+    const ticketCodeVariants = businessCodeSearchVariants(rawKeyword, "AM");
     const normalizedPhone = normalizeVNPhone(rawKeyword);
     const phoneDigits = rawKeyword.replace(/\D/g, "");
     const filters = [];
 
     if (safeKeyword) {
       filters.push(
-        `ticket_code.ilike.%${normalizedCode}%`,
         `customer_name.ilike.%${safeKeyword}%`,
         `customer_phone.ilike.%${safeKeyword}%`,
         `brand.ilike.%${safeKeyword}%`,
@@ -1316,6 +1388,7 @@
         `condition_text.ilike.%${safeKeyword}%`,
         `external_condition.ilike.%${safeKeyword}%`
       );
+      ticketCodeVariants.forEach((code) => filters.push(`ticket_code.ilike.%${code}%`));
     }
 
     if (normalizedPhone) {
@@ -1423,20 +1496,23 @@
   function buildRepairingTicketFilter(keyword, customerIds) {
     const rawKeyword = String(keyword || "").trim();
     const safeKeyword = cleanPostgrestSearchValue(rawKeyword);
-    const normalizedCode = safeKeyword.toUpperCase();
+    const ticketCodeVariants = businessCodeSearchVariants(rawKeyword, "AM");
     const normalizedPhone = normalizeVNPhone(rawKeyword);
     const phoneDigits = rawKeyword.replace(/\D/g, "");
     const filters = [];
 
     if (safeKeyword) {
       filters.push(
-        `ticket_code.ilike.%${normalizedCode}%`,
         `customer_name.ilike.%${safeKeyword}%`,
         `customer_phone.ilike.%${safeKeyword}%`,
         `brand.ilike.%${safeKeyword}%`,
         `model.ilike.%${safeKeyword}%`,
-        `serial_number.ilike.%${safeKeyword}%`
+        `serial_number.ilike.%${safeKeyword}%`,
+        `condition_text.ilike.%${safeKeyword}%`,
+        `external_condition.ilike.%${safeKeyword}%`,
+        `status.ilike.%${safeKeyword}%`
       );
+      ticketCodeVariants.forEach((code) => filters.push(`ticket_code.ilike.%${code}%`));
     }
 
     if (normalizedPhone) {
@@ -1955,19 +2031,24 @@
       const client = getClient();
       const rawKeyword = String(keyword || "").trim();
       const normalizedPhone = normalizeVNPhone(rawKeyword);
-      const normalizedCode = rawKeyword.toUpperCase();
+      const customerCodeVariants = businessCodeSearchVariants(rawKeyword, "KH");
       const searches = [];
 
       if (!rawKeyword) {
         return [];
       }
 
+      customerCodeVariants.forEach((code) => {
+        searches.push(
+          client
+            .from("customers")
+            .select(CUSTOMER_FIELDS)
+            .ilike("customer_code", `%${code}%`)
+            .limit(25)
+        );
+      });
+
       searches.push(
-        client
-          .from("customers")
-          .select(CUSTOMER_FIELDS)
-          .ilike("customer_code", `%${normalizedCode}%`)
-          .limit(25),
         client
           .from("customers")
           .select(CUSTOMER_FIELDS)
@@ -2129,9 +2210,10 @@
         return [];
       }
 
-      const normalizedCode = rawQuery.toUpperCase();
+      const ticketCodeVariants = businessCodeSearchVariants(rawQuery, "AM");
+      const normalizedCode = expandCompactBusinessCode(rawQuery, "AM");
 
-      if (/^AM\d{6,}$/i.test(rawQuery)) {
+      if (/^AM\d+$/i.test(rawQuery)) {
         const { data, error } = await client
           .from("service_tickets")
           .select(TICKET_SELECT_FIELDS)
@@ -2152,8 +2234,11 @@
       const customerHistories = await Promise.all(
         customerMatches.map((customer) => getTicketHistoryByCustomerId(customer.id, 50))
       );
+      const ticketCodeSearches = ticketCodeVariants.map((code) => (
+        client.from("service_tickets").select(TICKET_SELECT_FIELDS).ilike("ticket_code", `%${code}%`).limit(25)
+      ));
       const searches = await Promise.all([
-        client.from("service_tickets").select(TICKET_SELECT_FIELDS).ilike("ticket_code", `%${normalizedCode}%`).limit(25),
+        ...ticketCodeSearches,
         client.from("service_tickets").select(TICKET_SELECT_FIELDS).ilike("customer_phone", likeQuery).limit(25),
         client.from("service_tickets").select(TICKET_SELECT_FIELDS).ilike("customer_name", likeQuery).limit(25),
         client.from("service_tickets").select(TICKET_SELECT_FIELDS).ilike("model", likeQuery).limit(25)
@@ -2304,7 +2389,7 @@
   async function getTicketByCode(code) {
     try {
       const client = getClient();
-      const normalizedCode = String(code || "").trim().toUpperCase();
+      const normalizedCode = expandCompactBusinessCode(code, "AM");
 
       if (!normalizedCode) {
         return null;
@@ -2446,7 +2531,7 @@
     const client = getClient();
     const rawKeyword = String(keyword || "").trim();
     const safeKeyword = cleanPostgrestSearchValue(rawKeyword);
-    const normalizedCode = safeKeyword.toUpperCase();
+    const customerCodeVariants = businessCodeSearchVariants(rawKeyword, "KH");
     const normalizedPhone = normalizeVNPhone(rawKeyword);
     const limit = Math.min(Math.max(Number(resultLimit) || 1000, 1), 1000);
     const searches = [];
@@ -2455,13 +2540,15 @@
       return [];
     }
 
-    searches.push(
-      client
-        .from("customers")
-        .select("id")
-        .ilike("customer_code", `%${normalizedCode}%`)
-        .limit(limit)
-    );
+    customerCodeVariants.forEach((code) => {
+      searches.push(
+        client
+          .from("customers")
+          .select("id")
+          .ilike("customer_code", `%${code}%`)
+          .limit(limit)
+      );
+    });
 
     if (normalizedPhone) {
       searches.push(
@@ -2499,7 +2586,7 @@
   function buildWarrantySearchFilter(keyword, customerIds) {
     const rawKeyword = String(keyword || "").trim();
     const safeKeyword = cleanPostgrestSearchValue(rawKeyword);
-    const normalizedCode = safeKeyword.toUpperCase();
+    const ticketCodeVariants = businessCodeSearchVariants(rawKeyword, "AM");
     const normalizedPhone = normalizeVNPhone(rawKeyword);
     const phoneDigits = rawKeyword.replace(/\D/g, "");
     const filters = [];
@@ -2509,12 +2596,12 @@
     }
 
     filters.push(
-      `ticket_code.ilike.%${normalizedCode}%`,
       `model.ilike.%${safeKeyword}%`,
       `brand.ilike.%${safeKeyword}%`,
       `serial_number.ilike.%${safeKeyword}%`,
       `customer_phone.ilike.%${safeKeyword}%`
     );
+    ticketCodeVariants.forEach((code) => filters.push(`ticket_code.ilike.%${code}%`));
 
     if (normalizedPhone) {
       filters.push(`customer_phone.ilike.%${normalizedPhone}%`);
@@ -2735,7 +2822,7 @@
 
   async function getTicketForDeliveryReceipt(params) {
     const client = getClient();
-    const code = String((params && params.code) || "").trim().toUpperCase();
+    const code = expandCompactBusinessCode(params && params.code, "AM");
     const id = String((params && params.id) || "").trim();
 
     async function queryTicket(selectFields) {
@@ -2780,7 +2867,7 @@
   async function getTicketForLabel(params) {
     try {
       const client = getClient();
-      const code = String((params && params.code) || "").trim().toUpperCase();
+      const code = expandCompactBusinessCode(params && params.code, "AM");
       const id = String((params && params.id) || "").trim();
       let query = client
         .from("service_tickets")
@@ -3677,6 +3764,66 @@
     }
   }
 
+  async function getTicketActivityTickets(params) {
+    try {
+      const client = getClient();
+      const options = params || {};
+      const pageSize = 8;
+      const page = Math.max(Number(options.page) || 1, 1);
+      const keyword = String(options.keyword || "").trim();
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const customerIds = keyword ? await findTicketHistoryCustomerIds(keyword) : [];
+      let query = buildRepairingTicketsQuery(client, {
+        keyword,
+        customerIds,
+        filter: "all"
+      }, HANDOVER_TICKET_SELECT_FIELDS, { count: "exact" });
+
+      query = query
+        .not("repair_started_at", "is", null)
+        .is("completed_at", null)
+        .order("repair_started_at", { ascending: true, nullsFirst: false })
+        .order("ticket_code", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      const totalCount = count || 0;
+      return {
+        available: true,
+        tickets: mapTickets((data || []).map((ticket) => Object.assign({}, ticket, {
+          workflow_available: true,
+          workflow_inactive_message: null
+        }))),
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+        message: ""
+      };
+    } catch (error) {
+      if (!isWorkflowSchemaError(error)) {
+        throw friendlyError(error, "Không tải được hoạt động của phiếu.");
+      }
+
+      return {
+        available: false,
+        tickets: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: 8,
+        totalPages: 1,
+        message: "Workflow chưa được kích hoạt."
+      };
+    }
+  }
+
   async function getRepairingTickets(params) {
     try {
       const client = getClient();
@@ -3937,10 +4084,12 @@
       return query;
     }
 
-    const normalizedCode = safeKeyword.toUpperCase();
+    const codeFilters = [
+      ...businessCodeSearchVariants(keyword, "AM").map((code) => `ticket_code.ilike.%${code}%`),
+      ...businessCodeSearchVariants(keyword, "KH").map((code) => `customer_code.ilike.%${code}%`)
+    ];
     return query.or([
-      `ticket_code.ilike.%${normalizedCode}%`,
-      `customer_code.ilike.%${normalizedCode}%`,
+      ...codeFilters,
       `customer_name.ilike.%${safeKeyword}%`,
       `customer_phone.ilike.%${safeKeyword}%`,
       `device_brand.ilike.%${safeKeyword}%`,
@@ -4109,6 +4258,11 @@
     WORKFLOW_ACTIONS,
     getClient,
     normalizeVNPhone,
+    formatCompactBusinessCode,
+    expandCompactBusinessCode,
+    businessCodeSearchVariants,
+    formatTicketCode,
+    formatCustomerCode,
     formatTicketStatusLabel,
     classifyHandoverTiming,
     formatHandoverDateTime,
@@ -4122,6 +4276,7 @@
     getTicketHistoryByCustomerId,
     getDashboardCustomers,
     getTicketReceiptHistory,
+    getTicketActivityTickets,
     getRepairingTickets,
     getHandoverTickets,
     getReminderSummary,

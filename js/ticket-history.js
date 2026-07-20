@@ -171,8 +171,8 @@
       row.append(
         createCell(String(startIndex + index + 1), "ticket-history-index"),
         createCell(formatDateTimeVN(ticket.created_at), "ticket-history-time"),
-        createCell(textOrDash(ticket.ticket_code), "ticket-history-code"),
-        createCell(textOrDash(ticket.customer_code), "ticket-history-customer-code"),
+        createCell(window.AMApi.formatTicketCode(ticket.ticket_code), "ticket-history-code"),
+        createCell(window.AMApi.formatCustomerCode(ticket.customer_code), "ticket-history-customer-code"),
         createCell(textOrDash(ticket.customer_name || ticket.customer_master_name), "ticket-history-customer-name"),
         createCell(textOrDash(ticket.customer_phone || ticket.customer_master_phone)),
         createCell(textOrDash(ticket.model)),

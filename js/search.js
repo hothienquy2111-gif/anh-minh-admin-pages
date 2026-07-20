@@ -20,6 +20,7 @@
   const editNotice = document.getElementById("editNotice");
   const closeEditModal = document.getElementById("closeEditModal");
   const saveEditButton = document.getElementById("saveEditButton");
+  const completeRepairFromEdit = document.getElementById("completeRepairFromEdit");
   const createReminderFromTicket = document.getElementById("createReminderFromTicket");
   const editStatusHint = document.getElementById("editStatusHint");
   const editBrandInput = document.getElementById("edit_brand");
@@ -392,8 +393,8 @@
       const main = document.createElement("div");
       main.className = "suggestion-main";
       main.textContent = [
-        compactValue(ticket.ticket_code),
-        compactValue(ticket.customer_code),
+        window.AMApi.formatTicketCode(ticket.ticket_code),
+        window.AMApi.formatCustomerCode(ticket.customer_code),
         compactValue(ticket.customer_name)
       ].join(" · ");
 
@@ -529,6 +530,51 @@
     return link;
   }
 
+  function applyReadyForHandoverResult(ticket, result) {
+    Object.assign(ticket, {
+      status: result.status || "chờ bàn giao",
+      ready_for_handover_at: result.ready_for_handover_at || ticket.ready_for_handover_at,
+      last_activity_at: result.last_activity_at || ticket.last_activity_at,
+      completed_at: result.completed_at || null
+    });
+
+    const index = latestResults.findIndex((item) => item.id === ticket.id);
+
+    if (index >= 0) {
+      latestResults[index] = ticket;
+      renderResults(latestResults);
+    }
+
+    if (editForm.elements.id.value === ticket.id) {
+      editForm.dataset.currentStatus = ticket.status;
+      if (completeRepairFromEdit) {
+        completeRepairFromEdit.hidden = true;
+      }
+      if (editStatusHint) {
+        editStatusHint.textContent = "Phiếu đã chuyển sang Bàn giao tivi.";
+      }
+    }
+  }
+
+  function createActionButton(label, ticket, primary) {
+    const button = document.createElement("button");
+    button.className = `btn ${primary ? "primary" : "secondary"} workflow-action`;
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.AMUI.completeRepairInPlace({
+        ticketId: ticket.id,
+        expectedStatus: ticket.status,
+        button,
+        source: "search-results",
+        onSuccess: (result) => applyReadyForHandoverResult(ticket, result)
+      });
+    });
+    return button;
+  }
+
   function appendWorkflowActions(actions, ticket) {
     const code = encodeURIComponent(ticket.ticket_code || "");
     const id = encodeURIComponent(ticket.id || "");
@@ -548,7 +594,7 @@
     }
 
     if (canReadyForHandover(ticket)) {
-      actions.appendChild(createActionLink("Hoàn thành sửa chữa", `ticket-activity.html?${ticketQuery}`, true));
+      actions.appendChild(createActionButton("Hoàn thành sửa chữa", ticket, true));
       actions.appendChild(createActionLink("Chỉ in lại tem", `print-label.html?${ticketQuery}`, false));
       return;
     }
@@ -617,7 +663,7 @@
       heading.className = "search-ticket-heading";
       const code = document.createElement("strong");
       code.className = "ticket-code";
-      code.textContent = ticket.ticket_code || "—";
+      code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
       const status = document.createElement("span");
       status.className = `status-pill ${statusClass(ticket.status)}`.trim();
       status.textContent = statusLabel(ticket.status);
@@ -625,7 +671,7 @@
 
       const customer = document.createElement("p");
       customer.className = "search-ticket-customer";
-      customer.textContent = `${ticket.customer_code || "—"} · ${ticket.customer_name || "—"} · ${ticket.customer_phone || "—"}`;
+      customer.textContent = `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${ticket.customer_name || "—"} · ${ticket.customer_phone || "—"}`;
 
       const device = document.createElement("p");
       device.className = "search-ticket-device";
@@ -888,7 +934,9 @@
       searchYearSelect.value = "all";
       currentStatus = "";
       searchStatusSelect.value = "";
-      searchInput.value = first.customer_code || first.customer_phone || first.customer_name || "";
+      searchInput.value = first.customer_code
+        ? window.AMApi.formatCustomerCode(first.customer_code)
+        : first.customer_phone || first.customer_name || "";
       updateSearchClearVisibility();
       await performSearch(searchInput.value);
     } catch (error) {
@@ -1151,6 +1199,10 @@
     editForm.elements.id.value = ticket.id;
     editForm.dataset.currentStatus = ticket.status || "";
     editForm.dataset.expectedUpdatedAt = ticket.updated_at || "";
+    if (completeRepairFromEdit) {
+      completeRepairFromEdit.hidden = !canReadyForHandover(ticket);
+      completeRepairFromEdit.dataset.ticketId = ticket.id || "";
+    }
     if (createReminderFromTicket) {
       createReminderFromTicket.href = `appointment-reminders.html?ticket_id=${encodeURIComponent(ticket.id || "")}`;
     }
@@ -1278,9 +1330,9 @@
       const updated = await window.AMApi.updateTicket(data.id, data);
       latestResults = latestResults.map((ticket) => ticket.id === updated.id ? updated : ticket);
       renderResults(latestResults);
-      showNotice(editNotice, "success", `Đã lưu sửa phiếu ${updated.ticket_code}.`);
+      showNotice(editNotice, "success", `Đã lưu sửa phiếu ${window.AMApi.formatTicketCode(updated.ticket_code)}.`);
       if (window.AMUI && typeof window.AMUI.toast === "function") {
-        window.AMUI.toast(`Đã lưu sửa phiếu ${updated.ticket_code}.`, { type: "success" });
+        window.AMUI.toast(`Đã lưu sửa phiếu ${window.AMApi.formatTicketCode(updated.ticket_code)}.`, { type: "success" });
       }
       setTimeout(closeModal, 700);
     } catch (error) {
@@ -1428,6 +1480,26 @@
     editModal.addEventListener("keydown", handleEditModalKeydown);
 
     editForm.addEventListener("submit", handleEditSubmit);
+
+    if (completeRepairFromEdit) {
+      completeRepairFromEdit.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const ticket = latestResults.find((item) => item.id === completeRepairFromEdit.dataset.ticketId);
+
+        if (!ticket || !canReadyForHandover(ticket)) {
+          return;
+        }
+
+        window.AMUI.completeRepairInPlace({
+          ticketId: ticket.id,
+          expectedStatus: ticket.status,
+          button: completeRepairFromEdit,
+          source: "search-edit-modal",
+          onSuccess: (result) => applyReadyForHandoverResult(ticket, result)
+        });
+      });
+    }
   }
 
   async function initSearch() {

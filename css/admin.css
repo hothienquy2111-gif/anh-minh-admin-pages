@@ -7866,6 +7866,55 @@ button[type="submit"] {
   overflow: visible;
 }
 
+.ticket-activity-page .ticket-activity-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 4px 0 14px;
+}
+
+.ticket-activity-page .ticket-activity-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ticket-activity-page .ticket-activity-search input {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.ticket-activity-page .ticket-activity-search .btn {
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+.ticket-activity-page .ticket-activity-refresh {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ticket-activity-page .ticket-activity-list-summary {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.ticket-activity-page .ticket-activity-pagination {
+  margin-top: 14px;
+}
+
+.ticket-activity-page .list-state-action {
+  display: block;
+  margin-top: 12px;
+}
+
 .ticket-activity-page .workflow-content {
   width: 100%;
   max-width: none;
@@ -8379,6 +8428,26 @@ button[type="submit"] {
 
   .ticket-activity-page .ticket-activity-card {
     padding: 16px;
+  }
+
+  .ticket-activity-page .ticket-activity-toolbar,
+  .ticket-activity-page .ticket-activity-search {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-activity-page .ticket-activity-search .btn {
+    width: 100%;
+  }
+
+  .ticket-activity-page .ticket-activity-refresh {
+    justify-self: start;
+  }
+
+  .ticket-activity-page .ticket-activity-pagination {
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
   }
 
   .ticket-activity-page .ticket-activity-table {

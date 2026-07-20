@@ -96,7 +96,7 @@
   }
 
   function classifyLabelContent(ticket, displayBrand) {
-    const codeLength = String(ticket.ticket_code || "").trim().length;
+    const codeLength = window.AMApi.formatTicketCode(ticket.ticket_code).length;
     const brandLength = String(displayBrand || "").trim().length;
     const modelLength = String(ticket.model || "").trim().length;
     const conditionLength = String(ticket.condition_text || "").trim().length;
@@ -212,7 +212,7 @@
   function renderLabel(ticket) {
     const displayBrand = normalizeLabelBrand(ticket.brand);
 
-    labelCode.textContent = textOrBlank(ticket.ticket_code);
+    labelCode.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
     labelBrand.textContent = displayBrand;
     labelModel.textContent = textOrBlank(ticket.model);
     labelCondition.textContent = textOrBlank(ticket.condition_text);
@@ -277,7 +277,7 @@
 
     if (
       action === "START_REPAIR"
-      && !window.confirm(`In tem và bắt đầu sửa chữa phiếu ${currentTicket.ticket_code || ""}?`)
+      && !window.confirm(`In tem và bắt đầu sửa chữa phiếu ${window.AMApi.formatTicketCode(currentTicket.ticket_code)}?`)
     ) {
       return;
     }

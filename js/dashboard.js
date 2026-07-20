@@ -247,7 +247,7 @@
 
   function ticketTitle(ticket) {
     return [
-      textOrDash(ticket.ticket_code || ticket.ticketCode),
+      window.AMApi.formatTicketCode(ticket.ticket_code || ticket.ticketCode),
       textOrDash(ticket.customer_name || ticket.customer_master_name || ticket.customerName),
       textOrDash(ticket.brandModel || ticket.model)
     ].filter((item) => item !== "—").join(" · ");

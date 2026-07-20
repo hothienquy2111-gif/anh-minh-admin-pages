@@ -676,7 +676,10 @@
     const meta = document.createElement("div");
     const side = document.createElement("div");
     const actions = document.createElement("div");
-    const identity = [textOrDash(task.ticketCode), textOrDash(task.customerCode)]
+    const identity = [
+      window.AMApi.formatTicketCode(task.ticketCode),
+      window.AMApi.formatCustomerCode(task.customerCode)
+    ]
       .filter((value) => value !== "—")
       .join(" · ");
     const modelText = task.brandModel || task.model || task.deviceType;
@@ -966,7 +969,7 @@
     item.dataset.attentionHandoverId = ticket.id || "";
     main.className = "attention-handover-main";
     heading.className = "attention-handover-heading";
-    code.textContent = reminderText(ticket.ticket_code);
+    code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
     badge.className = `handover-alert handover-alert--${timing.level}`;
     badge.dataset.attentionHandoverBadge = ticket.id || "";
     badge.textContent = timing.badge;
@@ -974,7 +977,7 @@
 
     details.className = "attention-handover-detail-grid";
     details.append(
-      createHandoverDetail("Mã khách", ticket.customer_code, "attention-handover-code"),
+      createHandoverDetail("Mã khách", window.AMApi.formatCustomerCode(ticket.customer_code), "attention-handover-code"),
       createHandoverDetail("Khách hàng", handoverCustomerName(ticket)),
       createHandoverDetail("Số điện thoại", handoverCustomerPhone(ticket)),
       createHandoverDetail("Hãng / Model", [ticket.brand, ticket.model].filter(Boolean).join(" ")),
@@ -1168,8 +1171,8 @@
     timing.textContent = window.AMReminderUtils.formatReminderRelativeTime(reminder);
     details.className = "attention-reminder-detail-grid";
     details.append(
-      createReminderDetail("Mã phiếu", reminder.ticket_code, "attention-reminder-code"),
-      createReminderDetail("Mã khách", reminder.customer_code, "attention-reminder-code"),
+      createReminderDetail("Mã phiếu", window.AMApi.formatTicketCode(reminder.ticket_code), "attention-reminder-code"),
+      createReminderDetail("Mã khách", window.AMApi.formatCustomerCode(reminder.customer_code), "attention-reminder-code"),
       createReminderDetail("Khách hàng", reminder.customer_name),
       createReminderDetail("Số điện thoại", reminder.customer_phone),
       createReminderDetail("Hãng / Model", [reminder.device_brand, reminder.device_model].filter(Boolean).join(" ")),
@@ -1367,7 +1370,7 @@
     }
     try {
       await window.AMApi.completeTicketReminder(reminder);
-      const message = `Đã hoàn thành lịch hẹn của ${reminderText(reminder.ticket_code)}.`;
+      const message = `Đã hoàn thành lịch hẹn của ${window.AMApi.formatTicketCode(reminder.ticket_code)}.`;
       if (window.AMUI && typeof window.AMUI.toast === "function") {
         clearNotice();
         window.AMUI.toast(message, { type: "success" });

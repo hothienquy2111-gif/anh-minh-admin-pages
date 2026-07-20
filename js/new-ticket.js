@@ -133,7 +133,7 @@
     resetCustomerHistory();
     setCustomerLookupState(
       "selected",
-      `Đã chọn ${customer.customer_code || "khách hàng"} - ${customer.name || "khách hàng cũ"}. Phiếu mới sẽ lưu snapshot hiện tại.`
+      `Đã chọn ${window.AMApi.formatCustomerCode(customer.customer_code)} - ${customer.name || "khách hàng cũ"}. Phiếu mới sẽ lưu snapshot hiện tại.`
     );
     renderCustomerMatches(matchedCustomers);
   }
@@ -159,7 +159,7 @@
       customerHistoryPanel.innerHTML = "";
 
       const title = document.createElement("strong");
-      title.textContent = `Lịch sử ${customer.customer_code || ""} - ${tickets.length} phiếu`;
+      title.textContent = `Lịch sử ${window.AMApi.formatCustomerCode(customer.customer_code)} - ${tickets.length} phiếu`;
       customerHistoryPanel.appendChild(title);
 
       if (tickets.length === 0) {
@@ -175,7 +175,7 @@
       tickets.forEach((ticket) => {
         const link = document.createElement("a");
         link.href = `search.html?code=${encodeURIComponent(ticket.ticket_code || "")}`;
-        link.textContent = `${ticket.ticket_code || "Chưa có mã"} - ${ticket.model || "Chưa có model"} - ${formatDate(ticket.received_date)}`;
+        link.textContent = `${window.AMApi.formatTicketCode(ticket.ticket_code)} - ${ticket.model || "Chưa có model"} - ${formatDate(ticket.received_date)}`;
         list.appendChild(link);
       });
 
@@ -212,14 +212,14 @@
       actions.className = "customer-match-actions";
 
       title.textContent = textOrDash(customer.name);
-      code.textContent = customer.customer_code || "Chưa có mã KH";
+      code.textContent = window.AMApi.formatCustomerCode(customer.customer_code);
       header.append(title, code);
 
       meta.append(
         createCustomerMeta("SĐT", customer.phone),
         createCustomerMeta("Địa chỉ", customer.address),
         createCustomerMeta("Số phiếu", customer.ticket_count || 0),
-        createCustomerMeta("Phiếu gần nhất", customer.latest_ticket && customer.latest_ticket.ticket_code)
+        createCustomerMeta("Phiếu gần nhất", window.AMApi.formatTicketCode(customer.latest_ticket && customer.latest_ticket.ticket_code))
       );
 
       useButton.type = "button";
@@ -430,14 +430,14 @@
       showNotice(
         "success",
         created.was_replayed
-          ? `Đã lấy lại phiếu ${created.ticket_code} từ lần gửi trước.`
-          : `Đã tạo phiếu ${created.ticket_code}.`
+          ? `Đã lấy lại phiếu ${window.AMApi.formatTicketCode(created.ticket_code)} từ lần gửi trước.`
+          : `Đã tạo phiếu ${window.AMApi.formatTicketCode(created.ticket_code)}.`
       );
       if (window.AMUI && typeof window.AMUI.toast === "function") {
         window.AMUI.toast(
           created.was_replayed
-            ? `Đã khôi phục phiếu ${created.ticket_code} từ lần gửi trước.`
-            : `Đã tạo phiếu ${created.ticket_code}.`,
+            ? `Đã khôi phục phiếu ${window.AMApi.formatTicketCode(created.ticket_code)} từ lần gửi trước.`
+            : `Đã tạo phiếu ${window.AMApi.formatTicketCode(created.ticket_code)}.`,
           { type: "success" }
         );
       }
