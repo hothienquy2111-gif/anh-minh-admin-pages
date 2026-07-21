@@ -241,7 +241,26 @@
       event.stopPropagation();
       window.AMUI.completeRepairInPlace({
         ticketId: ticket.id,
+        ticket,
         expectedStatus: ticket.status,
+        button,
+        source: "repairing-tickets",
+        onSuccess: () => loadRepairingTickets(false)
+      });
+    });
+    return button;
+  }
+
+  function createReturnActionButton(ticket) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn secondary compact repairing-action";
+    button.textContent = "Giao trả sửa chữa";
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.AMUI.returnRepairInPlace({
+        ticket,
         button,
         source: "repairing-tickets",
         onSuccess: () => loadRepairingTickets(false)
@@ -264,6 +283,7 @@
 
     if (ticket.status === "đang sửa" && ticket.repair_started_at && !ticket.completed_at) {
       actions.appendChild(createActionButton("Hoàn thành sửa chữa", ticket, true));
+      actions.appendChild(createReturnActionButton(ticket));
     }
     return actions;
   }

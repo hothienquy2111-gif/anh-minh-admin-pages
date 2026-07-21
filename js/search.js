@@ -21,6 +21,7 @@
   const closeEditModal = document.getElementById("closeEditModal");
   const saveEditButton = document.getElementById("saveEditButton");
   const completeRepairFromEdit = document.getElementById("completeRepairFromEdit");
+  const returnRepairFromEdit = document.getElementById("returnRepairFromEdit");
   const createReminderFromTicket = document.getElementById("createReminderFromTicket");
   const editStatusHint = document.getElementById("editStatusHint");
   const editBrandInput = document.getElementById("edit_brand");
@@ -550,6 +551,9 @@
       if (completeRepairFromEdit) {
         completeRepairFromEdit.hidden = true;
       }
+      if (returnRepairFromEdit) {
+        returnRepairFromEdit.hidden = true;
+      }
       if (editStatusHint) {
         editStatusHint.textContent = "Phiếu đã chuyển sang Bàn giao tivi.";
       }
@@ -566,7 +570,26 @@
       event.stopPropagation();
       window.AMUI.completeRepairInPlace({
         ticketId: ticket.id,
+        ticket,
         expectedStatus: ticket.status,
+        button,
+        source: "search-results",
+        onSuccess: (result) => applyReadyForHandoverResult(ticket, result)
+      });
+    });
+    return button;
+  }
+
+  function createReturnActionButton(ticket) {
+    const button = document.createElement("button");
+    button.className = "btn secondary workflow-action";
+    button.type = "button";
+    button.textContent = "Giao trả sửa chữa";
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.AMUI.returnRepairInPlace({
+        ticket,
         button,
         source: "search-results",
         onSuccess: (result) => applyReadyForHandoverResult(ticket, result)
@@ -595,6 +618,7 @@
 
     if (canReadyForHandover(ticket)) {
       actions.appendChild(createActionButton("Hoàn thành sửa chữa", ticket, true));
+      actions.appendChild(createReturnActionButton(ticket));
       actions.appendChild(createActionLink("Chỉ in lại tem", `print-label.html?${ticketQuery}`, false));
       return;
     }
@@ -1203,6 +1227,10 @@
       completeRepairFromEdit.hidden = !canReadyForHandover(ticket);
       completeRepairFromEdit.dataset.ticketId = ticket.id || "";
     }
+    if (returnRepairFromEdit) {
+      returnRepairFromEdit.hidden = !canReadyForHandover(ticket);
+      returnRepairFromEdit.dataset.ticketId = ticket.id || "";
+    }
     if (createReminderFromTicket) {
       createReminderFromTicket.href = `appointment-reminders.html?ticket_id=${encodeURIComponent(ticket.id || "")}`;
     }
@@ -1493,8 +1521,28 @@
 
         window.AMUI.completeRepairInPlace({
           ticketId: ticket.id,
+          ticket,
           expectedStatus: ticket.status,
           button: completeRepairFromEdit,
+          source: "search-edit-modal",
+          onSuccess: (result) => applyReadyForHandoverResult(ticket, result)
+        });
+      });
+    }
+
+    if (returnRepairFromEdit) {
+      returnRepairFromEdit.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const ticket = latestResults.find((item) => item.id === returnRepairFromEdit.dataset.ticketId);
+
+        if (!ticket || !canReadyForHandover(ticket)) {
+          return;
+        }
+
+        window.AMUI.returnRepairInPlace({
+          ticket,
+          button: returnRepairFromEdit,
           source: "search-edit-modal",
           onSuccess: (result) => applyReadyForHandoverResult(ticket, result)
         });

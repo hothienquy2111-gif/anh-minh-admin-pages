@@ -16,6 +16,14 @@
   ];
   const CREATABLE_TICKET_STATUSES = TICKET_STATUSES.filter((status) => status !== "chờ bàn giao");
   const PRE_REPAIR_STATUSES = ["mới nhận", "đang kiểm tra", "báo giá"];
+  const TICKET_ACTIVITY_STATUS_FILTERS = Object.freeze({
+    all: TICKET_STATUSES.slice(),
+    processing: PRE_REPAIR_STATUSES.slice(),
+    repairing: ["đang sửa"],
+    handover: ["chờ bàn giao"],
+    delivered: ["đã trả"],
+    other: ["đã xong", "huỷ"]
+  });
   const WORKFLOW_ACTIONS = [
     "START_REPAIR",
     "READY_FOR_HANDOVER",
@@ -224,6 +232,10 @@
   ].join(",");
   let activeWorkflowUserId = null;
   let workflowAuthSyncInitialized = false;
+  let ticketActivityCache = null;
+  let ticketActivityCacheLoadedAt = 0;
+  const TICKET_ACTIVITY_CACHE_TTL_MS = 20 * 1000;
+  const TICKET_ACTIVITY_FETCH_SIZE = 500;
   const WORKFLOW_TICKET_FIELDS = [
     "id",
     "repair_started_at",
@@ -269,6 +281,9 @@
     "internal_note",
     "received_date",
     "status",
+    "deposit_amount",
+    "estimated_price",
+    "final_price",
     "created_at",
     "updated_at",
     "repair_started_at",
@@ -946,9 +961,14 @@
       return [];
     }
 
-    const expanded = expandCompactBusinessCode(raw, expectedPrefix);
-    const compact = formatCompactBusinessCode(raw, expectedPrefix);
-    return Array.from(new Set([raw, expanded, compact].filter(Boolean)));
+    const collapsed = raw.replace(/\s+/g, "");
+    const prefix = String(expectedPrefix || "").trim().toUpperCase();
+    const normalized = prefix === "AM" && /^\d+$/.test(collapsed)
+      ? `${prefix}${collapsed}`
+      : collapsed;
+    const expanded = expandCompactBusinessCode(normalized, expectedPrefix);
+    const compact = formatCompactBusinessCode(normalized, expectedPrefix);
+    return Array.from(new Set([raw, collapsed, normalized, expanded, compact].filter(Boolean)));
   }
 
   function formatTicketCode(value) {
@@ -957,6 +977,232 @@
 
   function formatCustomerCode(value) {
     return formatCompactBusinessCode(value, "KH");
+  }
+
+  function normalizeActivitySearchValue(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/đ/g, "d")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ");
+  }
+
+  function activityPhoneDigits(value) {
+    return String(value || "").replace(/\D/g, "");
+  }
+
+  function activityCodeSet(value, prefix) {
+    const raw = String(value || "").trim();
+    const collapsed = raw.replace(/[\s-]+/g, "");
+    const prepared = prefix === "AM" && /^\d+$/.test(collapsed)
+      ? `${prefix}${collapsed}`
+      : collapsed;
+
+    return new Set(businessCodeSearchVariants(prepared, prefix).map((item) => item.toUpperCase()));
+  }
+
+  function ticketActivityStatusFilterKey(status) {
+    const normalized = String(status || "").trim();
+
+    if (PRE_REPAIR_STATUSES.includes(normalized)) {
+      return "processing";
+    }
+
+    if (normalized === "đang sửa") {
+      return "repairing";
+    }
+
+    if (normalized === "chờ bàn giao") {
+      return "handover";
+    }
+
+    if (normalized === "đã trả") {
+      return "delivered";
+    }
+
+    return "other";
+  }
+
+  function ticketActivityLifecycleRank(ticket, nowValue) {
+    const status = String(ticket && ticket.status || "").trim();
+    const now = Number.isFinite(Number(nowValue)) ? Number(nowValue) : Date.now();
+    const repairStartedAt = Date.parse(String(ticket && ticket.repair_started_at || ""));
+    const isOverdueRepair = status === "đang sửa"
+      && Number.isFinite(repairStartedAt)
+      && now - repairStartedAt >= 48 * 60 * 60 * 1000;
+
+    if (isOverdueRepair) {
+      return 0;
+    }
+
+    if (PRE_REPAIR_STATUSES.includes(status) || status === "đang sửa") {
+      return 1;
+    }
+
+    if (status === "chờ bàn giao") {
+      return 2;
+    }
+
+    if (status === "đã trả") {
+      return 3;
+    }
+
+    return 4;
+  }
+
+  function ticketActivitySortTime(ticket, lifecycleRank) {
+    const values = lifecycleRank <= 1
+      ? [ticket.repair_started_at, ticket.last_activity_at, ticket.created_at]
+      : lifecycleRank === 2
+        ? [ticket.ready_for_handover_at, ticket.last_activity_at, ticket.updated_at, ticket.created_at]
+        : lifecycleRank === 3
+          ? [ticket.completed_at, ticket.last_activity_at, ticket.updated_at, ticket.created_at]
+          : [ticket.last_activity_at, ticket.updated_at, ticket.created_at];
+
+    for (const value of values) {
+      const parsed = Date.parse(String(value || ""));
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+
+    return 0;
+  }
+
+  function ticketActivitySearchScore(ticket, keyword) {
+    const raw = String(keyword || "").trim();
+
+    if (!raw) {
+      return { matched: true, score: 0, label: "" };
+    }
+
+    const query = normalizeActivitySearchValue(raw);
+    const ticketCode = String(ticket.ticket_code || "").trim().toUpperCase();
+    const compactTicketCode = formatTicketCode(ticketCode).toUpperCase();
+    const customerCode = String(ticket.customer_code || "").trim().toUpperCase();
+    const compactCustomerCode = formatCustomerCode(customerCode).toUpperCase();
+    const ticketCodes = activityCodeSet(raw, "AM");
+    const customerCodes = activityCodeSet(raw, "KH");
+    const collapsedCodeQuery = raw.toUpperCase().replace(/[\s-]+/g, "");
+    const name = normalizeActivitySearchValue(ticket.customer_name || ticket.customer_master_name);
+    const brand = normalizeActivitySearchValue(ticket.brand);
+    const model = normalizeActivitySearchValue(ticket.model);
+    const serial = normalizeActivitySearchValue(ticket.serial_number);
+    const phone = activityPhoneDigits(ticket.customer_phone || ticket.customer_master_phone);
+    const queryPhone = activityPhoneDigits(raw);
+
+    if (ticketCodes.has(ticketCode) || ticketCodes.has(compactTicketCode)) {
+      return { matched: true, score: 10000, label: "Khớp chính xác mã phiếu" };
+    }
+
+    if (/^(AM)?\d+$/i.test(collapsedCodeQuery)
+      && (compactTicketCode.startsWith(collapsedCodeQuery.replace(/^AM/i, "AM"))
+        || ticketCode.startsWith(collapsedCodeQuery))) {
+      return { matched: true, score: 9000, label: "Khớp đầu mã phiếu" };
+    }
+
+    if (serial && serial === query) {
+      return { matched: true, score: 8000, label: "Khớp chính xác serial" };
+    }
+
+    if (model && model === query) {
+      return { matched: true, score: 7600, label: "Khớp chính xác model" };
+    }
+
+    if (queryPhone.length >= 8 && phone === queryPhone) {
+      return { matched: true, score: 7200, label: "Khớp chính xác số điện thoại" };
+    }
+
+    if (queryPhone.length >= 7 && phone.includes(queryPhone)) {
+      return { matched: true, score: 6900, label: "Khớp số điện thoại" };
+    }
+
+    if (name && name === query) {
+      return { matched: true, score: 6600, label: "Khớp chính xác tên khách" };
+    }
+
+    if (name && (name.startsWith(query) || name.includes(query))) {
+      return { matched: true, score: 6200, label: "Khớp tên khách" };
+    }
+
+    if ((brand && brand.includes(query)) || (model && model.includes(query))) {
+      return { matched: true, score: 5400, label: brand && brand.includes(query) ? "Khớp hãng" : "Khớp model" };
+    }
+
+    if (customerCodes.has(customerCode) || customerCodes.has(compactCustomerCode)) {
+      return { matched: true, score: 4000, label: "Khớp chính xác mã khách" };
+    }
+
+    if (/^KH\d+$/i.test(collapsedCodeQuery)
+      && (compactCustomerCode.includes(collapsedCodeQuery) || customerCode.includes(collapsedCodeQuery))) {
+      return { matched: true, score: 3500, label: "Khớp mã khách" };
+    }
+
+    const genericValues = [
+      ticketCode,
+      compactTicketCode,
+      customerCode,
+      compactCustomerCode,
+      ticket.customer_name,
+      ticket.customer_master_name,
+      ticket.customer_phone,
+      ticket.customer_master_phone,
+      ticket.brand,
+      ticket.model,
+      ticket.serial_number,
+      ticket.condition_text,
+      ticket.external_condition,
+      ticket.status
+    ].map(normalizeActivitySearchValue).filter(Boolean);
+
+    if (genericValues.some((value) => value.includes(query))) {
+      return { matched: true, score: 1000, label: "Khớp nội dung phiếu" };
+    }
+
+    return { matched: false, score: -1, label: "" };
+  }
+
+  function sortTicketActivityRecords(records, keyword, nowValue) {
+    return (records || [])
+      .map((ticket) => {
+        const match = ticketActivitySearchScore(ticket, keyword);
+        return Object.assign({}, ticket, {
+          search_match_score: match.score,
+          search_match_label: match.label,
+          search_matched: match.matched
+        });
+      })
+      .filter((ticket) => ticket.search_matched)
+      .sort((left, right) => {
+        if (left.search_match_score !== right.search_match_score) {
+          return right.search_match_score - left.search_match_score;
+        }
+
+        const leftRank = ticketActivityLifecycleRank(left, nowValue);
+        const rightRank = ticketActivityLifecycleRank(right, nowValue);
+
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+
+        const leftTime = ticketActivitySortTime(left, leftRank);
+        const rightTime = ticketActivitySortTime(right, rightRank);
+        const timeDirection = leftRank >= 3 ? rightTime - leftTime : leftTime - rightTime;
+
+        if (timeDirection !== 0) {
+          return timeDirection;
+        }
+
+        const codeCompare = String(left.ticket_code || "").localeCompare(
+          String(right.ticket_code || ""),
+          "vi",
+          { numeric: true, sensitivity: "base" }
+        );
+
+        return codeCompare || String(left.id || "").localeCompare(String(right.id || ""));
+      });
   }
 
   function mapTicket(ticket) {
@@ -2945,6 +3191,63 @@
     }
   }
 
+  async function saveRepairReturnReason(ticket, reasonValue, detailValue) {
+    const source = ticket || {};
+    const reason = String(reasonValue || "").trim();
+    const detail = String(detailValue || "").trim();
+    const allowedReasons = [
+      "Không sửa được",
+      "Không có linh kiện",
+      "Khách không đồng ý chi phí",
+      "Khách yêu cầu lấy lại máy",
+      "Không phát hiện lỗi",
+      "Lỗi không ổn định",
+      "Khác"
+    ];
+
+    if (!source.id || source.status !== "đang sửa") {
+      throw new Error("Phiếu không còn ở trạng thái đang sửa. Vui lòng tải lại.");
+    }
+
+    if (!allowedReasons.includes(reason)) {
+      throw new Error("Vui lòng chọn lý do giao trả sửa chữa.");
+    }
+
+    if (reason === "Khác" && !detail) {
+      throw new Error("Vui lòng nhập nội dung cho lý do khác.");
+    }
+
+    if (detail.length > 1000) {
+      throw new Error("Chi tiết giao trả không được vượt quá 1.000 ký tự.");
+    }
+
+    const noteLine = `[Kết quả sửa chữa: Giao trả] ${reason}${detail ? ` — ${detail}` : ""}`;
+    const currentNote = String(source.internal_note || "").trim();
+
+    if (currentNote.split(/\r?\n/).some((line) => line.trim() === noteLine)) {
+      return source;
+    }
+
+    return updateTicket(source.id, {
+      customer_name: source.customer_name || source.customer_master_name,
+      customer_phone: source.customer_phone || source.customer_master_phone,
+      customer_address: source.customer_address || source.customer_master_address,
+      device_type: source.device_type,
+      brand: source.brand,
+      model: source.model,
+      size: source.size,
+      serial_number: source.serial_number,
+      condition_text: source.condition_text,
+      external_condition: source.external_condition,
+      internal_note: currentNote ? `${currentNote}\n${noteLine}` : noteLine,
+      received_date: source.received_date,
+      deposit_amount: source.deposit_amount,
+      estimated_price: source.estimated_price,
+      final_price: source.final_price,
+      _expected_updated_at: source.updated_at
+    });
+  }
+
   async function getDashboardCustomers() {
     try {
       const client = getClient();
@@ -3764,47 +4067,89 @@
     }
   }
 
-  async function getTicketActivityTickets(params) {
-    try {
-      const client = getClient();
-      const options = params || {};
-      const pageSize = 8;
-      const page = Math.max(Number(options.page) || 1, 1);
-      const keyword = String(options.keyword || "").trim();
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      const customerIds = keyword ? await findTicketHistoryCustomerIds(keyword) : [];
-      let query = buildRepairingTicketsQuery(client, {
-        keyword,
-        customerIds,
-        filter: "all"
-      }, HANDOVER_TICKET_SELECT_FIELDS, { count: "exact" });
+  async function fetchTicketActivityRecords(forceRefresh) {
+    const now = Date.now();
 
-      query = query
-        .not("repair_started_at", "is", null)
-        .is("completed_at", null)
-        .order("repair_started_at", { ascending: true, nullsFirst: false })
+    if (!forceRefresh
+      && Array.isArray(ticketActivityCache)
+      && now - ticketActivityCacheLoadedAt < TICKET_ACTIVITY_CACHE_TTL_MS) {
+      return ticketActivityCache.slice();
+    }
+
+    const client = getClient();
+    const records = [];
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await client
+        .from("service_tickets")
+        .select(HANDOVER_TICKET_SELECT_FIELDS)
+        .order("updated_at", { ascending: false, nullsFirst: false })
         .order("ticket_code", { ascending: true })
         .order("id", { ascending: true })
-        .range(from, to);
-
-      const { data, error, count } = await query;
+        .range(from, from + TICKET_ACTIVITY_FETCH_SIZE - 1);
 
       if (error) {
         throw error;
       }
 
-      const totalCount = count || 0;
+      records.push(...(data || []));
+
+      if (!data || data.length < TICKET_ACTIVITY_FETCH_SIZE) {
+        break;
+      }
+
+      from += TICKET_ACTIVITY_FETCH_SIZE;
+    }
+
+    ticketActivityCache = mapTickets(records.map((ticket) => Object.assign({}, ticket, {
+      workflow_available: true,
+      workflow_inactive_message: null
+    })));
+    ticketActivityCacheLoadedAt = now;
+    return ticketActivityCache.slice();
+  }
+
+  async function getTicketActivityTickets(params) {
+    try {
+      const options = params || {};
+      const pageSize = 8;
+      const page = Math.max(Number(options.page) || 1, 1);
+      const keyword = String(options.keyword || "").trim();
+      const filter = Object.prototype.hasOwnProperty.call(TICKET_ACTIVITY_STATUS_FILTERS, options.filter)
+        ? options.filter
+        : "all";
+      const records = await fetchTicketActivityRecords(options.forceRefresh === true);
+      const matchedRecords = sortTicketActivityRecords(records, keyword, Date.now());
+      const filterCounts = {
+        all: matchedRecords.length,
+        processing: 0,
+        repairing: 0,
+        handover: 0,
+        delivered: 0,
+        other: 0
+      };
+
+      matchedRecords.forEach((ticket) => {
+        filterCounts[ticketActivityStatusFilterKey(ticket.status)] += 1;
+      });
+
+      const filteredRecords = filter === "all"
+        ? matchedRecords
+        : matchedRecords.filter((ticket) => ticketActivityStatusFilterKey(ticket.status) === filter);
+      const totalCount = filteredRecords.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+      const safePage = Math.min(page, totalPages);
+      const from = (safePage - 1) * pageSize;
+
       return {
         available: true,
-        tickets: mapTickets((data || []).map((ticket) => Object.assign({}, ticket, {
-          workflow_available: true,
-          workflow_inactive_message: null
-        }))),
+        tickets: filteredRecords.slice(from, from + pageSize),
         totalCount,
-        page,
+        page: safePage,
         pageSize,
-        totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+        totalPages,
+        filterCounts,
         message: ""
       };
     } catch (error) {
@@ -3819,6 +4164,7 @@
         page: 1,
         pageSize: 8,
         totalPages: 1,
+        filterCounts: { all: 0, processing: 0, repairing: 0, handover: 0, delivered: 0, other: 0 },
         message: "Workflow chưa được kích hoạt."
       };
     }
@@ -4309,6 +4655,9 @@
     getTicketForDeliveryReceipt,
     getTicketForLabel,
     updateTicket,
+    saveRepairReturnReason,
+    sortTicketActivityRecords,
+    ticketActivitySearchScore,
     ensureWorkflowClientRequestId,
     clearWorkflowClientRequestId,
     shouldClearWorkflowClientRequestId,

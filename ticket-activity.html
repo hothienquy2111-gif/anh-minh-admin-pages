@@ -34,7 +34,7 @@
         <div class="page-header">
           <div>
             <h1 class="page-title">Hoạt động phiếu</h1>
-            <p class="page-subtitle">Theo dõi tiến độ sửa chữa và các phiếu cần ưu tiên xử lý.</p>
+            <p class="page-subtitle">Theo dõi toàn bộ vòng đời phiếu, tìm nhanh và xử lý đúng bước nghiệp vụ.</p>
           </div>
           <span class="status-pill">Nội bộ</span>
         </div>
@@ -45,13 +45,13 @@
           <div class="dashboard-section-header">
             <div>
               <h2 id="workflowTitle" class="section-title">Hoạt động của phiếu</h2>
-              <p class="section-description">Danh sách phiếu đang sửa theo đúng workflow hiện tại, ưu tiên phiếu đã chờ lâu.</p>
+              <p class="section-description">Phiếu quá hạn được ưu tiên trước; tìm kiếm hỗ trợ cả mã rút gọn AM/KH.</p>
             </div>
           </div>
 
           <div class="ticket-activity-toolbar">
             <form id="workflowSearchForm" class="ticket-activity-search" role="search">
-              <label class="sr-only" for="workflowSearchInput">Tìm phiếu đang sửa</label>
+              <label class="sr-only" for="workflowSearchInput">Tìm trong toàn bộ phiếu</label>
               <input
                 id="workflowSearchInput"
                 type="search"
@@ -62,6 +62,27 @@
               <button id="workflowSearchClear" class="btn secondary" type="button">Xóa</button>
             </form>
             <span id="workflowRefreshIndicator" class="ticket-activity-refresh" role="status" hidden>Đang cập nhật...</span>
+          </div>
+
+          <div id="workflowStatusFilters" class="ticket-activity-filters" role="group" aria-label="Lọc trạng thái phiếu">
+            <button class="ticket-activity-filter active" type="button" data-activity-filter="all" aria-pressed="true">
+              Tất cả <span data-filter-count="all">0</span>
+            </button>
+            <button class="ticket-activity-filter" type="button" data-activity-filter="processing" aria-pressed="false">
+              Đang xử lý <span data-filter-count="processing">0</span>
+            </button>
+            <button class="ticket-activity-filter" type="button" data-activity-filter="repairing" aria-pressed="false">
+              Đang sửa <span data-filter-count="repairing">0</span>
+            </button>
+            <button class="ticket-activity-filter" type="button" data-activity-filter="handover" aria-pressed="false">
+              Bàn giao tivi <span data-filter-count="handover">0</span>
+            </button>
+            <button class="ticket-activity-filter" type="button" data-activity-filter="delivered" aria-pressed="false">
+              Đã bàn giao <span data-filter-count="delivered">0</span>
+            </button>
+            <button class="ticket-activity-filter" type="button" data-activity-filter="other" aria-pressed="false">
+              Khác <span data-filter-count="other">0</span>
+            </button>
           </div>
 
           <div id="workflowState" class="list-state loading" role="status" aria-live="polite">

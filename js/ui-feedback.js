@@ -18,6 +18,8 @@
   ]);
   const workflowActionLocks = new Set();
   let repairDialogState = null;
+  let repairReturnDialogState = null;
+  const repairReturnProgress = new Map();
 
   function prefersReducedMotion() {
     return Boolean(
@@ -210,6 +212,26 @@
     return element;
   }
 
+  function renderWorkflowTicketSummary(container, ticket, resultLabel) {
+    const source = ticket || {};
+    const rows = [
+      ["Mã phiếu", window.AMApi.formatTicketCode(source.ticket_code)],
+      ["Khách hàng", source.customer_name || source.customer_master_name || "—"],
+      ["Thiết bị", [source.brand, source.model].filter(Boolean).join(" ") || "—"],
+      ["Kết quả", resultLabel]
+    ];
+
+    container.replaceChildren();
+    rows.forEach(([label, value]) => {
+      const row = createElement("div", "workflow-confirm-summary-item");
+      row.append(
+        createElement("span", "", label),
+        createElement("strong", "", value || "—")
+      );
+      container.appendChild(row);
+    });
+  }
+
   function ensureRepairCompletionDialog() {
     if (repairDialogState) {
       return repairDialogState;
@@ -222,6 +244,12 @@
       "p",
       "",
       "Tivi sẽ được chuyển sang khu Bàn giao tivi. Thao tác này chưa đánh dấu khách đã nhận máy và chưa hoàn tất phiếu."
+    );
+    const summary = createElement("div", "workflow-confirm-summary");
+    const warrantyNote = createElement(
+      "p",
+      "workflow-confirm-note",
+      "Thông tin giao/trả và bảo hành được nhập, lưu ở bước bàn giao cuối cùng."
     );
     const actions = createElement("div", "workflow-confirm-actions");
     const cancel = createElement("button", "btn secondary", "Huỷ");
@@ -239,7 +267,7 @@
     cancel.type = "button";
     confirm.type = "button";
     actions.append(cancel, confirm);
-    dialog.append(title, description, actions);
+    dialog.append(title, description, summary, warrantyNote, actions);
     backdrop.appendChild(dialog);
     document.body.appendChild(backdrop);
 
@@ -248,6 +276,7 @@
       dialog,
       cancel,
       confirm,
+      summary,
       returnFocus: null,
       resolve: null
     };
@@ -310,7 +339,7 @@
     return repairDialogState;
   }
 
-  function confirmRepairCompletion(trigger) {
+  function confirmRepairCompletion(trigger, ticket) {
     const state = ensureRepairCompletionDialog();
 
     if (state.resolve) {
@@ -318,6 +347,7 @@
     }
 
     state.returnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+    renderWorkflowTicketSummary(state.summary, ticket, "Đã sửa hoàn tất");
     state.backdrop.hidden = false;
     document.body.classList.add("workflow-modal-open");
     state.dialog.focus({ preventScroll: true });
@@ -325,6 +355,270 @@
     return new Promise((resolve) => {
       state.resolve = resolve;
     });
+  }
+
+  function ensureRepairReturnDialog() {
+    if (repairReturnDialogState) {
+      return repairReturnDialogState;
+    }
+
+    const backdrop = createElement("div", "workflow-confirm-backdrop no-print");
+    const dialog = createElement("form", "workflow-confirm-dialog workflow-return-dialog");
+    const title = createElement("h2", "", "Giao trả sửa chữa");
+    const description = createElement(
+      "p",
+      "",
+      "Ghi nhận lý do không hoàn tất sửa chữa và chuyển tivi sang khu Bàn giao. Phiếu chưa được đánh dấu đã giao khách."
+    );
+    const summary = createElement("div", "workflow-confirm-summary");
+    const reasonField = createElement("label", "workflow-return-field");
+    const reasonLabel = createElement("span", "", "Lý do");
+    const reason = document.createElement("select");
+    const detailField = createElement("label", "workflow-return-field");
+    const detailLabel = createElement("span", "", "Chi tiết bổ sung");
+    const detail = document.createElement("textarea");
+    const error = createElement("p", "workflow-return-error");
+    const actions = createElement("div", "workflow-confirm-actions");
+    const cancel = createElement("button", "btn secondary", "Huỷ");
+    const confirm = createElement("button", "btn primary", "Chuyển sang bàn giao");
+    const reasons = [
+      "",
+      "Không sửa được",
+      "Không có linh kiện",
+      "Khách không đồng ý chi phí",
+      "Khách yêu cầu lấy lại máy",
+      "Không phát hiện lỗi",
+      "Lỗi không ổn định",
+      "Khác"
+    ];
+
+    backdrop.id = "sharedRepairReturnModal";
+    backdrop.hidden = true;
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "sharedRepairReturnTitle");
+    dialog.setAttribute("aria-describedby", "sharedRepairReturnDescription");
+    title.id = "sharedRepairReturnTitle";
+    description.id = "sharedRepairReturnDescription";
+    reason.id = "sharedRepairReturnReason";
+    detail.id = "sharedRepairReturnDetail";
+    detail.rows = 4;
+    detail.maxLength = 1000;
+    detail.placeholder = "Mô tả ngắn để nhân viên bàn giao nắm được tình hình...";
+    error.setAttribute("role", "alert");
+    error.hidden = true;
+    cancel.type = "button";
+    confirm.type = "submit";
+
+    reasons.forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value || "Chọn lý do";
+      reason.appendChild(option);
+    });
+
+    reasonField.append(reasonLabel, reason);
+    detailField.append(detailLabel, detail);
+    actions.append(cancel, confirm);
+    dialog.append(title, description, summary, reasonField, detailField, error, actions);
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+
+    repairReturnDialogState = {
+      backdrop,
+      dialog,
+      summary,
+      reason,
+      detail,
+      error,
+      cancel,
+      confirm,
+      resolve: null,
+      returnFocus: null
+    };
+
+    function close(result) {
+      const state = repairReturnDialogState;
+
+      if (!state || state.backdrop.hidden || !state.resolve) {
+        return;
+      }
+
+      const resolve = state.resolve;
+      const returnFocus = state.returnFocus;
+      state.resolve = null;
+      state.returnFocus = null;
+      state.backdrop.hidden = true;
+      document.body.classList.remove("workflow-modal-open");
+
+      if (returnFocus && document.contains(returnFocus)) {
+        returnFocus.focus({ preventScroll: true });
+      }
+
+      resolve(result);
+    }
+
+    cancel.addEventListener("click", () => close(null));
+    dialog.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const reasonValue = reason.value.trim();
+      const detailValue = detail.value.trim();
+
+      if (!reasonValue) {
+        error.textContent = "Vui lòng chọn lý do giao trả.";
+        error.hidden = false;
+        reason.focus({ preventScroll: true });
+        return;
+      }
+
+      if (reasonValue === "Khác" && !detailValue) {
+        error.textContent = "Vui lòng nhập chi tiết cho lý do khác.";
+        error.hidden = false;
+        detail.focus({ preventScroll: true });
+        return;
+      }
+
+      close({ reason: reasonValue, detail: detailValue });
+    });
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        close(null);
+      }
+    });
+    backdrop.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close(null);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = Array.from(dialog.querySelectorAll("select, textarea, button:not([disabled])"));
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    });
+
+    return repairReturnDialogState;
+  }
+
+  function collectRepairReturnDetails(trigger, ticket, initialDetails) {
+    const state = ensureRepairReturnDialog();
+    const initial = initialDetails || {};
+
+    if (state.resolve) {
+      return Promise.resolve(null);
+    }
+
+    state.returnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+    state.reason.value = initial.reason || "";
+    state.detail.value = initial.detail || "";
+    state.error.textContent = "";
+    state.error.hidden = true;
+    renderWorkflowTicketSummary(state.summary, ticket, "Giao trả sửa chữa");
+    state.backdrop.hidden = false;
+    document.body.classList.add("workflow-modal-open");
+    state.reason.focus({ preventScroll: true });
+
+    return new Promise((resolve) => {
+      state.resolve = resolve;
+    });
+  }
+
+  async function returnRepairInPlace(options) {
+    const config = options || {};
+    const ticket = config.ticket || {};
+    const ticketId = String(ticket.id || config.ticketId || "").trim();
+    const action = "READY_FOR_HANDOVER";
+    const lockKey = `${ticketId}:${action}`;
+    const button = config.button instanceof HTMLElement ? config.button : null;
+    const progress = repairReturnProgress.get(ticketId);
+    const workingTicket = progress && progress.ticket ? progress.ticket : ticket;
+    const initialDetails = config.initialDetails || (progress && progress.details) || null;
+
+    if (!ticketId || workflowActionLocks.has(lockKey)) {
+      return { ok: false, ignored: true };
+    }
+
+    const details = await collectRepairReturnDetails(button, workingTicket, initialDetails);
+
+    if (!details || workflowActionLocks.has(lockKey)) {
+      return { ok: false, cancelled: !details };
+    }
+
+    workflowActionLocks.add(lockKey);
+    setButtonBusy(button, true, {
+      busyText: "Đang chuyển phiếu...",
+      idleText: config.idleText || "Giao trả sửa chữa"
+    });
+
+    let updatedTicket = workingTicket;
+    let retryDetails = null;
+    let outcome = null;
+
+    try {
+      if (!progress || progress.details.reason !== details.reason || progress.details.detail !== details.detail) {
+        updatedTicket = await window.AMApi.saveRepairReturnReason(workingTicket, details.reason, details.detail);
+        repairReturnProgress.set(ticketId, { ticket: updatedTicket, details });
+      }
+
+      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action);
+      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId);
+      window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+      repairReturnProgress.delete(ticketId);
+
+      let refreshError = null;
+
+      if (typeof config.onSuccess === "function") {
+        try {
+          await config.onSuccess(result, { reason: details.reason, detail: details.detail, ticket: updatedTicket });
+        } catch (error) {
+          refreshError = error;
+          toast("Phiếu đã chuyển sang Bàn giao tivi, nhưng vùng dữ liệu hiện tại chưa tải lại được.", {
+            type: "warning",
+            duration: 6000
+          });
+        }
+      }
+
+      toast("Đã ghi nhận giao trả sửa chữa và chuyển phiếu sang Bàn giao tivi.", { type: "success" });
+      outcome = { ok: true, result, refreshError };
+    } catch (error) {
+      if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
+        window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+      }
+
+      toast(error.message || "Không thể chuyển phiếu sang Bàn giao tivi.", {
+        type: "error",
+        duration: 6500
+      });
+      retryDetails = details;
+      outcome = { ok: false, error };
+    } finally {
+      workflowActionLocks.delete(lockKey);
+      if (button && document.contains(button)) {
+        setButtonBusy(button, false, { idleText: config.idleText || "Giao trả sửa chữa" });
+      }
+    }
+
+    if (retryDetails && config.reopenOnError !== false) {
+      return returnRepairInPlace(Object.assign({}, config, {
+        ticket: updatedTicket,
+        initialDetails: retryDetails
+      }));
+    }
+
+    return outcome;
   }
 
   async function completeRepairInPlace(options) {
@@ -338,7 +632,7 @@
       return { ok: false, ignored: true };
     }
 
-    const confirmed = await confirmRepairCompletion(button);
+    const confirmed = await confirmRepairCompletion(button, config.ticket);
 
     if (!confirmed || workflowActionLocks.has(lockKey)) {
       return { ok: false, cancelled: !confirmed };
@@ -400,6 +694,7 @@
     prefersReducedMotion,
     setButtonBusy,
     setSectionState,
+    returnRepairInPlace,
     toast
   });
 

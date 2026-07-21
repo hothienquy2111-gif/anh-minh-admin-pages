@@ -23,6 +23,483 @@ html {
   font-size: 16px;
 }
 
+/* Ticket lifecycle workspace and shared mobile navigation */
+@media screen {
+  .admin-mobile-nav-trigger,
+  .admin-mobile-nav-close,
+  .admin-mobile-nav-overlay {
+    display: none;
+  }
+
+  .ticket-activity-page .ticket-activity-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .ticket-activity-page .ticket-activity-filter {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 44px;
+    padding: 8px 13px;
+    border: 1px solid #cbd9e8;
+    border-radius: 999px;
+    background: #fff;
+    color: #26435f;
+    font-weight: 850;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+
+  .ticket-activity-page .ticket-activity-filter > span {
+    display: inline-grid;
+    min-width: 24px;
+    min-height: 24px;
+    place-items: center;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #e8f1fb;
+    color: #31506f;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ticket-activity-page .ticket-activity-filter:hover,
+  .ticket-activity-page .ticket-activity-filter:focus-visible {
+    border-color: #8db4da;
+    background: #f1f7fd;
+  }
+
+  .ticket-activity-page .ticket-activity-filter:focus-visible {
+    outline: 3px solid rgba(36, 105, 173, 0.22);
+    outline-offset: 2px;
+  }
+
+  .ticket-activity-page .ticket-activity-filter.active {
+    border-color: #0b3a6e;
+    background: #0b2347;
+    color: #fff;
+  }
+
+  .ticket-activity-page .ticket-activity-filter.active > span {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+  }
+
+  .ticket-activity-page .workflow-ticket-code-value {
+    display: block;
+    color: var(--primary);
+    font-size: 0.96rem;
+    font-weight: 900;
+  }
+
+  .ticket-activity-page .workflow-search-match {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 5px;
+    padding: 3px 7px;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4f91;
+    font-size: 0.68rem;
+    font-weight: 850;
+    line-height: 1.25;
+  }
+
+  .ticket-activity-page .workflow-card-badges {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    flex-direction: column;
+  }
+
+  .ticket-activity-page .priority-handover {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1d4f91;
+  }
+
+  .ticket-activity-page .workflow-action-menu {
+    width: 100%;
+  }
+
+  .ticket-activity-page .workflow-action-menu > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .ticket-activity-page .workflow-action-menu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ticket-activity-page .workflow-action-menu-list {
+    display: grid;
+    gap: 7px;
+    margin-top: 7px;
+    padding: 8px;
+    border: 1px solid #d7e1eb;
+    border-radius: 10px;
+    background: #f8fbff;
+  }
+
+  .ticket-activity-page .workflow-return-action {
+    border-color: #d4a72c;
+    background: #fffaf0;
+    color: #795600;
+  }
+
+  .workflow-confirm-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 16px;
+    padding: 12px;
+    border: 1px solid #d8e2ec;
+    border-radius: 10px;
+    background: #f8fbff;
+  }
+
+  .workflow-confirm-summary-item {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .workflow-confirm-summary-item span,
+  .workflow-return-field > span {
+    color: #60738a;
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .workflow-confirm-summary-item strong {
+    color: #102b49;
+    font-size: 0.9rem;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+  }
+
+  .workflow-confirm-dialog .workflow-confirm-note {
+    padding: 10px 12px;
+    border-left: 3px solid #4f8cc9;
+    background: #f2f7fc;
+    color: #45627e;
+    font-size: 0.84rem;
+  }
+
+  .workflow-return-dialog {
+    width: min(100%, 600px);
+  }
+
+  .workflow-return-field {
+    display: grid;
+    gap: 7px;
+    margin-top: 14px;
+  }
+
+  .workflow-return-field select,
+  .workflow-return-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #bdcddd;
+    border-radius: 9px;
+    background: #fff;
+    color: #102b49;
+    font: inherit;
+    font-weight: 650;
+  }
+
+  .workflow-return-field select {
+    min-height: 48px;
+    padding: 8px 12px;
+  }
+
+  .workflow-return-field textarea {
+    min-height: 104px;
+    padding: 12px;
+    resize: vertical;
+  }
+
+  .workflow-return-field select:focus,
+  .workflow-return-field textarea:focus {
+    border-color: #2469ad;
+    outline: 3px solid rgba(36, 105, 173, 0.16);
+  }
+
+  .workflow-return-error {
+    margin: 10px 0 0;
+    color: #b4232c;
+    font-size: 0.84rem;
+    font-weight: 800;
+  }
+}
+
+@media screen and (max-width: 900px) {
+  .page-shell > .topbar {
+    flex-wrap: nowrap;
+    min-height: 64px;
+    padding: 9px 12px;
+  }
+
+  .page-shell > .topbar .brand {
+    flex: 1 1 auto;
+    max-width: calc(100% - 64px);
+  }
+
+  .page-shell > .topbar .brand-copy {
+    min-width: 0;
+  }
+
+  .page-shell > .topbar .brand-copy strong,
+  .page-shell > .topbar .brand-copy span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .page-shell > .topbar .brand-copy span {
+    display: none;
+  }
+
+  .admin-mobile-nav-trigger {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 52px;
+    min-height: 44px;
+    padding: 7px 10px;
+    border: 1px solid #b9cee3;
+    border-radius: 9px;
+    background: #fff;
+    color: #0b2347;
+    font-weight: 850;
+  }
+
+  .admin-mobile-nav-trigger[aria-expanded="true"] {
+    background: #0b2347;
+    color: #fff;
+  }
+
+  .admin-mobile-nav-icon {
+    display: grid;
+    gap: 3px;
+    width: 18px;
+  }
+
+  .admin-mobile-nav-icon span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .admin-mobile-nav-label {
+    font-size: 0.78rem;
+  }
+
+  .admin-mobile-nav-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: rgba(7, 26, 49, 0.5);
+  }
+
+  .admin-mobile-nav-overlay[hidden] {
+    display: none;
+  }
+
+  .page-shell > .topbar .nav {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 999;
+    display: flex;
+    width: min(88vw, 380px);
+    max-width: 100%;
+    height: 100dvh;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 6px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    padding: 14px;
+    border: 0;
+    border-left: 1px solid #c7d8e9;
+    border-radius: 0;
+    background: #f8fbff;
+    box-shadow: -16px 0 40px rgba(10, 37, 67, 0.2);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    visibility: hidden;
+    transform: translateX(104%);
+    transition: transform 170ms ease, visibility 170ms linear;
+  }
+
+  .page-shell > .topbar .nav.mobile-open {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .page-shell > .topbar .nav > a,
+  .page-shell > .topbar .nav > button,
+  .page-shell > .topbar .nav > .admin-more-nav {
+    width: 100%;
+  }
+
+  .page-shell > .topbar .nav > a,
+  .page-shell > .topbar .nav > button {
+    min-height: 48px;
+    justify-content: flex-start;
+    padding: 11px 12px;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .page-shell > .topbar .nav .admin-mobile-nav-close {
+    display: inline-flex;
+    align-self: flex-end;
+    justify-content: center;
+    width: auto;
+    min-width: 76px;
+    min-height: 44px;
+    margin-bottom: 4px;
+    border-color: #c7d8e9;
+    background: #fff;
+  }
+
+  .page-shell > .topbar .nav .admin-more-trigger {
+    width: 100%;
+    min-height: 48px;
+    justify-content: flex-start;
+    padding: 11px 12px;
+  }
+
+  .page-shell > .topbar .nav .admin-more-menu {
+    position: static;
+    width: 100%;
+    margin-top: 6px;
+    box-shadow: none;
+    transform: translateY(-3px);
+  }
+
+  body.admin-mobile-nav-open {
+    overflow: hidden;
+  }
+
+  .ticket-activity-page .page-main {
+    width: min(100% - 20px, 1600px);
+  }
+
+  .ticket-activity-page .ticket-activity-card {
+    padding: 14px;
+  }
+
+  .ticket-activity-page .ticket-activity-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-activity-page .ticket-activity-search {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ticket-activity-page .ticket-activity-search input {
+    grid-column: 1 / -1;
+  }
+
+  .ticket-activity-page .ticket-activity-search .btn {
+    width: 100%;
+  }
+
+  .ticket-activity-page .ticket-activity-refresh {
+    justify-self: start;
+  }
+
+  .ticket-activity-page .ticket-activity-table-wrap {
+    display: none;
+  }
+
+  .ticket-activity-page .workflow-cards {
+    display: grid;
+    gap: 12px;
+  }
+
+  .ticket-activity-page .ticket-activity-mobile-card {
+    min-width: 0;
+  }
+
+  .ticket-activity-page .workflow-card-title span,
+  .ticket-activity-page .workflow-card-meta strong {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ticket-activity-page .ticket-activity-pagination {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .ticket-activity-page .workflow-card-top,
+  .ticket-activity-page .workflow-card-badges {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ticket-activity-page .workflow-card-meta,
+  .workflow-confirm-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-activity-page .ticket-activity-actions,
+  .ticket-activity-page .ticket-activity-actions .btn {
+    width: 100%;
+  }
+
+  .workflow-confirm-dialog {
+    max-height: calc(100dvh - 24px);
+    padding: 16px;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-shell > .topbar .nav,
+  .ticket-activity-page .ticket-activity-filter {
+    transition: none;
+  }
+}
+
+@media print {
+  .admin-mobile-nav-trigger,
+  .admin-mobile-nav-close,
+  .admin-mobile-nav-overlay {
+    display: none !important;
+  }
+}
+
 html.auth-revalidating body {
   visibility: hidden;
 }
@@ -10542,5 +11019,75 @@ body.workflow-modal-open {
 
   html.receipt-print body.receipt-page .receipt-value {
     border-bottom: 1px dotted #555;
+  }
+}
+
+/* Final responsive override: keep the shared admin navigation as an off-canvas drawer. */
+@media screen and (max-width: 900px) {
+  .page-shell > .topbar {
+    z-index: 1000;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+
+  .page-shell > .topbar .nav {
+    position: fixed;
+    inset: 0 0 0 auto;
+    display: flex;
+    width: min(88vw, 380px);
+    height: 100dvh;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    border-radius: 0;
+    visibility: hidden;
+    transform: translateX(104%);
+  }
+
+  .page-shell > .topbar .nav.mobile-open {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .page-shell > .topbar .nav > a,
+  .page-shell > .topbar .nav > button,
+  .page-shell > .topbar .nav > .admin-more-nav {
+    flex: 0 0 auto;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .page-shell > .topbar .nav .admin-more-menu {
+    position: static;
+    width: 100%;
+  }
+
+  .page-shell > .topbar .nav > .admin-more-nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ticket-activity-page .ticket-activity-table-wrap {
+    display: none;
+  }
+
+  .ticket-activity-page .workflow-cards {
+    display: grid;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .page-shell > .topbar .brand-copy span {
+    display: none;
+  }
+
+  .ticket-activity-page .ticket-activity-search {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ticket-activity-page .ticket-activity-search input {
+    grid-column: 1 / -1;
   }
 }
