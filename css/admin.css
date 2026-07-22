@@ -5579,14 +5579,27 @@ button {
   --label-code-bottom: 0.2mm;
 }
 
-/* Thermal label hierarchy: customer and ticket identity lead, details remain dense and readable. */
+/* Adaptive thermal-label typography. CSS owns per-size limits; JS measures the rendered text. */
 .print-label.label-50x30 {
-  --label-customer-size: 10px;
-  --label-ticket-size: 9.2px;
-  --label-device-type-size: 8.5px;
-  --label-device-model-size: 9.2px;
-  --label-device-condition-size: 9px;
-  --label-received-size: 7.4px;
+  --label-name-max-size: 10.8px;
+  --label-name-single-line-min-size: 8.5px;
+  --label-name-min-size: 7.5px;
+  --label-code-max-size: 10.4px;
+  --label-code-min-size: 7.4px;
+  --label-type-max-size: 9.1px;
+  --label-type-min-size: 6.6px;
+  --label-model-max-size: 9.9px;
+  --label-model-min-size: 6.8px;
+  --label-condition-max-size: 8.8px;
+  --label-condition-min-size: 6.6px;
+  --label-date-max-size: 7.4px;
+  --label-date-min-size: 6.1px;
+  --label-title-min-size: 6.8px;
+  --label-phone-min-size: 5.8px;
+  --label-address-min-size: 5.7px;
+  --label-name-line-height: 1;
+  --label-name-two-line-height: 0.97;
+  --label-detail-line-height: 1.02;
   --label-row-gap: 0.12mm;
   --label-code-top: 0.08mm;
   --label-code-bottom: 0;
@@ -5594,12 +5607,25 @@ button {
 }
 
 .print-label.label-58x30 {
-  --label-customer-size: 10.8px;
-  --label-ticket-size: 9.9px;
-  --label-device-type-size: 9.2px;
-  --label-device-model-size: 9.9px;
-  --label-device-condition-size: 9.7px;
-  --label-received-size: 8px;
+  --label-name-max-size: 11.5px;
+  --label-name-single-line-min-size: 9.2px;
+  --label-name-min-size: 8px;
+  --label-code-max-size: 11px;
+  --label-code-min-size: 7.8px;
+  --label-type-max-size: 9.8px;
+  --label-type-min-size: 7px;
+  --label-model-max-size: 10.6px;
+  --label-model-min-size: 7.3px;
+  --label-condition-max-size: 9.4px;
+  --label-condition-min-size: 7px;
+  --label-date-max-size: 8px;
+  --label-date-min-size: 6.5px;
+  --label-title-min-size: 7.2px;
+  --label-phone-min-size: 6.2px;
+  --label-address-min-size: 6px;
+  --label-name-line-height: 1;
+  --label-name-two-line-height: 0.97;
+  --label-detail-line-height: 1.02;
   --label-row-gap: 0.14mm;
   --label-code-top: 0.1mm;
   --label-code-bottom: 0;
@@ -5607,12 +5633,25 @@ button {
 }
 
 .print-label.label-58x40 {
-  --label-customer-size: 13.6px;
-  --label-ticket-size: 12.6px;
-  --label-device-type-size: 11.9px;
-  --label-device-model-size: 12.6px;
-  --label-device-condition-size: 12.2px;
-  --label-received-size: 10px;
+  --label-name-max-size: 14.5px;
+  --label-name-single-line-min-size: 11.5px;
+  --label-name-min-size: 10.3px;
+  --label-code-max-size: 13.9px;
+  --label-code-min-size: 9.9px;
+  --label-type-max-size: 12.7px;
+  --label-type-min-size: 8.6px;
+  --label-model-max-size: 13.5px;
+  --label-model-min-size: 9.4px;
+  --label-condition-max-size: 12.1px;
+  --label-condition-min-size: 8.8px;
+  --label-date-max-size: 10px;
+  --label-date-min-size: 7.5px;
+  --label-title-min-size: 8.8px;
+  --label-phone-min-size: 7px;
+  --label-address-min-size: 6.8px;
+  --label-name-line-height: 1;
+  --label-name-two-line-height: 0.98;
+  --label-detail-line-height: 1.02;
   --label-row-gap: 0.32mm;
   --label-code-top: 0.3mm;
   --label-code-bottom: 0.08mm;
@@ -5620,12 +5659,25 @@ button {
 }
 
 .print-label.label-60x40 {
-  --label-customer-size: 14px;
-  --label-ticket-size: 12.9px;
-  --label-device-type-size: 12.2px;
-  --label-device-model-size: 12.9px;
-  --label-device-condition-size: 12.5px;
-  --label-received-size: 10.2px;
+  --label-name-max-size: 15px;
+  --label-name-single-line-min-size: 11.8px;
+  --label-name-min-size: 10.6px;
+  --label-code-max-size: 14.3px;
+  --label-code-min-size: 10.2px;
+  --label-type-max-size: 13.1px;
+  --label-type-min-size: 9.1px;
+  --label-model-max-size: 13.9px;
+  --label-model-min-size: 9.7px;
+  --label-condition-max-size: 12.5px;
+  --label-condition-min-size: 9.1px;
+  --label-date-max-size: 10.2px;
+  --label-date-min-size: 7.75px;
+  --label-title-min-size: 9px;
+  --label-phone-min-size: 7.2px;
+  --label-address-min-size: 7px;
+  --label-name-line-height: 1;
+  --label-name-two-line-height: 0.98;
+  --label-detail-line-height: 1.02;
   --label-row-gap: 0.32mm;
   --label-code-top: 0.32mm;
   --label-code-bottom: 0.08mm;
@@ -5633,22 +5685,33 @@ button {
 }
 
 .print-label.label-80x50 {
-  --label-customer-size: 17.4px;
-  --label-ticket-size: 16.1px;
-  --label-device-type-size: 15.4px;
-  --label-device-model-size: 16.1px;
-  --label-device-condition-size: 15.6px;
-  --label-received-size: 12.4px;
+  --label-name-max-size: 18.7px;
+  --label-name-single-line-min-size: 14.5px;
+  --label-name-min-size: 13.2px;
+  --label-code-max-size: 17.8px;
+  --label-code-min-size: 12.7px;
+  --label-type-max-size: 16.5px;
+  --label-type-min-size: 11.2px;
+  --label-model-max-size: 17.4px;
+  --label-model-min-size: 12px;
+  --label-condition-max-size: 15.5px;
+  --label-condition-min-size: 11.5px;
+  --label-date-max-size: 12.4px;
+  --label-date-min-size: 10px;
+  --label-title-min-size: 11.5px;
+  --label-phone-min-size: 9px;
+  --label-address-min-size: 8.8px;
+  --label-name-line-height: 1;
+  --label-name-two-line-height: 0.99;
+  --label-detail-line-height: 1.03;
   --label-row-gap: 0.55mm;
   --label-code-top: 0.55mm;
   --label-code-bottom: 0.12mm;
   --label-condition-date-gap: 0.7mm;
 }
 
-.print-label.label-80x50.label-primary--long,
-.print-label.label-80x50.label-primary--very-long {
-  --label-row-gap: 0.28mm;
-  --label-condition-date-gap: 0.5mm;
+.print-label .label-device-content {
+  overflow: visible;
 }
 
 .print-label .label-device-content .label-primary-info {
@@ -5668,16 +5731,28 @@ button {
   flex: 0 0 auto;
   max-height: none;
   overflow: visible;
-  font-size: var(--label-customer-size, 9.4px);
+  font-size: var(--label-name-max-size, 10.8px);
   font-weight: 900;
-  line-height: 1.02;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  line-height: var(--label-name-line-height, 1);
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .print-label .label-device-content .label-customer .label-value {
   font-weight: 900;
+  white-space: inherit;
+}
+
+.print-label .label-device-content .label-customer.label-name--two-lines {
+  line-height: var(--label-name-two-line-height, 0.98);
+  white-space: normal;
+}
+
+.print-label .label-device-content .label-customer.label-name--break-anywhere,
+.print-label .label-device-content .label-customer.label-name--break-anywhere .label-value {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .print-label .label-device-content .label-code,
@@ -5685,45 +5760,93 @@ button {
 .print-label.ticket-code--long .label-code {
   margin-top: var(--label-code-top, 0.08mm);
   margin-bottom: var(--label-code-bottom, 0);
-  font-size: var(--label-ticket-size, 9.2px);
+  overflow: visible;
+  font-size: var(--label-code-max-size, 10.4px);
   font-weight: 900;
-  line-height: 1.04;
+  line-height: 1;
   letter-spacing: 0;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .print-label .label-device-content .label-type,
 .print-label.label-brand--long .label-type {
-  font-size: var(--label-device-type-size, 8.2px);
+  overflow: visible;
+  font-size: var(--label-type-max-size, 9.1px);
   font-weight: 850;
-  line-height: 1.02;
+  line-height: var(--label-detail-line-height, 1.02);
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .print-label .label-device-content .label-model,
 .print-label.label-model--long .label-model {
-  font-size: var(--label-device-model-size, 8.8px);
+  overflow: visible;
+  font-size: var(--label-model-max-size, 9.9px);
   font-weight: 850;
-  line-height: 1.02;
+  line-height: var(--label-detail-line-height, 1.02);
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.print-label .label-device-content .label-model.label-model--wrapped,
+.print-label .label-device-content .label-model.label-model--wrapped .label-value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .print-label .label-device-content .label-condition,
 .print-label.label-condition--long .label-condition,
 .print-label.label-condition--very-long .label-condition {
-  font-size: var(--label-device-condition-size, 9px);
+  display: block;
+  min-height: 0;
+  max-height: none;
+  flex: 0 0 auto;
+  margin-bottom: var(--label-condition-date-gap, 0.18mm);
+  overflow: visible;
+  font-size: var(--label-condition-max-size, 8.8px);
   font-weight: 850;
-  line-height: 1.04;
+  line-height: var(--label-detail-line-height, 1.02);
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.print-label .label-device-content .label-condition .label-key {
+  white-space: nowrap;
 }
 
 .print-label .label-device-content .label-date {
-  font-size: var(--label-received-size, 7.4px);
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-bottom: var(--label-date-bottom, 0);
+  box-sizing: border-box;
+  overflow: visible;
+  font-size: var(--label-date-max-size, 7.4px);
   font-weight: 800;
-  line-height: 1.03;
+  line-height: 1.02;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .print-label.label-content--compact {
-  --label-brand-bottom: 0.08mm;
-  --label-row-gap: 0.08mm;
-  --label-code-top: 0.06mm;
+  --label-brand-bottom: 0.06mm;
+  --label-row-gap: 0.04mm;
+  --label-code-top: 0.04mm;
   --label-code-bottom: 0;
+  --label-condition-date-gap: 0.1mm;
+}
+
+.print-label.label-content--tight {
+  --label-brand-bottom: 0;
+  --label-row-gap: 0;
+  --label-code-top: 0;
+  --label-condition-date-gap: 0.05mm;
+  --label-name-line-height: 0.96;
+  --label-name-two-line-height: 0.94;
+  --label-detail-line-height: 1;
 }
 
 @media print {

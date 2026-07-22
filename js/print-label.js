@@ -13,80 +13,70 @@
   const thermalLabel = document.getElementById("thermalLabel");
   const workflowHint = document.getElementById("labelWorkflowHint");
   const PREFERRED_LABEL_SIZE_KEY = "anhMinhPreferredLabelSize";
-  const CODE_LENGTH_CLASSES = ["ticket-code--normal", "ticket-code--medium", "ticket-code--long"];
-  const BRAND_LENGTH_CLASSES = ["label-brand--normal", "label-brand--long"];
-  const CONDITION_LENGTH_CLASSES = ["label-condition--normal", "label-condition--long", "label-condition--very-long"];
-  const MODEL_LENGTH_CLASSES = ["label-model--normal", "label-model--long"];
-  const PRIMARY_LENGTH_CLASSES = ["label-primary--normal", "label-primary--long", "label-primary--very-long"];
+  const LEGACY_FIT_CLASSES = [
+    "ticket-code--normal",
+    "ticket-code--medium",
+    "ticket-code--long",
+    "label-brand--normal",
+    "label-brand--long",
+    "label-condition--normal",
+    "label-condition--long",
+    "label-condition--very-long",
+    "label-model--normal",
+    "label-model--long",
+    "label-primary--normal",
+    "label-primary--long",
+    "label-primary--very-long"
+  ];
+  const MAX_FIT_ATTEMPTS = 80;
+  const FIT_STEP = 0.25;
+  const FIT_TOLERANCE = 0.75;
   let currentTicket = null;
   let currentWorkflowAction = null;
   let pendingFitFrame = null;
   let pendingFitTimer = null;
+  let fitInProgress = false;
+  let labelMeasureCanvas = null;
 
   const LABEL_SIZES = {
     "50x30": {
       className: "label-50x30",
       width: "50mm",
       height: "30mm",
-      minNameFont: 7.6,
-      minCodeFont: 7.2,
-      minTypeFont: 6.2,
-      minModelFont: 7.2,
-      minConditionFont: 6.8,
-      minDateFont: 6.1,
       nameLines: 2,
+      modelLines: 1,
       conditionLines: 2
     },
     "58x40": {
       className: "label-58x40",
       width: "58mm",
       height: "40mm",
-      minNameFont: 10.5,
-      minCodeFont: 9.9,
-      minTypeFont: 8.6,
-      minModelFont: 10,
-      minConditionFont: 9.2,
-      minDateFont: 7.5,
       nameLines: 2,
+      modelLines: 2,
       conditionLines: 3
     },
     "60x40": {
       className: "label-60x40",
       width: "60mm",
       height: "40mm",
-      minNameFont: 10.8,
-      minCodeFont: 10.2,
-      minTypeFont: 9.1,
-      minModelFont: 10.3,
-      minConditionFont: 9.5,
-      minDateFont: 7.75,
       nameLines: 2,
+      modelLines: 2,
       conditionLines: 3
     },
     "58x30": {
       className: "label-58x30",
       width: "58mm",
       height: "30mm",
-      minNameFont: 8.1,
-      minCodeFont: 7.6,
-      minTypeFont: 6.7,
-      minModelFont: 7.7,
-      minConditionFont: 7.2,
-      minDateFont: 6.5,
       nameLines: 2,
+      modelLines: 1,
       conditionLines: 2
     },
     "80x50": {
       className: "label-80x50",
       width: "80mm",
       height: "50mm",
-      minNameFont: 13.4,
-      minCodeFont: 12.7,
-      minTypeFont: 11.2,
-      minModelFont: 12.8,
-      minConditionFont: 11.8,
-      minDateFont: 10,
       nameLines: 2,
+      modelLines: 2,
       conditionLines: 4
     }
   };
@@ -171,130 +161,384 @@
     return normalized || "Chưa xác định";
   }
 
-  function setLengthClass(classNames, selectedClass) {
-    thermalLabel.classList.remove(...classNames);
-    thermalLabel.classList.add(selectedClass);
+  function readLabelMetric(name, fallback) {
+    const value = Number.parseFloat(window.getComputedStyle(thermalLabel).getPropertyValue(name));
+    return Number.isFinite(value) ? value : fallback;
   }
 
-  function classifyLabelContent(ticket, displayBrand, displayCustomerName) {
-    const codeLength = window.AMApi.formatTicketCode(ticket.ticket_code).length;
-    const customerNameLength = String(displayCustomerName || "").trim().length;
-    const brandLength = String(displayBrand || "").trim().length;
-    const modelLength = String(ticket.model || "").trim().length;
-    const conditionLength = String(ticket.condition_text || "").trim().length;
-
-    setLengthClass(
-      CODE_LENGTH_CLASSES,
-      codeLength <= 8 ? "ticket-code--normal" : codeLength <= 12 ? "ticket-code--medium" : "ticket-code--long"
-    );
-    setLengthClass(
-      BRAND_LENGTH_CLASSES,
-      brandLength <= 16 ? "label-brand--normal" : "label-brand--long"
-    );
-    setLengthClass(
-      MODEL_LENGTH_CLASSES,
-      modelLength <= 24 ? "label-model--normal" : "label-model--long"
-    );
-    setLengthClass(
-      CONDITION_LENGTH_CLASSES,
-      conditionLength <= 40
-        ? "label-condition--normal"
-        : conditionLength <= 64
-          ? "label-condition--long"
-          : "label-condition--very-long"
-    );
-    setLengthClass(
-      PRIMARY_LENGTH_CLASSES,
-      conditionLength > 64 || customerNameLength > 30 || modelLength > 32 || codeLength > 16
-        ? "label-primary--very-long"
-        : conditionLength > 40 || customerNameLength > 22 || modelLength > 24 || codeLength > 12
-          ? "label-primary--long"
-          : "label-primary--normal"
-    );
+  function getFitProfile(selected) {
+    return {
+      name: {
+        max: readLabelMetric("--label-name-max-size", 10.8),
+        singleLineMin: readLabelMetric("--label-name-single-line-min-size", 8.5),
+        min: readLabelMetric("--label-name-min-size", 7.5),
+        lines: selected.nameLines
+      },
+      code: {
+        max: readLabelMetric("--label-code-max-size", 10.2),
+        min: readLabelMetric("--label-code-min-size", 7.4),
+        lines: 1
+      },
+      type: {
+        max: readLabelMetric("--label-type-max-size", 9),
+        min: readLabelMetric("--label-type-min-size", 6.6),
+        lines: 1
+      },
+      model: {
+        max: readLabelMetric("--label-model-max-size", 9.8),
+        min: readLabelMetric("--label-model-min-size", 6.8),
+        lines: selected.modelLines
+      },
+      condition: {
+        max: readLabelMetric("--label-condition-max-size", 8.8),
+        min: readLabelMetric("--label-condition-min-size", 6.6),
+        lines: selected.conditionLines
+      },
+      date: {
+        max: readLabelMetric("--label-date-max-size", 7.4),
+        min: readLabelMetric("--label-date-min-size", 6.1),
+        lines: 1
+      },
+      headerTitleMin: readLabelMetric("--label-title-min-size", 6.8),
+      headerPhoneMin: readLabelMetric("--label-phone-min-size", 5.8),
+      headerAddressMin: readLabelMetric("--label-address-min-size", 5.7)
+    };
   }
 
-  function shrinkSingleLine(element, minimumFontSize) {
-    if (!element) {
-      return;
-    }
-
-    let fontSize = Number.parseFloat(window.getComputedStyle(element).fontSize);
-    while (element.scrollWidth > element.clientWidth + 0.5 && fontSize > minimumFontSize) {
-      fontSize = Math.max(minimumFontSize, fontSize - 0.5);
-      element.style.fontSize = `${fontSize}px`;
-    }
-  }
-
-  function primaryInfoRowFits(entry) {
-    const element = entry && entry.element;
-
-    if (!element) {
-      return true;
-    }
-
+  function getLineHeight(element) {
     const computed = window.getComputedStyle(element);
     const fontSize = Number.parseFloat(computed.fontSize) || 8;
-    const lineHeight = Number.parseFloat(computed.lineHeight) || fontSize * 1.04;
-    const maxLines = Number.isFinite(entry.lines) ? entry.lines : 1;
-    const exceedsWidth = element.scrollWidth > element.clientWidth + 0.75;
-    const exceedsLineLimit = element.scrollHeight > lineHeight * maxLines + 2;
-    const exceedsVisibleBox = element.clientHeight > 0
-      && element.scrollHeight > element.clientHeight + 2;
-
-    return !exceedsWidth && !exceedsLineLimit && !exceedsVisibleBox;
+    return Number.parseFloat(computed.lineHeight) || fontSize;
   }
 
-  function fitInfoRow(entry) {
-    const element = entry && entry.element;
+  function getRenderedLineCount(element) {
+    const renderedHeight = element.getBoundingClientRect().height;
+    return Math.max(1, Math.ceil((renderedHeight - FIT_TOLERANCE) / getLineHeight(element)));
+  }
 
-    if (!element) {
-      return true;
+  function labelTextFits(element, options) {
+    if (!element || element.clientWidth <= 0) {
+      return false;
     }
 
-    const minimumFontSize = Number.isFinite(entry.minimumFontSize)
-      ? entry.minimumFontSize
-      : 6;
-    let fontSize = Number.parseFloat(window.getComputedStyle(element).fontSize);
+    const maxLines = Number.isFinite(options.maxLines) ? options.maxLines : 1;
+    const maxHeight = Number.isFinite(options.availableHeight) ? options.availableHeight : Number.POSITIVE_INFINITY;
+    const renderedHeight = element.getBoundingClientRect().height;
+    return element.scrollWidth <= element.clientWidth + FIT_TOLERANCE
+      && getRenderedLineCount(element) <= maxLines
+      && renderedHeight <= maxHeight + FIT_TOLERANCE;
+  }
+
+  function fitLabelText(element, options) {
+    if (!element) {
+      return { fits: true, fontSize: 0, lines: 0 };
+    }
+
+    const maxFontSize = Number.isFinite(options.maxFontSize) ? options.maxFontSize : 10;
+    const minFontSize = Number.isFinite(options.minFontSize) ? options.minFontSize : 6;
+    const step = Number.isFinite(options.step) && options.step > 0 ? options.step : FIT_STEP;
+    let fontSize = Math.max(minFontSize, maxFontSize);
     let attempts = 0;
 
-    while (!primaryInfoRowFits(entry) && attempts < 40 && fontSize > minimumFontSize + 0.01) {
-      fontSize = Math.max(minimumFontSize, fontSize - 0.25);
-      element.style.fontSize = `${fontSize}px`;
+    while (attempts < MAX_FIT_ATTEMPTS) {
+      element.style.fontSize = `${Math.round(fontSize * 100) / 100}px`;
+
+      if (typeof options.renderLayout === "function") {
+        options.renderLayout(fontSize);
+      }
+
+      if (labelTextFits(element, options)) {
+        return { fits: true, fontSize, lines: getRenderedLineCount(element) };
+      }
+
+      if (fontSize <= minFontSize + 0.01) {
+        break;
+      }
+
+      fontSize = Math.max(minFontSize, fontSize - step);
       attempts += 1;
     }
 
-    return primaryInfoRowFits(entry);
+    return {
+      fits: labelTextFits(element, options),
+      fontSize,
+      lines: getRenderedLineCount(element)
+    };
   }
 
-  function fitInfoRows(entries) {
-    const rows = (entries || []).filter((entry) => entry && entry.element);
-
-    if (!rows.length) {
-      return true;
+  function getLabelMeasureContext() {
+    if (!labelMeasureCanvas) {
+      labelMeasureCanvas = document.createElement("canvas");
     }
 
-    rows.forEach(fitInfoRow);
+    return labelMeasureCanvas.getContext("2d");
+  }
+
+  function measureLabelText(text, element, fontSize, fontWeight) {
+    const context = getLabelMeasureContext();
+
+    if (!context) {
+      return String(text || "").length * fontSize * 0.55;
+    }
+
+    const computed = window.getComputedStyle(element);
+    context.font = `${fontWeight || computed.fontWeight || 800} ${fontSize}px ${computed.fontFamily}`;
+    return context.measureText(String(text || "")).width;
+  }
+
+  function chooseBalancedNameLines(fullName, row, fontSize) {
+    const words = String(fullName || "").trim().split(/\s+/).filter(Boolean);
+
+    if (words.length < 2) {
+      return [words.join(" ")];
+    }
+
+    const key = row.querySelector(".label-key");
+    const keyText = key ? `${key.textContent.trim()} ` : "";
+    const availableWidth = Math.max(1, row.clientWidth - 1);
+    const prefixWidth = measureLabelText(keyText, row, fontSize, 900);
+    let best = null;
+
+    for (let index = 1; index < words.length; index += 1) {
+      const first = words.slice(0, index).join(" ");
+      const second = words.slice(index).join(" ");
+      const firstWidth = prefixWidth + measureLabelText(first, row, fontSize, 900);
+      const secondWidth = measureLabelText(second, row, fontSize, 900);
+      const overflow = Math.max(0, firstWidth - availableWidth) + Math.max(0, secondWidth - availableWidth);
+      const orphanPenalty = words.length > 3 && (index === 1 || index === words.length - 1)
+        ? availableWidth * 0.18
+        : 0;
+      const score = overflow * 1000 + Math.abs(firstWidth - secondWidth) + orphanPenalty;
+
+      if (!best || score < best.score) {
+        best = { lines: [first, second], score };
+      }
+    }
+
+    return best ? best.lines : [fullName];
+  }
+
+  function renderCustomerNameLines(lines) {
+    const safeLines = Array.isArray(lines) && lines.length ? lines : [""];
+    const nodes = [];
+
+    safeLines.forEach((line, index) => {
+      if (index > 0) {
+        nodes.push(document.createElement("br"));
+      }
+      nodes.push(document.createTextNode(line));
+    });
+
+    labelCustomerName.replaceChildren(...nodes);
+  }
+
+  function fitCustomerName(row, fullName, profile) {
+    row.classList.remove("label-name--two-lines", "label-name--break-anywhere");
+    row.dataset.labelLines = "1";
+    renderCustomerNameLines([fullName]);
+
+    const singleLine = fitLabelText(row, {
+      maxFontSize: profile.max,
+      minFontSize: profile.singleLineMin,
+      maxLines: 1
+    });
+
+    if (singleLine.fits) {
+      return singleLine;
+    }
+
+    row.classList.add("label-name--two-lines");
+    row.dataset.labelLines = "2";
+    const twoLines = fitLabelText(row, {
+      maxFontSize: profile.max,
+      minFontSize: profile.min,
+      maxLines: profile.lines,
+      renderLayout: function (fontSize) {
+        renderCustomerNameLines(chooseBalancedNameLines(fullName, row, fontSize));
+      }
+    });
+
+    if (!twoLines.fits) {
+      row.classList.add("label-name--break-anywhere");
+    }
+
+    return twoLines;
+  }
+
+  function fitModel(row, profile) {
+    row.classList.remove("label-model--wrapped");
+    row.dataset.labelLines = "1";
+    const singleLine = fitLabelText(row, {
+      maxFontSize: profile.max,
+      minFontSize: profile.min,
+      maxLines: 1
+    });
+
+    if (singleLine.fits || profile.lines < 2) {
+      return singleLine;
+    }
+
+    row.classList.add("label-model--wrapped");
+    row.dataset.labelLines = "2";
+    return fitLabelText(row, {
+      maxFontSize: profile.max,
+      minFontSize: profile.min,
+      maxLines: profile.lines
+    });
+  }
+
+  function getOuterHeight(element, ignoreMarginTop) {
+    if (!element) {
+      return 0;
+    }
+
+    const computed = window.getComputedStyle(element);
+    const marginTop = ignoreMarginTop ? 0 : Number.parseFloat(computed.marginTop) || 0;
+    const marginBottom = Number.parseFloat(computed.marginBottom) || 0;
+    return element.getBoundingClientRect().height + marginTop + marginBottom;
+  }
+
+  function getConditionAvailableHeight(content, conditionRow, fixedRows) {
+    const computed = window.getComputedStyle(conditionRow);
+    const conditionMargins = (Number.parseFloat(computed.marginTop) || 0)
+      + (Number.parseFloat(computed.marginBottom) || 0);
+    const fixedHeight = fixedRows.reduce((total, entry) => {
+      const element = entry && entry.element ? entry.element : entry;
+      return total + getOuterHeight(element, Boolean(entry && entry.ignoreMarginTop));
+    }, 0);
+    return Math.max(0, content.clientHeight - fixedHeight - conditionMargins - 1);
+  }
+
+  function getConditionLineLimit(conditionRow, availableHeight, profile) {
+    const computed = window.getComputedStyle(conditionRow);
+    const currentFontSize = Number.parseFloat(computed.fontSize) || profile.max;
+    const lineHeightRatio = getLineHeight(conditionRow) / currentFontSize;
+    const minimumLineHeight = Math.max(1, profile.min * lineHeightRatio);
+    const availableLines = Math.max(
+      1,
+      Math.floor((availableHeight + FIT_TOLERANCE) / minimumLineHeight)
+    );
+    return Math.max(profile.lines, availableLines);
+  }
+
+  function resetFitState(rows, fullName) {
+    thermalLabel.classList.remove(...LEGACY_FIT_CLASSES);
+    rows.customer.classList.remove("label-name--two-lines", "label-name--break-anywhere");
+    rows.model.classList.remove("label-model--wrapped");
+    rows.customer.dataset.labelLines = "1";
+    rows.model.dataset.labelLines = "1";
+    renderCustomerNameLines([fullName]);
+
+    Object.values(rows).forEach((element) => {
+      if (element) {
+        element.style.removeProperty("font-size");
+      }
+    });
+  }
+
+  function fitHeader(rows, profile) {
+    return [
+      fitLabelText(rows.title, {
+        maxFontSize: Number.parseFloat(window.getComputedStyle(rows.title).fontSize),
+        minFontSize: profile.headerTitleMin,
+        maxLines: 1
+      }),
+      fitLabelText(rows.phone, {
+        maxFontSize: Number.parseFloat(window.getComputedStyle(rows.phone).fontSize),
+        minFontSize: profile.headerPhoneMin,
+        maxLines: 1
+      }),
+      fitLabelText(rows.address, {
+        maxFontSize: Number.parseFloat(window.getComputedStyle(rows.address).fontSize),
+        minFontSize: profile.headerAddressMin,
+        maxLines: 1
+      })
+    ];
+  }
+
+  function fitLabelPass(selected, mode, rows, fullName) {
+    thermalLabel.classList.toggle("label-content--compact", mode !== "normal");
+    thermalLabel.classList.toggle("label-content--tight", mode === "tight");
+    resetFitState(rows, fullName);
+    const profile = getFitProfile(selected);
+    const headerResults = fitHeader(rows, profile);
+    const nameResult = fitCustomerName(rows.customer, fullName, profile.name);
+    const codeResult = fitLabelText(rows.code, {
+      maxFontSize: profile.code.max,
+      minFontSize: profile.code.min,
+      maxLines: 1
+    });
+    const modelResult = fitModel(rows.model, profile.model);
+    const modelFontSize = Number.parseFloat(window.getComputedStyle(rows.model).fontSize) || profile.model.max;
+    const typeResult = fitLabelText(rows.type, {
+      maxFontSize: Math.min(profile.type.max, Math.max(profile.type.min, modelFontSize - 0.6)),
+      minFontSize: profile.type.min,
+      maxLines: 1
+    });
+    const dateResult = fitLabelText(rows.date, {
+      maxFontSize: profile.date.max,
+      minFontSize: profile.date.min,
+      maxLines: 1
+    });
+    const conditionHeight = getConditionAvailableHeight(
+      rows.content,
+      rows.condition,
+      [
+        rows.customer,
+        rows.code,
+        rows.type,
+        rows.model,
+        { element: rows.date, ignoreMarginTop: true }
+      ]
+    );
+    const conditionLineLimit = getConditionLineLimit(
+      rows.condition,
+      conditionHeight,
+      profile.condition
+    );
+    const conditionResult = fitLabelText(rows.condition, {
+      maxFontSize: profile.condition.max,
+      minFontSize: profile.condition.min,
+      maxLines: conditionLineLimit,
+      availableHeight: conditionHeight
+    });
+    const results = [nameResult, codeResult, typeResult, modelResult, conditionResult, dateResult, ...headerResults];
+    const fits = results.every((result) => result.fits)
+      && thermalLabel.scrollHeight <= thermalLabel.clientHeight + 1;
+
+    return { fits, profile, results, conditionLineLimit };
+  }
+
+  function shrinkLayoutHeight(selected, rows, fullName, profile, conditionLineLimit) {
+    const entries = [
+      { element: rows.condition, min: profile.condition.min },
+      { element: rows.type, min: profile.type.min },
+      { element: rows.model, min: profile.model.min },
+      { element: rows.customer, min: profile.name.min },
+      { element: rows.date, min: profile.date.min },
+      { element: rows.code, min: profile.code.min }
+    ];
     let attempts = 0;
 
-    while (thermalLabel.scrollHeight > thermalLabel.clientHeight + 1 && attempts < 120) {
+    while (thermalLabel.scrollHeight > thermalLabel.clientHeight + 1 && attempts < MAX_FIT_ATTEMPTS) {
       let changed = false;
 
-      for (const entry of rows) {
-        const minimumFontSize = Number.isFinite(entry.minimumFontSize)
-          ? entry.minimumFontSize
-          : 6;
-        const fontSize = Number.parseFloat(window.getComputedStyle(entry.element).fontSize);
+      for (const entry of entries) {
+        const current = Number.parseFloat(window.getComputedStyle(entry.element).fontSize);
 
-        if (fontSize <= minimumFontSize + 0.01) {
+        if (!Number.isFinite(current) || current <= entry.min + 0.01) {
           continue;
         }
 
-        entry.element.style.fontSize = `${Math.max(minimumFontSize, fontSize - 0.25)}px`;
-        changed = true;
+        const next = Math.max(entry.min, current - FIT_STEP);
+        entry.element.style.fontSize = `${Math.round(next * 100) / 100}px`;
 
-        if (thermalLabel.scrollHeight <= thermalLabel.clientHeight + 1) {
-          break;
+        if (entry.element === rows.customer && rows.customer.classList.contains("label-name--two-lines")) {
+          renderCustomerNameLines(chooseBalancedNameLines(fullName, rows.customer, next));
         }
+
+        changed = true;
+        break;
       }
 
       if (!changed) {
@@ -304,68 +548,65 @@
       attempts += 1;
     }
 
-    return rows.every(primaryInfoRowFits)
+    const modelLines = rows.model.classList.contains("label-model--wrapped") ? selected.modelLines : 1;
+    return labelTextFits(rows.customer, { maxLines: selected.nameLines })
+      && labelTextFits(rows.code, { maxLines: 1 })
+      && labelTextFits(rows.type, { maxLines: 1 })
+      && labelTextFits(rows.model, { maxLines: modelLines })
+      && labelTextFits(rows.condition, { maxLines: conditionLineLimit })
+      && labelTextFits(rows.date, { maxLines: 1 })
       && thermalLabel.scrollHeight <= thermalLabel.clientHeight + 1;
   }
 
-  function keepTypeBelowModel(typeRow, modelRow, minimumFontSize) {
-    if (!typeRow || !modelRow) {
-      return;
-    }
-
-    const typeFontSize = Number.parseFloat(window.getComputedStyle(typeRow).fontSize);
-    const modelFontSize = Number.parseFloat(window.getComputedStyle(modelRow).fontSize);
-    const targetTypeFontSize = Math.max(minimumFontSize, modelFontSize - 0.7);
-
-    if (Math.abs(typeFontSize - targetTypeFontSize) > 0.01) {
-      typeRow.style.fontSize = `${targetTypeFontSize}px`;
-    }
-  }
-
   function fitLabelContent() {
-    const selectedKey = labelSizeSelect && LABEL_SIZES[labelSizeSelect.value]
-      ? labelSizeSelect.value
-      : "50x30";
-    const selected = LABEL_SIZES[selectedKey];
-    const customerRow = labelCustomerName.closest(".label-customer");
-    const codeRow = labelCode.closest(".label-code");
-    const brandRow = labelBrand.closest(".label-type");
-    const modelRow = labelModel.closest(".label-model");
-    const conditionRow = labelCondition.closest(".label-condition");
-    const dateRow = labelDate.closest(".label-date");
-    const brandTitle = thermalLabel.querySelector(".label-brand-text");
-    const brandPhone = thermalLabel.querySelector(".label-phone");
-    const brandAddress = thermalLabel.querySelector(".label-address");
-    const infoRows = [
-      { element: conditionRow, lines: selected.conditionLines, minimumFontSize: selected.minConditionFont },
-      { element: brandRow, lines: 1, minimumFontSize: selected.minTypeFont },
-      { element: dateRow, lines: 1, minimumFontSize: selected.minDateFont },
-      { element: modelRow, lines: 1, minimumFontSize: selected.minModelFont },
-      { element: customerRow, lines: selected.nameLines, minimumFontSize: selected.minNameFont },
-      { element: codeRow, lines: 1, minimumFontSize: selected.minCodeFont }
-    ];
+    if (fitInProgress || !thermalLabel || thermalLabel.clientWidth <= 0) {
+      return false;
+    }
 
-    thermalLabel.classList.remove("label-content--compact");
-    [customerRow, codeRow, brandRow, modelRow, conditionRow, dateRow, brandTitle, brandPhone, brandAddress].forEach((element) => {
-      if (element) {
-        element.style.removeProperty("font-size");
+    fitInProgress = true;
+
+    try {
+      const selectedKey = labelSizeSelect && LABEL_SIZES[labelSizeSelect.value]
+        ? labelSizeSelect.value
+        : "50x30";
+      const selected = LABEL_SIZES[selectedKey];
+      const rows = {
+        content: thermalLabel.querySelector(".label-device-content"),
+        customer: labelCustomerName.closest(".label-customer"),
+        code: labelCode.closest(".label-code"),
+        type: labelBrand.closest(".label-type"),
+        model: labelModel.closest(".label-model"),
+        condition: labelCondition.closest(".label-condition"),
+        date: labelDate.closest(".label-date"),
+        title: thermalLabel.querySelector(".label-brand-text"),
+        phone: thermalLabel.querySelector(".label-phone"),
+        address: thermalLabel.querySelector(".label-address")
+      };
+      const fullName = labelCustomerName.dataset.fullText || labelCustomerName.textContent.trim();
+      let result = fitLabelPass(selected, "normal", rows, fullName);
+
+      if (!result.fits) {
+        result = fitLabelPass(selected, "compact", rows, fullName);
       }
-    });
 
-    shrinkSingleLine(brandTitle, 6.5);
-    shrinkSingleLine(brandPhone, 5.5);
-    shrinkSingleLine(brandAddress, 5.5);
-    const infoRowsFit = fitInfoRows(infoRows);
-    keepTypeBelowModel(brandRow, modelRow, selected.minTypeFont);
+      if (!result.fits) {
+        result = fitLabelPass(selected, "tight", rows, fullName);
+      }
 
-    if (
-      !infoRowsFit
-      || thermalLabel.scrollHeight > thermalLabel.clientHeight + 1
-    ) {
-      thermalLabel.classList.add("label-content--compact");
-      infoRows.forEach((entry) => entry.element.style.removeProperty("font-size"));
-      fitInfoRows(infoRows);
-      keepTypeBelowModel(brandRow, modelRow, selected.minTypeFont);
+      if (!result.fits) {
+        result.fits = shrinkLayoutHeight(
+          selected,
+          rows,
+          fullName,
+          result.profile,
+          result.conditionLineLimit
+        );
+      }
+
+      thermalLabel.dataset.fitStatus = result.fits ? "fit" : "overflow";
+      return result.fits;
+    } finally {
+      fitInProgress = false;
     }
   }
 
@@ -389,17 +630,37 @@
     }, 120);
   }
 
+  function waitForNextFrame() {
+    return new Promise((resolve) => window.requestAnimationFrame(resolve));
+  }
+
+  async function prepareLabelForPrint() {
+    if (document.fonts && document.fonts.ready) {
+      await Promise.race([
+        document.fonts.ready.catch(function () {
+          return undefined;
+        }),
+        new Promise((resolve) => window.setTimeout(resolve, 180))
+      ]);
+    }
+
+    await waitForNextFrame();
+    fitLabelContent();
+    await waitForNextFrame();
+    fitLabelContent();
+  }
+
   function renderLabel(ticket) {
     const displayBrand = normalizeLabelBrand(ticket.brand);
     const displayCustomerName = normalizeLabelCustomerName(ticket);
 
+    labelCustomerName.dataset.fullText = displayCustomerName;
     labelCustomerName.textContent = displayCustomerName;
     labelCode.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
     labelBrand.textContent = displayBrand;
     labelModel.textContent = textOrBlank(ticket.model);
     labelCondition.textContent = textOrBlank(ticket.condition_text);
     labelDate.textContent = formatDate(ticket.received_date);
-    classifyLabelContent(ticket, displayBrand, displayCustomerName);
     scheduleLabelFit();
   }
 
@@ -488,7 +749,7 @@
       if (action === "START_REPAIR") {
         showNotice("success", "Phiếu đã chuyển trạng thái. Trường hợp chưa in được, hãy dùng chức năng Chỉ in lại.");
       }
-      fitLabelContent();
+      await prepareLabelForPrint();
       window.print();
     } catch (error) {
       if (requestId && window.AMApi.shouldClearWorkflowClientRequestId(error)) {
