@@ -2,6 +2,7 @@
   "use strict";
 
   const notice = document.getElementById("labelNotice");
+  const labelCustomerName = document.getElementById("labelCustomerName");
   const labelCode = document.getElementById("labelCode");
   const labelBrand = document.getElementById("labelBrand");
   const labelModel = document.getElementById("labelModel");
@@ -16,16 +17,78 @@
   const BRAND_LENGTH_CLASSES = ["label-brand--normal", "label-brand--long"];
   const CONDITION_LENGTH_CLASSES = ["label-condition--normal", "label-condition--long", "label-condition--very-long"];
   const MODEL_LENGTH_CLASSES = ["label-model--normal", "label-model--long"];
+  const PRIMARY_LENGTH_CLASSES = ["label-primary--normal", "label-primary--long", "label-primary--very-long"];
   let currentTicket = null;
   let currentWorkflowAction = null;
   let pendingFitFrame = null;
+  let pendingFitTimer = null;
 
   const LABEL_SIZES = {
-    "50x30": { className: "label-50x30", width: "50mm", height: "30mm", minCodeFont: 11, minBrandFont: 6.5, minModelFont: 7, minConditionFont: 6.25, conditionLines: 2 },
-    "58x40": { className: "label-58x40", width: "58mm", height: "40mm", minCodeFont: 13, minBrandFont: 7.5, minModelFont: 8, minConditionFont: 7.5, conditionLines: 3 },
-    "60x40": { className: "label-60x40", width: "60mm", height: "40mm", minCodeFont: 13, minBrandFont: 7.5, minModelFont: 8, minConditionFont: 7.5, conditionLines: 3 },
-    "58x30": { className: "label-58x30", width: "58mm", height: "30mm", minCodeFont: 12, minBrandFont: 7, minModelFont: 7, minConditionFont: 6.5, conditionLines: 2 },
-    "80x50": { className: "label-80x50", width: "80mm", height: "50mm", minCodeFont: 16, minBrandFont: 10, minModelFont: 10, minConditionFont: 9, conditionLines: 4 }
+    "50x30": {
+      className: "label-50x30",
+      width: "50mm",
+      height: "30mm",
+      minNameFont: 7.6,
+      minCodeFont: 7.2,
+      minTypeFont: 6.2,
+      minModelFont: 7.2,
+      minConditionFont: 6.8,
+      minDateFont: 6.1,
+      nameLines: 2,
+      conditionLines: 2
+    },
+    "58x40": {
+      className: "label-58x40",
+      width: "58mm",
+      height: "40mm",
+      minNameFont: 10.5,
+      minCodeFont: 9.9,
+      minTypeFont: 8.6,
+      minModelFont: 10,
+      minConditionFont: 9.2,
+      minDateFont: 7.5,
+      nameLines: 2,
+      conditionLines: 3
+    },
+    "60x40": {
+      className: "label-60x40",
+      width: "60mm",
+      height: "40mm",
+      minNameFont: 10.8,
+      minCodeFont: 10.2,
+      minTypeFont: 9.1,
+      minModelFont: 10.3,
+      minConditionFont: 9.5,
+      minDateFont: 7.75,
+      nameLines: 2,
+      conditionLines: 3
+    },
+    "58x30": {
+      className: "label-58x30",
+      width: "58mm",
+      height: "30mm",
+      minNameFont: 8.1,
+      minCodeFont: 7.6,
+      minTypeFont: 6.7,
+      minModelFont: 7.7,
+      minConditionFont: 7.2,
+      minDateFont: 6.5,
+      nameLines: 2,
+      conditionLines: 2
+    },
+    "80x50": {
+      className: "label-80x50",
+      width: "80mm",
+      height: "50mm",
+      minNameFont: 13.4,
+      minCodeFont: 12.7,
+      minTypeFont: 11.2,
+      minModelFont: 12.8,
+      minConditionFont: 11.8,
+      minDateFont: 10,
+      nameLines: 2,
+      conditionLines: 4
+    }
   };
 
   function showNotice(type, message) {
@@ -73,7 +136,25 @@
   }
 
   function textOrBlank(value) {
-    return value ? String(value) : "Chưa có";
+    const text = value === null || value === undefined ? "" : String(value).trim();
+    return !text || /^(null|undefined)$/i.test(text) ? "Chưa có" : text;
+  }
+
+  function normalizeLabelCustomerName(ticket) {
+    const candidates = [
+      ticket && ticket.customer_master_name,
+      ticket && ticket.customer_name
+    ];
+
+    for (const value of candidates) {
+      const text = value === null || value === undefined ? "" : String(value).trim();
+
+      if (text && !/^(null|undefined)$/i.test(text)) {
+        return text;
+      }
+    }
+
+    return "—";
   }
 
   function normalizeLabelBrand(value) {
@@ -95,8 +176,9 @@
     thermalLabel.classList.add(selectedClass);
   }
 
-  function classifyLabelContent(ticket, displayBrand) {
+  function classifyLabelContent(ticket, displayBrand, displayCustomerName) {
     const codeLength = window.AMApi.formatTicketCode(ticket.ticket_code).length;
+    const customerNameLength = String(displayCustomerName || "").trim().length;
     const brandLength = String(displayBrand || "").trim().length;
     const modelLength = String(ticket.model || "").trim().length;
     const conditionLength = String(ticket.condition_text || "").trim().length;
@@ -121,6 +203,14 @@
           ? "label-condition--long"
           : "label-condition--very-long"
     );
+    setLengthClass(
+      PRIMARY_LENGTH_CLASSES,
+      conditionLength > 64 || customerNameLength > 30 || modelLength > 32 || codeLength > 16
+        ? "label-primary--very-long"
+        : conditionLength > 40 || customerNameLength > 22 || modelLength > 24 || codeLength > 12
+          ? "label-primary--long"
+          : "label-primary--normal"
+    );
   }
 
   function shrinkSingleLine(element, minimumFontSize) {
@@ -135,29 +225,100 @@
     }
   }
 
-  function shrinkConditionToFit(element, minimumFontSize, lineLimit) {
+  function primaryInfoRowFits(entry) {
+    const element = entry && entry.element;
+
     if (!element) {
-      return;
+      return true;
     }
 
+    const computed = window.getComputedStyle(element);
+    const fontSize = Number.parseFloat(computed.fontSize) || 8;
+    const lineHeight = Number.parseFloat(computed.lineHeight) || fontSize * 1.04;
+    const maxLines = Number.isFinite(entry.lines) ? entry.lines : 1;
+    const exceedsWidth = element.scrollWidth > element.clientWidth + 0.75;
+    const exceedsLineLimit = element.scrollHeight > lineHeight * maxLines + 2;
+    const exceedsVisibleBox = element.clientHeight > 0
+      && element.scrollHeight > element.clientHeight + 2;
+
+    return !exceedsWidth && !exceedsLineLimit && !exceedsVisibleBox;
+  }
+
+  function fitInfoRow(entry) {
+    const element = entry && entry.element;
+
+    if (!element) {
+      return true;
+    }
+
+    const minimumFontSize = Number.isFinite(entry.minimumFontSize)
+      ? entry.minimumFontSize
+      : 6;
     let fontSize = Number.parseFloat(window.getComputedStyle(element).fontSize);
-    const maxLines = Number.isFinite(lineLimit) ? lineLimit : 2;
     let attempts = 0;
 
-    while (fontSize > minimumFontSize && attempts < 30) {
-      const computed = window.getComputedStyle(element);
-      const lineHeight = Number.parseFloat(computed.lineHeight) || fontSize * 1.06;
-      const exceedsLineLimit = element.scrollHeight > lineHeight * maxLines + 1.5;
-      const exceedsVisibleBox = element.scrollHeight > element.clientHeight + 1;
-      const exceedsLabel = thermalLabel.scrollHeight > thermalLabel.clientHeight + 1;
+    while (!primaryInfoRowFits(entry) && attempts < 40 && fontSize > minimumFontSize + 0.01) {
+      fontSize = Math.max(minimumFontSize, fontSize - 0.25);
+      element.style.fontSize = `${fontSize}px`;
+      attempts += 1;
+    }
 
-      if (!exceedsLineLimit && !exceedsVisibleBox && !exceedsLabel) {
+    return primaryInfoRowFits(entry);
+  }
+
+  function fitInfoRows(entries) {
+    const rows = (entries || []).filter((entry) => entry && entry.element);
+
+    if (!rows.length) {
+      return true;
+    }
+
+    rows.forEach(fitInfoRow);
+    let attempts = 0;
+
+    while (thermalLabel.scrollHeight > thermalLabel.clientHeight + 1 && attempts < 120) {
+      let changed = false;
+
+      for (const entry of rows) {
+        const minimumFontSize = Number.isFinite(entry.minimumFontSize)
+          ? entry.minimumFontSize
+          : 6;
+        const fontSize = Number.parseFloat(window.getComputedStyle(entry.element).fontSize);
+
+        if (fontSize <= minimumFontSize + 0.01) {
+          continue;
+        }
+
+        entry.element.style.fontSize = `${Math.max(minimumFontSize, fontSize - 0.25)}px`;
+        changed = true;
+
+        if (thermalLabel.scrollHeight <= thermalLabel.clientHeight + 1) {
+          break;
+        }
+      }
+
+      if (!changed) {
         break;
       }
 
-      fontSize = Math.max(minimumFontSize, fontSize - 0.35);
-      element.style.fontSize = `${fontSize}px`;
       attempts += 1;
+    }
+
+    return rows.every(primaryInfoRowFits)
+      && thermalLabel.scrollHeight <= thermalLabel.clientHeight + 1;
+  }
+
+  function keepTypeBelowModel(typeRow, modelRow, minimumFontSize) {
+    if (!typeRow || !modelRow) {
+      return;
+    }
+
+    const typeFontSize = Number.parseFloat(window.getComputedStyle(typeRow).fontSize);
+    const modelFontSize = Number.parseFloat(window.getComputedStyle(modelRow).fontSize);
+    const targetTypeFontSize = Math.max(minimumFontSize, modelFontSize - 0.7);
+
+    if (Math.abs(typeFontSize - targetTypeFontSize) > 0.01) {
+      typeRow.style.fontSize = `${targetTypeFontSize}px`;
     }
   }
 
@@ -166,16 +327,26 @@
       ? labelSizeSelect.value
       : "50x30";
     const selected = LABEL_SIZES[selectedKey];
+    const customerRow = labelCustomerName.closest(".label-customer");
     const codeRow = labelCode.closest(".label-code");
     const brandRow = labelBrand.closest(".label-type");
     const modelRow = labelModel.closest(".label-model");
     const conditionRow = labelCondition.closest(".label-condition");
+    const dateRow = labelDate.closest(".label-date");
     const brandTitle = thermalLabel.querySelector(".label-brand-text");
     const brandPhone = thermalLabel.querySelector(".label-phone");
     const brandAddress = thermalLabel.querySelector(".label-address");
+    const infoRows = [
+      { element: conditionRow, lines: selected.conditionLines, minimumFontSize: selected.minConditionFont },
+      { element: brandRow, lines: 1, minimumFontSize: selected.minTypeFont },
+      { element: dateRow, lines: 1, minimumFontSize: selected.minDateFont },
+      { element: modelRow, lines: 1, minimumFontSize: selected.minModelFont },
+      { element: customerRow, lines: selected.nameLines, minimumFontSize: selected.minNameFont },
+      { element: codeRow, lines: 1, minimumFontSize: selected.minCodeFont }
+    ];
 
     thermalLabel.classList.remove("label-content--compact");
-    [codeRow, brandRow, modelRow, conditionRow, brandTitle, brandPhone, brandAddress].forEach((element) => {
+    [customerRow, codeRow, brandRow, modelRow, conditionRow, dateRow, brandTitle, brandPhone, brandAddress].forEach((element) => {
       if (element) {
         element.style.removeProperty("font-size");
       }
@@ -184,17 +355,17 @@
     shrinkSingleLine(brandTitle, 6.5);
     shrinkSingleLine(brandPhone, 5.5);
     shrinkSingleLine(brandAddress, 5.5);
-    shrinkSingleLine(codeRow, selected.minCodeFont);
-    shrinkSingleLine(brandRow, selected.minBrandFont);
-    shrinkSingleLine(modelRow, selected.minModelFont);
-    shrinkConditionToFit(conditionRow, selected.minConditionFont, selected.conditionLines);
+    const infoRowsFit = fitInfoRows(infoRows);
+    keepTypeBelowModel(brandRow, modelRow, selected.minTypeFont);
 
     if (
-      conditionRow.scrollHeight > conditionRow.clientHeight + 1
+      !infoRowsFit
       || thermalLabel.scrollHeight > thermalLabel.clientHeight + 1
     ) {
       thermalLabel.classList.add("label-content--compact");
-      shrinkConditionToFit(conditionRow, selected.minConditionFont, selected.conditionLines);
+      infoRows.forEach((entry) => entry.element.style.removeProperty("font-size"));
+      fitInfoRows(infoRows);
+      keepTypeBelowModel(brandRow, modelRow, selected.minTypeFont);
     }
   }
 
@@ -203,21 +374,32 @@
       window.cancelAnimationFrame(pendingFitFrame);
     }
 
+    if (pendingFitTimer !== null) {
+      window.clearTimeout(pendingFitTimer);
+    }
+
     pendingFitFrame = window.requestAnimationFrame(function () {
       pendingFitFrame = null;
       fitLabelContent();
     });
+
+    pendingFitTimer = window.setTimeout(function () {
+      pendingFitTimer = null;
+      fitLabelContent();
+    }, 120);
   }
 
   function renderLabel(ticket) {
     const displayBrand = normalizeLabelBrand(ticket.brand);
+    const displayCustomerName = normalizeLabelCustomerName(ticket);
 
+    labelCustomerName.textContent = displayCustomerName;
     labelCode.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
     labelBrand.textContent = displayBrand;
     labelModel.textContent = textOrBlank(ticket.model);
     labelCondition.textContent = textOrBlank(ticket.condition_text);
     labelDate.textContent = formatDate(ticket.received_date);
-    classifyLabelContent(ticket, displayBrand);
+    classifyLabelContent(ticket, displayBrand, displayCustomerName);
     scheduleLabelFit();
   }
 
@@ -386,6 +568,19 @@
 
     window.addEventListener("beforeprint", fitLabelContent);
     window.addEventListener("resize", scheduleLabelFit);
+    window.addEventListener("load", scheduleLabelFit, { once: true });
+
+    const labelLogo = thermalLabel.querySelector(".label-logo");
+
+    if (labelLogo && !labelLogo.complete) {
+      labelLogo.addEventListener("load", scheduleLabelFit, { once: true });
+    }
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(scheduleLabelFit).catch(function () {
+        // The timeout pass still protects layout when font readiness is unavailable.
+      });
+    }
   }
 
   async function initPrintLabel() {

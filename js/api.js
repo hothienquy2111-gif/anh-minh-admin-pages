@@ -3117,7 +3117,18 @@
       const id = String((params && params.id) || "").trim();
       let query = client
         .from("service_tickets")
-        .select("id,ticket_code,brand,model,condition_text,received_date,status");
+        .select([
+          "id",
+          "ticket_code",
+          "customer_id",
+          "customer_name",
+          "brand",
+          "model",
+          "condition_text",
+          "received_date",
+          "status",
+          "customer:customers!service_tickets_customer_id_fkey(id,name)"
+        ].join(","));
 
       if (code) {
         query = query.eq("ticket_code", code);
@@ -3133,7 +3144,8 @@
         throw error;
       }
 
-      const hydrated = await hydrateWorkflowTicketData(data ? [data] : []);
+      const mapped = mapTicket(data);
+      const hydrated = await hydrateWorkflowTicketData(mapped ? [mapped] : []);
       return hydrated[0] || null;
     } catch (error) {
       throw friendlyError(error, "Không tải được dữ liệu in tem.");

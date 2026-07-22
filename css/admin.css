@@ -5579,6 +5579,153 @@ button {
   --label-code-bottom: 0.2mm;
 }
 
+/* Thermal label hierarchy: customer and ticket identity lead, details remain dense and readable. */
+.print-label.label-50x30 {
+  --label-customer-size: 10px;
+  --label-ticket-size: 9.2px;
+  --label-device-type-size: 8.5px;
+  --label-device-model-size: 9.2px;
+  --label-device-condition-size: 9px;
+  --label-received-size: 7.4px;
+  --label-row-gap: 0.12mm;
+  --label-code-top: 0.08mm;
+  --label-code-bottom: 0;
+  --label-condition-date-gap: 0.18mm;
+}
+
+.print-label.label-58x30 {
+  --label-customer-size: 10.8px;
+  --label-ticket-size: 9.9px;
+  --label-device-type-size: 9.2px;
+  --label-device-model-size: 9.9px;
+  --label-device-condition-size: 9.7px;
+  --label-received-size: 8px;
+  --label-row-gap: 0.14mm;
+  --label-code-top: 0.1mm;
+  --label-code-bottom: 0;
+  --label-condition-date-gap: 0.2mm;
+}
+
+.print-label.label-58x40 {
+  --label-customer-size: 13.6px;
+  --label-ticket-size: 12.6px;
+  --label-device-type-size: 11.9px;
+  --label-device-model-size: 12.6px;
+  --label-device-condition-size: 12.2px;
+  --label-received-size: 10px;
+  --label-row-gap: 0.32mm;
+  --label-code-top: 0.3mm;
+  --label-code-bottom: 0.08mm;
+  --label-condition-date-gap: 0.45mm;
+}
+
+.print-label.label-60x40 {
+  --label-customer-size: 14px;
+  --label-ticket-size: 12.9px;
+  --label-device-type-size: 12.2px;
+  --label-device-model-size: 12.9px;
+  --label-device-condition-size: 12.5px;
+  --label-received-size: 10.2px;
+  --label-row-gap: 0.32mm;
+  --label-code-top: 0.32mm;
+  --label-code-bottom: 0.08mm;
+  --label-condition-date-gap: 0.5mm;
+}
+
+.print-label.label-80x50 {
+  --label-customer-size: 17.4px;
+  --label-ticket-size: 16.1px;
+  --label-device-type-size: 15.4px;
+  --label-device-model-size: 16.1px;
+  --label-device-condition-size: 15.6px;
+  --label-received-size: 12.4px;
+  --label-row-gap: 0.55mm;
+  --label-code-top: 0.55mm;
+  --label-code-bottom: 0.12mm;
+  --label-condition-date-gap: 0.7mm;
+}
+
+.print-label.label-80x50.label-primary--long,
+.print-label.label-80x50.label-primary--very-long {
+  --label-row-gap: 0.28mm;
+  --label-condition-date-gap: 0.5mm;
+}
+
+.print-label .label-device-content .label-primary-info {
+  color: #000;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-overflow: clip;
+  -webkit-text-stroke: 0.08px #000;
+}
+
+.print-label .label-primary-info .label-key {
+  font-weight: 900;
+}
+
+.print-label .label-device-content .label-customer {
+  display: block;
+  flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
+  font-size: var(--label-customer-size, 9.4px);
+  font-weight: 900;
+  line-height: 1.02;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.print-label .label-device-content .label-customer .label-value {
+  font-weight: 900;
+}
+
+.print-label .label-device-content .label-code,
+.print-label.ticket-code--medium .label-code,
+.print-label.ticket-code--long .label-code {
+  margin-top: var(--label-code-top, 0.08mm);
+  margin-bottom: var(--label-code-bottom, 0);
+  font-size: var(--label-ticket-size, 9.2px);
+  font-weight: 900;
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.print-label .label-device-content .label-type,
+.print-label.label-brand--long .label-type {
+  font-size: var(--label-device-type-size, 8.2px);
+  font-weight: 850;
+  line-height: 1.02;
+}
+
+.print-label .label-device-content .label-model,
+.print-label.label-model--long .label-model {
+  font-size: var(--label-device-model-size, 8.8px);
+  font-weight: 850;
+  line-height: 1.02;
+}
+
+.print-label .label-device-content .label-condition,
+.print-label.label-condition--long .label-condition,
+.print-label.label-condition--very-long .label-condition {
+  font-size: var(--label-device-condition-size, 9px);
+  font-weight: 850;
+  line-height: 1.04;
+}
+
+.print-label .label-device-content .label-date {
+  font-size: var(--label-received-size, 7.4px);
+  font-weight: 800;
+  line-height: 1.03;
+}
+
+.print-label.label-content--compact {
+  --label-brand-bottom: 0.08mm;
+  --label-row-gap: 0.08mm;
+  --label-code-top: 0.06mm;
+  --label-code-bottom: 0;
+}
+
 @media print {
   .label-preview-wrap {
     overflow: visible;
