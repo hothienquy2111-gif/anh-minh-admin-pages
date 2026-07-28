@@ -31,8 +31,10 @@
   const MAX_FIT_ATTEMPTS = 80;
   const FIT_STEP = 0.25;
   const FIT_TOLERANCE = 0.75;
+  const FRESH_LABEL_DATA_ERROR = "Không thể tải dữ liệu phiếu mới nhất để in tem. Vui lòng thử lại.";
   let currentTicket = null;
   let currentWorkflowAction = null;
+  let printRequestInFlight = false;
   let pendingFitFrame = null;
   let pendingFitTimer = null;
   let fitInProgress = false;
@@ -132,8 +134,8 @@
 
   function normalizeLabelCustomerName(ticket) {
     const candidates = [
-      ticket && ticket.customer_master_name,
-      ticket && ticket.customer_name
+      ticket && ticket.customer_name,
+      ticket && ticket.customer_master_name
     ];
 
     for (const value of candidates) {
@@ -674,6 +676,36 @@
     return Boolean(ticket.repair_started_at) && ticket.status !== "huỷ";
   }
 
+  function resolveWorkflowAction(ticket) {
+    if (!ticket || !ticket.workflow_available || ticket.status === "huỷ") {
+      return null;
+    }
+
+    if (canStartRepair(ticket)) {
+      return "START_REPAIR";
+    }
+
+    if (canReprintLabel(ticket)) {
+      return "REPRINT_LABEL";
+    }
+
+    return null;
+  }
+
+  async function fetchLatestTicketForLabel(ticketId) {
+    try {
+      const latestTicket = await window.AMApi.getFreshTicketForPrint(ticketId);
+
+      if (!latestTicket) {
+        throw new Error(FRESH_LABEL_DATA_ERROR);
+      }
+
+      return latestTicket;
+    } catch (error) {
+      throw new Error(FRESH_LABEL_DATA_ERROR);
+    }
+  }
+
   function renderWorkflowControls(ticket) {
     currentWorkflowAction = null;
     printButton.disabled = false;
@@ -712,29 +744,40 @@
   }
 
   async function runWorkflowAndPrint() {
-    if (!currentTicket || !currentWorkflowAction) {
+    if (printRequestInFlight || !currentTicket || !currentWorkflowAction) {
       return;
     }
 
-    const action = currentWorkflowAction;
-
-    if (
-      action === "START_REPAIR"
-      && !window.confirm(`In tem và bắt đầu sửa chữa phiếu ${window.AMApi.formatTicketCode(currentTicket.ticket_code)}?`)
-    ) {
-      return;
-    }
-
+    const requestedAction = currentWorkflowAction;
+    printRequestInFlight = true;
     printButton.disabled = true;
-    printButton.textContent = "Đang xử lý...";
+    printButton.textContent = "Đang tải dữ liệu mới nhất...";
     clearNotice();
 
     let requestId = null;
 
     try {
-      requestId = window.AMApi.ensureWorkflowClientRequestId(currentTicket.id, action);
-      const result = await window.AMApi.recordTicketWorkflowAction(currentTicket.id, action, requestId);
-      window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
+      const latestTicket = await fetchLatestTicketForLabel(currentTicket.id);
+      const latestAction = resolveWorkflowAction(latestTicket);
+      currentTicket = latestTicket;
+      renderLabel(currentTicket);
+
+      if (latestAction !== requestedAction) {
+        showNotice("info", "Trạng thái phiếu vừa thay đổi. Vui lòng kiểm tra lại thao tác in.");
+        return;
+      }
+
+      if (
+        latestAction === "START_REPAIR"
+        && !window.confirm(`In tem và bắt đầu sửa chữa phiếu ${window.AMApi.formatTicketCode(currentTicket.ticket_code)}?`)
+      ) {
+        return;
+      }
+
+      printButton.textContent = "Đang xử lý...";
+      requestId = window.AMApi.ensureWorkflowClientRequestId(currentTicket.id, latestAction);
+      const result = await window.AMApi.recordTicketWorkflowAction(currentTicket.id, latestAction, requestId);
+      window.AMApi.clearWorkflowClientRequestId(currentTicket.id, latestAction);
 
       currentTicket = Object.assign({}, currentTicket, {
         status: result.status,
@@ -745,18 +788,19 @@
         workflow_available: true
       });
 
-      renderWorkflowControls(currentTicket);
-      if (action === "START_REPAIR") {
+      if (latestAction === "START_REPAIR") {
         showNotice("success", "Phiếu đã chuyển trạng thái. Trường hợp chưa in được, hãy dùng chức năng Chỉ in lại.");
       }
       await prepareLabelForPrint();
       window.print();
     } catch (error) {
       if (requestId && window.AMApi.shouldClearWorkflowClientRequestId(error)) {
-        window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
+        window.AMApi.clearWorkflowClientRequestId(currentTicket.id, requestedAction);
       }
 
       showNotice("error", error.message);
+    } finally {
+      printRequestInFlight = false;
       renderWorkflowControls(currentTicket);
     }
   }

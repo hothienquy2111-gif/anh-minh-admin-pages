@@ -3066,7 +3066,7 @@
     return result.records;
   }
 
-  async function getTicketForDeliveryReceipt(params) {
+  async function queryTicketForPrint(params, fallbackMessage) {
     const client = getClient();
     const code = expandCompactBusinessCode(params && params.code, "AM");
     const id = String((params && params.id) || "").trim();
@@ -3098,58 +3098,42 @@
       return await queryTicket(RECEIPT_TICKET_SELECT_FIELDS);
     } catch (error) {
       if (!isWorkflowSchemaError(error)) {
-        throw friendlyError(error, "Không tải được dữ liệu biên nhận.");
+        throw friendlyError(error, fallbackMessage);
       }
 
-      const fallback = await queryTicket(TICKET_SELECT_FIELDS);
+      try {
+        const fallback = await queryTicket(TICKET_SELECT_FIELDS);
 
-      return fallback ? Object.assign({}, fallback, {
-        workflow_available: false,
-        workflow_inactive_message: "Workflow cần được cập nhật để lưu thông tin giao/trả và bảo hành."
-      }) : null;
+        return fallback ? Object.assign({}, fallback, {
+          workflow_available: false,
+          workflow_inactive_message: "Workflow cần được cập nhật để lưu thông tin giao/trả và bảo hành."
+        }) : null;
+      } catch (fallbackError) {
+        throw friendlyError(fallbackError, fallbackMessage);
+      }
     }
   }
 
-  async function getTicketForLabel(params) {
-    try {
-      const client = getClient();
-      const code = expandCompactBusinessCode(params && params.code, "AM");
-      const id = String((params && params.id) || "").trim();
-      let query = client
-        .from("service_tickets")
-        .select([
-          "id",
-          "ticket_code",
-          "customer_id",
-          "customer_name",
-          "brand",
-          "model",
-          "condition_text",
-          "received_date",
-          "status",
-          "customer:customers!service_tickets_customer_id_fkey(id,name)"
-        ].join(","));
+  async function getFreshTicketForPrint(ticketId) {
+    const id = String(ticketId || "").trim();
 
-      if (code) {
-        query = query.eq("ticket_code", code);
-      } else if (id) {
-        query = query.eq("id", id);
-      } else {
-        return null;
-      }
-
-      const { data, error } = await query.maybeSingle();
-
-      if (error) {
-        throw error;
-      }
-
-      const mapped = mapTicket(data);
-      const hydrated = await hydrateWorkflowTicketData(mapped ? [mapped] : []);
-      return hydrated[0] || null;
-    } catch (error) {
-      throw friendlyError(error, "Không tải được dữ liệu in tem.");
+    if (!id) {
+      return null;
     }
+
+    const ticket = await queryTicketForPrint(
+      { id },
+      "Không tải được dữ liệu mới nhất để in."
+    );
+    return ticket ? Object.assign({}, ticket) : null;
+  }
+
+  async function getTicketForDeliveryReceipt(params) {
+    return await queryTicketForPrint(params, "Không tải được dữ liệu biên nhận.");
+  }
+
+  async function getTicketForLabel(params) {
+    return await queryTicketForPrint(params, "Không tải được dữ liệu in tem.");
   }
 
   async function updateTicket(id, data) {
@@ -3193,7 +3177,13 @@
         throw error;
       }
 
-      return await getTicketById(ticketId);
+      const updatedTicket = await getFreshTicketForPrint(ticketId);
+
+      if (!updatedTicket) {
+        throw new Error("Phiếu đã được lưu nhưng chưa thể xác nhận dữ liệu mới nhất. Vui lòng tải lại trước khi in.");
+      }
+
+      return updatedTicket;
     } catch (error) {
       if (String(error && error.message || "").toLowerCase().includes("ticket was updated by another session")) {
         throw new Error("Phiếu vừa được cập nhật ở nơi khác. Vui lòng tải lại trước khi tiếp tục.");
@@ -4664,6 +4654,7 @@
     getTicketsForExport,
     getTicketByCode,
     getTicketById,
+    getFreshTicketForPrint,
     getTicketForDeliveryReceipt,
     getTicketForLabel,
     updateTicket,

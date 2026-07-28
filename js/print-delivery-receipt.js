@@ -23,6 +23,7 @@
     NONE: "KHÔNG BẢO HÀNH"
   };
   const PRINT_NOTICE = "Phiếu đã chuyển trạng thái. Trường hợp chưa in được, hãy dùng chức năng Chỉ in lại.";
+  const FRESH_RECEIPT_DATA_ERROR = "Không thể tải dữ liệu phiếu mới nhất để in biên nhận. Vui lòng thử lại.";
 
   const notice = document.getElementById("receiptNotice");
   const printButton = document.getElementById("printReceiptButton");
@@ -49,6 +50,7 @@
   let deliveryDateTouched = false;
   let previewScaleFrame = 0;
   let previewResizeObserver = null;
+  let receiptPrintInFlight = false;
 
   const textFields = {
     receiptCodeTop: BLANK_LINE,
@@ -514,9 +516,9 @@
     const deposit = toNumberOrNull(ticket.deposit_amount);
     const finalPrice = toNumberOrNull(ticket.final_price);
     const remaining = finalPrice === null ? null : finalPrice - (deposit || 0);
-    const customerName = ticket.customer_master_name || ticket.customer_name;
-    const customerPhone = ticket.customer_master_phone || ticket.customer_phone;
-    const customerAddress = ticket.customer_master_address || ticket.customer_address;
+    const customerName = ticket.customer_name || ticket.customer_master_name;
+    const customerPhone = ticket.customer_phone || ticket.customer_master_phone;
+    const customerAddress = ticket.customer_address || ticket.customer_master_address;
     const appearance = ticket.external_condition;
     const condition = ticket.condition_text;
 
@@ -714,7 +716,7 @@
     });
   }
 
-  function renderTicket(ticket) {
+  function renderTicket(ticket, options) {
     const viewModel = buildReceiptViewModel(ticket);
 
     if (currentReceiptFormat === "a4") {
@@ -723,7 +725,9 @@
       renderA5Receipt(viewModel);
     }
 
-    applyTicketWarrantyToControls(ticket);
+    if (!(options && options.preserveWarrantyControls)) {
+      applyTicketWarrantyToControls(ticket);
+    }
   }
 
   function canPrintAndComplete(ticket) {
@@ -735,6 +739,36 @@
 
   function canReprintReceipt(ticket) {
     return ticket.status === "đã trả" && Boolean(ticket.completed_at);
+  }
+
+  function resolveWorkflowAction(ticket) {
+    if (!ticket || !ticket.workflow_available) {
+      return null;
+    }
+
+    if (canPrintAndComplete(ticket)) {
+      return "PRINT_AND_COMPLETE";
+    }
+
+    if (canReprintReceipt(ticket)) {
+      return "REPRINT_RECEIPT";
+    }
+
+    return null;
+  }
+
+  async function fetchLatestTicketForReceipt(ticketId) {
+    try {
+      const latestTicket = await window.AMApi.getFreshTicketForPrint(ticketId);
+
+      if (!latestTicket) {
+        throw new Error(FRESH_RECEIPT_DATA_ERROR);
+      }
+
+      return latestTicket;
+    } catch (error) {
+      throw new Error(FRESH_RECEIPT_DATA_ERROR);
+    }
   }
 
   function renderWorkflowControls(ticket) {
@@ -749,15 +783,17 @@
       return;
     }
 
-    if (canPrintAndComplete(ticket)) {
-      currentWorkflowAction = "PRINT_AND_COMPLETE";
+    const nextAction = resolveWorkflowAction(ticket);
+
+    if (nextAction === "PRINT_AND_COMPLETE") {
+      currentWorkflowAction = nextAction;
       updatePrintButtonText();
       setWorkflowHint("Chỉ xác nhận khi khách đã nhận hoặc cửa hàng đã giao tivi. RPC thành công mới lưu bảo hành, chuyển sang Đã bàn giao và mở Print Preview.");
       return;
     }
 
-    if (canReprintReceipt(ticket)) {
-      currentWorkflowAction = "REPRINT_RECEIPT";
+    if (nextAction === "REPRINT_RECEIPT") {
+      currentWorkflowAction = nextAction;
       setReceiptControlsReadonly(true);
       updatePrintButtonText();
       setWorkflowHint("In lại biên nhận chỉ đọc dữ liệu giao/trả và bảo hành đã lưu, không tạo hoặc ghi đè dữ liệu bảo hành.");
@@ -770,43 +806,60 @@
   }
 
   async function runWorkflowAndPrint() {
-    if (!currentTicket || !currentWorkflowAction) {
+    if (receiptPrintInFlight || !currentTicket || !currentWorkflowAction) {
       return;
     }
 
-    const action = currentWorkflowAction;
-    let workflowPayload = null;
-
-    try {
-      if (action === "PRINT_AND_COMPLETE") {
-        workflowPayload = buildWarrantyPayload({ validate: true });
-        renderWarrantyPreview(workflowPayload);
-      }
-    } catch (error) {
-      showNotice("error", error.message);
-      return;
-    }
-
-    if (
-      action === "PRINT_AND_COMPLETE"
-      && !window.confirm(
-        "Xác nhận khách đã nhận hoặc cửa hàng đã giao tivi?\n\n"
-        + "Sau khi cập nhật thành công, biên nhận sẽ được mở để in và phiếu chuyển sang Đã bàn giao."
-      )
-    ) {
-      return;
-    }
-
+    const requestedAction = currentWorkflowAction;
+    receiptPrintInFlight = true;
     printButton.disabled = true;
-    printButton.textContent = "Đang xử lý...";
+    printButton.textContent = "Đang tải dữ liệu mới nhất...";
+    setReceiptControlsReadonly(true);
     clearNotice();
 
+    let latestAction = null;
+    let workflowPayload = null;
     let requestId = null;
 
     try {
-      requestId = window.AMApi.ensureWorkflowClientRequestId(currentTicket.id, action);
-      const result = await window.AMApi.recordTicketWorkflowAction(currentTicket.id, action, requestId, workflowPayload);
-      window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
+      const latestTicket = await fetchLatestTicketForReceipt(currentTicket.id);
+      latestAction = resolveWorkflowAction(latestTicket);
+      currentTicket = latestTicket;
+
+      if (latestAction !== requestedAction) {
+        renderTicket(currentTicket);
+        showNotice("info", "Trạng thái phiếu vừa thay đổi. Vui lòng kiểm tra lại thao tác in.");
+        return;
+      }
+
+      renderTicket(currentTicket, {
+        preserveWarrantyControls: latestAction === "PRINT_AND_COMPLETE"
+      });
+
+      if (latestAction === "PRINT_AND_COMPLETE") {
+        workflowPayload = buildWarrantyPayload({ validate: true });
+        renderWarrantyPreview(workflowPayload);
+      }
+
+      if (
+        latestAction === "PRINT_AND_COMPLETE"
+        && !window.confirm(
+          "Xác nhận khách đã nhận hoặc cửa hàng đã giao tivi?\n\n"
+          + "Sau khi cập nhật thành công, biên nhận sẽ được mở để in và phiếu chuyển sang Đã bàn giao."
+        )
+      ) {
+        return;
+      }
+
+      printButton.textContent = "Đang xử lý...";
+      requestId = window.AMApi.ensureWorkflowClientRequestId(currentTicket.id, latestAction);
+      const result = await window.AMApi.recordTicketWorkflowAction(
+        currentTicket.id,
+        latestAction,
+        requestId,
+        workflowPayload
+      );
+      window.AMApi.clearWorkflowClientRequestId(currentTicket.id, latestAction);
 
       currentTicket = Object.assign({}, currentTicket, {
         status: result.status,
@@ -824,19 +877,20 @@
       });
 
       renderTicket(currentTicket);
-      renderWorkflowControls(currentTicket);
 
-      if (action === "PRINT_AND_COMPLETE") {
+      if (latestAction === "PRINT_AND_COMPLETE") {
         showNotice("success", PRINT_NOTICE);
       }
 
       window.print();
     } catch (error) {
       if (requestId && window.AMApi.shouldClearWorkflowClientRequestId(error)) {
-        window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
+        window.AMApi.clearWorkflowClientRequestId(currentTicket.id, requestedAction);
       }
 
       showNotice("error", error.message);
+    } finally {
+      receiptPrintInFlight = false;
       renderWorkflowControls(currentTicket);
     }
   }
