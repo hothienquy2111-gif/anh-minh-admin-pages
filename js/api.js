@@ -31,8 +31,28 @@
     "REPRINT_LABEL",
     "REPRINT_RECEIPT"
   ];
+  const REPAIR_OUTCOMES = Object.freeze([
+    "repaired_successfully",
+    "returned_unrepaired"
+  ]);
   const WORKFLOW_STORAGE_PREFIX = "am-workflow:";
   const WORKFLOW_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
+  const EMPLOYEE_REQUEST_STORAGE_PREFIX = "am-employee-request:";
+  const EMPLOYEE_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
+  const EMPLOYEE_REQUEST_ACTIONS = Object.freeze([
+    "CREATE_EMPLOYEE_PROFILE",
+    "UPDATE_EMPLOYEE_PROFILE",
+    "SAVE_MANAGEMENT_NOTE",
+    "ASSIGN_TICKET",
+    "REASSIGN_TICKET",
+    "CANCEL_ASSIGNMENT",
+    "UPSERT_KPI_TARGET",
+    "FINALIZE_AWARD",
+    "UPDATE_ASSIGNMENT_COMPLEXITY",
+    "ADJUST_WORK_POINTS",
+    "UPSERT_SCORING_RULES",
+    "SET_WEIGHTED_KPI_TARGET"
+  ]);
   const BUSINESS_CODE_WIDTHS = Object.freeze({
     AM: 6,
     KH: 6
@@ -294,6 +314,15 @@
   const HANDOVER_TICKET_SELECT_FIELDS = [
     REPAIRING_TICKET_SELECT_FIELDS,
     "ready_for_handover_at"
+  ].join(",");
+  const TICKET_ACTIVITY_ASSIGNMENT_SELECT_FIELDS = [
+    "id",
+    "ticket_id",
+    "employee_id",
+    "status",
+    "assigned_at",
+    "completed_at",
+    "employee:employee_profiles!ticket_assignments_employee_id_fkey(id,employee_code,full_name,job_title)"
   ].join(",");
   const ATTENTION_SELECT_FIELDS = [
     "id",
@@ -1258,6 +1287,30 @@
     return normalized;
   }
 
+  function normalizeRepairOutcome(action, outcome, options) {
+    const normalizedAction = validateWorkflowAction(action);
+    const normalizedOutcome = String(outcome || "").trim().toLowerCase();
+    const required = Boolean(options && options.required);
+
+    if (normalizedAction !== "READY_FOR_HANDOVER") {
+      if (normalizedOutcome) {
+        throw new Error("Kết quả sửa chữa chỉ áp dụng khi chuyển sang Bàn giao tivi.");
+      }
+
+      return "";
+    }
+
+    if (!normalizedOutcome && !required) {
+      return "";
+    }
+
+    if (!REPAIR_OUTCOMES.includes(normalizedOutcome)) {
+      throw new Error("Kết quả sửa chữa không hợp lệ.");
+    }
+
+    return normalizedOutcome;
+  }
+
   function normalizeId(value) {
     return String(value || "").trim();
   }
@@ -1274,6 +1327,7 @@
         userId: normalizeId(parsed.userId),
         ticketId: normalizeId(parsed.ticketId),
         action: String(parsed.action || "").trim().toUpperCase(),
+        operation: String(parsed.operation || "").trim().toLowerCase(),
         createdAt: normalizeId(parsed.createdAt),
         requestId: normalizeId(parsed.requestId)
       };
@@ -1304,11 +1358,17 @@
       }
 
       const entry = parseWorkflowRequestEntry(sessionStorage.getItem(key));
+      const operationIsValid = entry
+        && (
+          (entry.action === "READY_FOR_HANDOVER" && REPAIR_OUTCOMES.includes(entry.operation))
+          || (entry.action !== "READY_FOR_HANDOVER" && !entry.operation)
+        );
       const shouldRemove = !entry
         || !entry.userId
         || !entry.ticketId
         || !entry.requestId
         || !WORKFLOW_ACTIONS.includes(entry.action)
+        || !operationIsValid
         || isWorkflowRequestExpired(entry, now)
         || !userId
         || entry.userId !== userId;
@@ -1322,6 +1382,7 @@
   function setWorkflowAuthUser(userId) {
     activeWorkflowUserId = normalizeId(userId) || null;
     cleanupWorkflowRequestIds(activeWorkflowUserId);
+    cleanupEmployeeRequestIds(activeWorkflowUserId);
   }
 
   function setupWorkflowAuthSync(client) {
@@ -1348,14 +1409,20 @@
     }
   }
 
-  function getWorkflowStorageKey(userId, ticketId, action) {
-    return `${WORKFLOW_STORAGE_PREFIX}${normalizeId(userId)}:${normalizeId(ticketId)}:${validateWorkflowAction(action)}`;
+  function getWorkflowStorageKey(userId, ticketId, action, operation) {
+    const normalizedAction = validateWorkflowAction(action);
+    const normalizedOperation = normalizeRepairOutcome(normalizedAction, operation);
+    const operationSuffix = normalizedOperation ? `:${normalizedOperation}` : "";
+    return `${WORKFLOW_STORAGE_PREFIX}${normalizeId(userId)}:${normalizeId(ticketId)}:${normalizedAction}${operationSuffix}`;
   }
 
-  function ensureWorkflowClientRequestId(ticketId, action) {
+  function ensureWorkflowClientRequestId(ticketId, action, operation) {
     const id = normalizeId(ticketId);
     const userId = normalizeId(activeWorkflowUserId);
     const normalizedAction = validateWorkflowAction(action);
+    const normalizedOperation = normalizeRepairOutcome(normalizedAction, operation, {
+      required: normalizedAction === "READY_FOR_HANDOVER"
+    });
 
     if (!id) {
       throw new Error("Thiếu ID phiếu cho thao tác workflow.");
@@ -1367,7 +1434,7 @@
 
     cleanupWorkflowRequestIds(userId);
 
-    const key = getWorkflowStorageKey(userId, id, normalizedAction);
+    const key = getWorkflowStorageKey(userId, id, normalizedAction, normalizedOperation);
     const existing = parseWorkflowRequestEntry(sessionStorage.getItem(key));
 
     if (
@@ -1375,6 +1442,7 @@
       && existing.userId === userId
       && existing.ticketId === id
       && existing.action === normalizedAction
+      && existing.operation === normalizedOperation
       && existing.requestId
       && !isWorkflowRequestExpired(existing)
     ) {
@@ -1389,6 +1457,7 @@
       userId,
       ticketId: id,
       action: normalizedAction,
+      operation: normalizedOperation,
       createdAt: new Date().toISOString(),
       requestId: window.crypto.randomUUID()
     };
@@ -1402,17 +1471,18 @@
     return entry.requestId;
   }
 
-  function clearWorkflowClientRequestId(ticketId, action) {
+  function clearWorkflowClientRequestId(ticketId, action, operation) {
     const id = normalizeId(ticketId);
     const userId = normalizeId(activeWorkflowUserId);
     const normalizedAction = validateWorkflowAction(action);
+    const normalizedOperation = normalizeRepairOutcome(normalizedAction, operation);
 
     if (!id) {
       return;
     }
 
     if (userId) {
-      sessionStorage.removeItem(getWorkflowStorageKey(userId, id, normalizedAction));
+      sessionStorage.removeItem(getWorkflowStorageKey(userId, id, normalizedAction, normalizedOperation));
     }
 
     for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
@@ -1424,7 +1494,160 @@
 
       const entry = parseWorkflowRequestEntry(sessionStorage.getItem(key));
 
-      if (entry && entry.ticketId === id && entry.action === normalizedAction && (!userId || entry.userId === userId)) {
+      if (
+        entry
+        && entry.ticketId === id
+        && entry.action === normalizedAction
+        && entry.operation === normalizedOperation
+        && (!userId || entry.userId === userId)
+      ) {
+        sessionStorage.removeItem(key);
+      }
+    }
+  }
+
+  function normalizeEmployeeRequestAction(action) {
+    const normalized = String(action || "").trim().toUpperCase();
+
+    if (!EMPLOYEE_REQUEST_ACTIONS.includes(normalized)) {
+      throw new Error("Thao tác Nhân viên không hợp lệ.");
+    }
+
+    return normalized;
+  }
+
+  function parseEmployeeRequestEntry(raw) {
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      return {
+        userId: normalizeId(parsed.userId),
+        entityId: normalizeId(parsed.entityId),
+        action: String(parsed.action || "").trim().toUpperCase(),
+        createdAt: normalizeId(parsed.createdAt),
+        requestId: normalizeId(parsed.requestId)
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function isEmployeeRequestExpired(entry, now) {
+    const created = Date.parse(entry && entry.createdAt);
+    return !Number.isFinite(created)
+      || (now || Date.now()) - created > EMPLOYEE_REQUEST_TTL_MS;
+  }
+
+  function employeeRequestStorageKey(userId, entityId, action) {
+    return `${EMPLOYEE_REQUEST_STORAGE_PREFIX}${normalizeId(userId)}:${normalizeId(entityId)}:${normalizeEmployeeRequestAction(action)}`;
+  }
+
+  function cleanupEmployeeRequestIds(currentUserId) {
+    const userId = normalizeId(currentUserId);
+    const now = Date.now();
+
+    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = sessionStorage.key(index);
+
+      if (!key || !key.startsWith(EMPLOYEE_REQUEST_STORAGE_PREFIX)) {
+        continue;
+      }
+
+      const entry = parseEmployeeRequestEntry(sessionStorage.getItem(key));
+      const shouldRemove = !entry
+        || !entry.userId
+        || !entry.entityId
+        || !entry.requestId
+        || !EMPLOYEE_REQUEST_ACTIONS.includes(entry.action)
+        || isEmployeeRequestExpired(entry, now)
+        || !userId
+        || entry.userId !== userId;
+
+      if (shouldRemove) {
+        sessionStorage.removeItem(key);
+      }
+    }
+  }
+
+  function ensureEmployeeClientRequestId(entityId, action) {
+    const id = normalizeId(entityId);
+    const userId = normalizeId(activeWorkflowUserId);
+    const normalizedAction = normalizeEmployeeRequestAction(action);
+
+    if (!id) {
+      throw new Error("Thiếu định danh cho thao tác Nhân viên.");
+    }
+
+    if (!userId) {
+      throw new Error("Thiếu thông tin tài khoản. Vui lòng tải lại trang.");
+    }
+
+    cleanupEmployeeRequestIds(userId);
+    const key = employeeRequestStorageKey(userId, id, normalizedAction);
+    const existing = parseEmployeeRequestEntry(sessionStorage.getItem(key));
+
+    if (
+      existing
+      && existing.userId === userId
+      && existing.entityId === id
+      && existing.action === normalizedAction
+      && existing.requestId
+      && !isEmployeeRequestExpired(existing)
+    ) {
+      return existing.requestId;
+    }
+
+    if (!window.crypto || typeof window.crypto.randomUUID !== "function") {
+      throw new Error("Trình duyệt không hỗ trợ crypto.randomUUID().");
+    }
+
+    const entry = {
+      userId,
+      entityId: id,
+      action: normalizedAction,
+      createdAt: new Date().toISOString(),
+      requestId: window.crypto.randomUUID()
+    };
+
+    try {
+      sessionStorage.setItem(key, JSON.stringify(entry));
+    } catch (error) {
+      throw new Error("Không lưu được mã chống gửi trùng. Vui lòng thử lại.");
+    }
+
+    return entry.requestId;
+  }
+
+  function clearEmployeeClientRequestId(entityId, action) {
+    const id = normalizeId(entityId);
+    const userId = normalizeId(activeWorkflowUserId);
+    const normalizedAction = normalizeEmployeeRequestAction(action);
+
+    if (!id) {
+      return;
+    }
+
+    if (userId) {
+      sessionStorage.removeItem(employeeRequestStorageKey(userId, id, normalizedAction));
+    }
+
+    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = sessionStorage.key(index);
+
+      if (!key || !key.startsWith(EMPLOYEE_REQUEST_STORAGE_PREFIX)) {
+        continue;
+      }
+
+      const entry = parseEmployeeRequestEntry(sessionStorage.getItem(key));
+      if (
+        entry
+        && entry.entityId === id
+        && entry.action === normalizedAction
+        && (!userId || entry.userId === userId)
+      ) {
         sessionStorage.removeItem(key);
       }
     }
@@ -1474,6 +1697,9 @@
       const normalizedAction = validateWorkflowAction(action);
       const requestId = String(clientRequestId || "").trim();
       const details = workflowDetails || {};
+      const repairOutcome = normalizeRepairOutcome(normalizedAction, details.repair_outcome, {
+        required: normalizedAction === "READY_FOR_HANDOVER"
+      });
 
       if (!id) {
         throw new Error("Thiếu ID phiếu cho thao tác workflow.");
@@ -1483,17 +1709,27 @@
         throw new Error("Thiếu clientRequestId cho thao tác workflow.");
       }
 
-      const { data, error } = await client.rpc("record_ticket_workflow_action", {
-        p_ticket_id: id,
-        p_action: normalizedAction,
-        p_client_request_id: requestId,
-        p_delivery_date: normalizeText(details.delivery_date),
-        p_warranty_mode: normalizeText(details.warranty_mode),
-        p_warranty_start_date: normalizeText(details.warranty_start_date),
-        p_warranty_end_date: normalizeText(details.warranty_end_date),
-        p_warranty_months: normalizeNumber(details.warranty_months),
-        p_warranty_note: normalizeText(details.warranty_note)
-      });
+      const rpcName = normalizedAction === "READY_FOR_HANDOVER"
+        ? "record_ticket_ready_for_handover"
+        : "record_ticket_workflow_action";
+      const rpcPayload = normalizedAction === "READY_FOR_HANDOVER"
+        ? {
+            p_ticket_id: id,
+            p_repair_outcome: repairOutcome,
+            p_client_request_id: requestId
+          }
+        : {
+            p_ticket_id: id,
+            p_action: normalizedAction,
+            p_client_request_id: requestId,
+            p_delivery_date: normalizeText(details.delivery_date),
+            p_warranty_mode: normalizeText(details.warranty_mode),
+            p_warranty_start_date: normalizeText(details.warranty_start_date),
+            p_warranty_end_date: normalizeText(details.warranty_end_date),
+            p_warranty_months: normalizeNumber(details.warranty_months),
+            p_warranty_note: normalizeText(details.warranty_note)
+          };
+      const { data, error } = await client.rpc(rpcName, rpcPayload);
 
       if (error) {
         throw error;
@@ -1503,6 +1739,27 @@
 
       if (!result) {
         throw new Error("RPC workflow không trả về dữ liệu.");
+      }
+
+      let assignmentOutcome = null;
+
+      if (normalizedAction === "READY_FOR_HANDOVER") {
+        try {
+          assignmentOutcome = await getTicketAssignmentOutcome(id, requestId);
+        } catch (assignmentError) {
+          if (assignmentError.employeeModuleUnavailable) {
+            assignmentOutcome = {
+              outcome: "feature_disabled",
+              feature_disabled: true,
+              warning_message: null
+            };
+          } else {
+            assignmentOutcome = {
+              outcome: "unverified",
+              warning_message: "Phiếu đã chuyển trạng thái nhưng chưa xác minh được kết quả ghi nhận KPI."
+            };
+          }
+        }
       }
 
       return {
@@ -1523,6 +1780,9 @@
         warranty_end_date: result.warranty_end_date,
         warranty_months: result.warranty_months,
         warranty_note: result.warranty_note,
+        repair_outcome: result.repair_outcome || repairOutcome || null,
+        assignment_outcome: assignmentOutcome,
+        assignment_warning: assignmentOutcome && assignmentOutcome.warning_message,
         was_replayed: result.was_replayed === true
       };
     } catch (error) {
@@ -2141,6 +2401,16 @@
   async function signOut(redirectToLogin) {
     try {
       const client = getClient();
+      if (
+        window.AMEmployeeAccess
+        && typeof window.AMEmployeeAccess.beforeSignOut === "function"
+      ) {
+        try {
+          await window.AMEmployeeAccess.beforeSignOut();
+        } catch (employeeAccessError) {
+          // Local access is cleared before the best-effort server revocation.
+        }
+      }
       const { error } = await client.auth.signOut();
 
       if (error) {
@@ -4112,6 +4382,62 @@
     return ticketActivityCache.slice();
   }
 
+  async function fetchTicketActivityAssignments(ticketIds) {
+    const ids = Array.from(new Set(
+      (ticketIds || []).map((value) => String(value || "").trim()).filter(Boolean)
+    ));
+
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const client = getClient();
+    const { data, error } = await client
+      .from("ticket_assignments")
+      .select(TICKET_ACTIVITY_ASSIGNMENT_SELECT_FIELDS)
+      .in("ticket_id", ids)
+      .in("status", ["active", "completed"])
+      .order("assigned_at", { ascending: false })
+      .order("id", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((assignmentsByTicket, row) => {
+      const ticketId = String(row.ticket_id || "");
+      const current = assignmentsByTicket.get(ticketId);
+      const shouldReplace = !current
+        || (row.status === "active" && current.status !== "active");
+
+      if (ticketId && shouldReplace) {
+        assignmentsByTicket.set(ticketId, row);
+      }
+
+      return assignmentsByTicket;
+    }, new Map());
+  }
+
+  async function enrichTicketActivityAssignments(tickets) {
+    const rows = Array.isArray(tickets) ? tickets : [];
+
+    try {
+      const assignmentsByTicket = await fetchTicketActivityAssignments(
+        rows.map((ticket) => ticket.id)
+      );
+
+      return rows.map((ticket) => Object.assign({}, ticket, {
+        current_assignment: assignmentsByTicket.get(String(ticket.id || "")) || null,
+        assignment_load_error: false
+      }));
+    } catch (error) {
+      return rows.map((ticket) => Object.assign({}, ticket, {
+        current_assignment: null,
+        assignment_load_error: true
+      }));
+    }
+  }
+
   async function getTicketActivityTickets(params) {
     try {
       const options = params || {};
@@ -4143,10 +4469,12 @@
       const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
       const safePage = Math.min(page, totalPages);
       const from = (safePage - 1) * pageSize;
+      const pageTickets = filteredRecords.slice(from, from + pageSize);
+      const tickets = await enrichTicketActivityAssignments(pageTickets);
 
       return {
         available: true,
-        tickets: filteredRecords.slice(from, from + pageSize),
+        tickets,
         totalCount,
         page: safePage,
         pageSize,
@@ -4579,6 +4907,993 @@
     }, "Không hủy được lịch hẹn.");
   }
 
+  function isEmployeeModuleSchemaError(error) {
+    const code = String((error && error.code) || "").toLowerCase();
+    const message = String(
+      (error && (error.message || error.details || error.hint)) || ""
+    ).toLowerCase();
+
+    return code === "pgrst202"
+      || code === "pgrst204"
+      || code === "42p01"
+      || code === "42703"
+      || code === "42883"
+      || message.includes("employee_profiles")
+      || message.includes("ticket_assignments")
+      || message.includes("employee_kpi_targets")
+      || message.includes("employee_awards")
+      || message.includes("employee_work_point_snapshots")
+      || message.includes("employee_kpi_rule_versions")
+      || message.includes("employee_management_notes")
+      || message.includes("get_employee_module_access")
+      || message.includes("get_ticket_assignment_context")
+      || message.includes("list_linkable_internal_users")
+      || message.includes("list_employee_kpi_summary")
+      || message.includes("list_employee_current_assignments")
+      || message.includes("list_employee_management_notes")
+      || message.includes("get_monthly_employee_ranking")
+      || message.includes("get_monthly_team_performance")
+      || message.includes("list_employee_scored_tickets")
+      || message.includes("save_employee_management_note")
+      || message.includes("could not find the function");
+  }
+
+  function friendlyEmployeeError(error, fallbackMessage) {
+    const source = error || {};
+    if (source.name === "AbortError" || source.code === "ABORT_ERR") {
+      const aborted = new Error("Employee request was cancelled.");
+      aborted.name = "AbortError";
+      aborted.employeeRequestAborted = true;
+      aborted.employeeClearRequestId = false;
+      aborted.originalError = source;
+      return aborted;
+    }
+
+    const rawMessage = String(
+      source.message || source.details || source.hint || fallbackMessage || "Không thể xử lý dữ liệu Nhân viên."
+    );
+    const lowered = rawMessage.toLowerCase();
+    let message = rawMessage;
+    let errorType = "business";
+    let clearRequestId = true;
+
+    if (isEmployeeModuleSchemaError(source)) {
+      message = "Module Nhân viên chưa được kích hoạt trên backend.";
+      errorType = "unavailable";
+    } else if (
+      lowered.includes("permission is not configured")
+      || lowered.includes("access denied")
+    ) {
+      message = "Quyền quản lý Nhân viên chưa được cấu hình. Vui lòng chốt vai trò Owner/Admin trước khi ghi dữ liệu.";
+      errorType = "permission";
+    } else if (
+      lowered.includes("updated by another session")
+      || lowered.includes("another session")
+    ) {
+      message = "Dữ liệu vừa được cập nhật ở nơi khác. Vui lòng tải lại trước khi tiếp tục.";
+      errorType = "conflict";
+    } else if (isWorkflowNetworkError(source)) {
+      message = "Kết nối bị gián đoạn. Mã chống gửi trùng được giữ lại để thử lại an toàn.";
+      errorType = "network";
+      clearRequestId = false;
+    } else if (Number(source.status || source.statusCode) >= 500) {
+      message = "Máy chủ chưa xác nhận kết quả. Mã chống gửi trùng được giữ lại để thử lại an toàn.";
+      errorType = "unknown";
+      clearRequestId = false;
+    }
+
+    const wrapped = new Error(message);
+    wrapped.employeeErrorType = errorType;
+    wrapped.employeeModuleUnavailable = errorType === "unavailable";
+    wrapped.employeePermissionLocked = errorType === "permission";
+    wrapped.employeeClearRequestId = clearRequestId;
+    wrapped.originalError = source;
+    return wrapped;
+  }
+
+  function shouldClearEmployeeClientRequestId(error) {
+    return Boolean(error && error.employeeClearRequestId === true);
+  }
+
+  async function executeEmployeeRpc(name, params, fallbackMessage, options) {
+    try {
+      const client = getClient();
+      const settings = options || {};
+      let request = client.rpc(name, params || {});
+      if (
+        settings.signal
+        && request
+        && typeof request.abortSignal === "function"
+      ) {
+        request = request.abortSignal(settings.signal);
+      }
+      const { data, error } = await request;
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      throw friendlyEmployeeError(error, fallbackMessage);
+    }
+  }
+
+  function firstRpcRow(data) {
+    return Array.isArray(data) ? (data[0] || null) : (data || null);
+  }
+
+  function friendlyEmployeeAccessError(error) {
+    const wrapped = new Error("Không thể xác thực quyền truy cập lúc này.");
+    wrapped.employeeAccessUnavailable = true;
+    wrapped.originalError = error || null;
+    return wrapped;
+  }
+
+  async function executeEmployeeAccessRpc(name, params) {
+    try {
+      const client = getClient();
+      const { data, error } = await client.rpc(name, params || {});
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      throw friendlyEmployeeAccessError(error);
+    }
+  }
+
+  async function verifyEmployeeModulePin(pin, requestId) {
+    const normalizedPin = String(pin || "");
+    const normalizedRequestId = normalizeId(requestId);
+
+    if (!/^[0-9]{6}$/.test(normalizedPin) || !normalizedRequestId) {
+      return {
+        success: false,
+        result_code: "invalid_pin",
+        retry_after_seconds: 0,
+        was_replayed: false
+      };
+    }
+
+    return firstRpcRow(await executeEmployeeAccessRpc(
+      "verify_employee_module_pin",
+      {
+        p_pin: normalizedPin,
+        p_request_id: normalizedRequestId
+      }
+    ));
+  }
+
+  async function validateEmployeeModuleUnlock(unlockToken) {
+    const token = String(unlockToken || "").trim();
+    if (!token) {
+      return {
+        success: false,
+        expires_at: null,
+        absolute_expires_at: null,
+        pin_version: null
+      };
+    }
+
+    return firstRpcRow(await executeEmployeeAccessRpc(
+      "validate_employee_module_unlock",
+      { p_unlock_token: token }
+    ));
+  }
+
+  async function revokeEmployeeModuleUnlock(unlockToken) {
+    const token = String(unlockToken || "").trim();
+    if (!token) {
+      return false;
+    }
+
+    return Boolean(await executeEmployeeAccessRpc(
+      "revoke_employee_module_unlock",
+      { p_unlock_token: token }
+    ));
+  }
+
+  async function setEmployeeModulePin(input, requestId) {
+    const data = input || {};
+    const normalizedRequestId = normalizeId(requestId);
+    if (!normalizedRequestId) {
+      throw new Error("Thiếu mã chống gửi trùng khi cập nhật PIN.");
+    }
+
+    return firstRpcRow(await executeEmployeeAccessRpc(
+      "set_employee_module_pin",
+      {
+        p_current_pin: String(data.currentPin || ""),
+        p_new_pin: String(data.newPin || ""),
+        p_confirm_pin: String(data.confirmPin || ""),
+        p_request_id: normalizedRequestId
+      }
+    ));
+  }
+
+  async function getEmployeeModuleAccess() {
+    return firstRpcRow(
+      await executeEmployeeRpc(
+        "get_employee_module_access",
+        {},
+        "Không kiểm tra được quyền truy cập module Nhân viên."
+      )
+    );
+  }
+
+  async function listAssignableEmployees(search, limit) {
+    return await executeEmployeeRpc(
+      "list_assignable_employees",
+      {
+        p_search: normalizeText(search),
+        p_limit: Math.min(Math.max(Number(limit) || 50, 1), 100)
+      },
+      "Không tải được danh sách nhân viên có thể nhận việc."
+    ) || [];
+  }
+
+  async function listLinkableInternalUsers() {
+    return await executeEmployeeRpc(
+      "list_linkable_internal_users",
+      {},
+      "Không tải được danh sách tài khoản nội bộ có thể liên kết."
+    ) || [];
+  }
+
+  async function getEmployeeKpiSummary(options) {
+    const params = options || {};
+    const rows = await executeEmployeeRpc(
+      "list_employee_kpi_summary",
+      {
+        p_period_start: normalizeText(params.periodStart),
+        p_period_end: normalizeText(params.periodEnd),
+        p_search: normalizeText(params.search),
+        p_status: normalizeText(params.status),
+        p_department: normalizeText(params.department),
+        p_kpi_eligible: typeof params.kpiEligible === "boolean" ? params.kpiEligible : null,
+        p_page: Math.max(Number(params.page) || 1, 1),
+        p_page_size: Math.min(Math.max(Number(params.pageSize) || 10, 1), 100)
+      },
+      "Không tải được tổng hợp KPI nhân viên.",
+      { signal: params.signal }
+    ) || [];
+
+    return {
+      rows,
+      count: rows.length > 0 ? Number(rows[0].total_count) || 0 : 0
+    };
+  }
+
+  async function getEmployeeTeamOverview(options) {
+    const params = options || {};
+    return firstRpcRow(
+      await executeEmployeeRpc(
+        "get_employee_team_overview",
+        {
+          p_period_start: normalizeText(params.periodStart),
+          p_period_end: normalizeText(params.periodEnd)
+        },
+        "Không tải được tổng quan hiệu suất nhân viên.",
+        { signal: params.signal }
+      )
+    );
+  }
+
+  async function getEmployeeKpiDetail(employeeId, options) {
+    const params = options || {};
+    return firstRpcRow(
+      await executeEmployeeRpc(
+        "get_employee_kpi_detail",
+        {
+          p_employee_id: normalizeId(employeeId),
+          p_period_start: normalizeText(params.periodStart),
+          p_period_end: normalizeText(params.periodEnd)
+        },
+        "Không tải được chi tiết KPI nhân viên.",
+        { signal: params.signal }
+      )
+    );
+  }
+
+  async function getEmployeeAssignments(options) {
+    const params = options || {};
+    const rows = await executeEmployeeRpc(
+      "list_employee_current_assignments",
+      {
+        p_status_filter: normalizeText(params.status) || "active",
+        p_employee_id: normalizeId(params.employeeId) || null,
+        p_search: normalizeText(params.search),
+        p_period_start: normalizeText(params.periodStart),
+        p_period_end: normalizeText(params.periodEnd),
+        p_page: Math.max(Number(params.page) || 1, 1),
+        p_page_size: Math.min(Math.max(Number(params.pageSize) || 10, 1), 100)
+      },
+      "Không tải được danh sách phân công.",
+      { signal: params.signal }
+    ) || [];
+
+    return {
+      rows,
+      count: rows.length > 0 ? Number(rows[0].total_count) || 0 : 0
+    };
+  }
+
+  async function getEmployeeKpiTargets(options) {
+    try {
+      const params = options || {};
+      const client = getClient();
+      const page = Math.max(Number(params.page) || 1, 1);
+      const pageSize = Math.min(Math.max(Number(params.pageSize) || 10, 1), 100);
+      const from = (page - 1) * pageSize;
+      let query = client
+        .from("employee_kpi_targets")
+        .select(
+          "id,employee_id,period_type,period_start,period_end,target_completed_tickets,target_weighted_work_points,target_completion_rate,target_average_hours,bonus_base,bonus_per_ticket,maximum_bonus,weight_completed,weight_completion_rate,weight_average_hours,policy_note,updated_at",
+          { count: "exact" }
+        )
+        .order("period_start", { ascending: false })
+        .order("employee_id", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (params.employeeId) {
+        query = query.eq("employee_id", params.employeeId);
+      }
+      if (params.periodStart) {
+        query = query.gte("period_end", params.periodStart);
+      }
+      if (params.periodEnd) {
+        query = query.lte("period_start", params.periodEnd);
+      }
+      if (params.signal && typeof query.abortSignal === "function") {
+        query = query.abortSignal(params.signal);
+      }
+
+      const { data, error, count } = await query;
+      if (error) {
+        throw error;
+      }
+
+      return { rows: data || [], count: Number(count) || 0 };
+    } catch (error) {
+      throw friendlyEmployeeError(error, "Không tải được chỉ tiêu KPI.");
+    }
+  }
+
+  async function getEmployeeScoringRuleConfig(options) {
+    const params = options || {};
+    try {
+      const client = getClient();
+      let ruleQuery = client
+        .from("employee_kpi_rule_versions")
+        .select(
+          "version_code,effective_from,productivity_weight,quality_weight,progress_weight,score_cap,is_active,note,updated_at"
+        )
+        .eq("is_active", true)
+        .order("effective_from", { ascending: false })
+        .limit(1);
+      if (params.signal && typeof ruleQuery.abortSignal === "function") {
+        ruleQuery = ruleQuery.abortSignal(params.signal);
+      }
+      const { data: ruleRows, error: ruleError } = await ruleQuery;
+      if (ruleError) {
+        throw ruleError;
+      }
+      const rule = Array.isArray(ruleRows) ? (ruleRows[0] || null) : null;
+      if (!rule) {
+        return null;
+      }
+
+      let sizeQuery = client
+        .from("employee_workload_size_rules")
+        .select(
+          "id,rule_version,band_key,label,min_inches,max_inches,weight,expected_hours,is_unknown_fallback,is_active,effective_from"
+        )
+        .eq("rule_version", rule.version_code)
+        .order("is_unknown_fallback", { ascending: true })
+        .order("min_inches", { ascending: true, nullsFirst: false });
+      let complexityQuery = client
+        .from("employee_complexity_rules")
+        .select(
+          "id,rule_version,complexity_level,label,weight,expected_hours_multiplier,is_active,effective_from"
+        )
+        .eq("rule_version", rule.version_code)
+        .order("weight", { ascending: true });
+      if (params.signal && typeof sizeQuery.abortSignal === "function") {
+        sizeQuery = sizeQuery.abortSignal(params.signal);
+      }
+      if (params.signal && typeof complexityQuery.abortSignal === "function") {
+        complexityQuery = complexityQuery.abortSignal(params.signal);
+      }
+      const [sizeResult, complexityResult] = await Promise.all([sizeQuery, complexityQuery]);
+      if (sizeResult.error) {
+        throw sizeResult.error;
+      }
+      if (complexityResult.error) {
+        throw complexityResult.error;
+      }
+      return {
+        rule,
+        sizeRules: sizeResult.data || [],
+        complexityRules: complexityResult.data || []
+      };
+    } catch (error) {
+      throw friendlyEmployeeError(error, "Không tải được cấu hình tính điểm.");
+    }
+  }
+
+  async function getEmployeeAwards(options) {
+    try {
+      const params = options || {};
+      const client = getClient();
+      const page = Math.max(Number(params.page) || 1, 1);
+      const pageSize = Math.min(Math.max(Number(params.pageSize) || 10, 1), 100);
+      const from = (page - 1) * pageSize;
+      let query = client
+        .from("employee_awards")
+        .select(
+          "id,employee_id,award_type,period_start,period_end,title,employee_code_snapshot,full_name_snapshot,job_title_snapshot,completed_tickets,kpi_score,award_amount,note,approved_at",
+          { count: "exact" }
+        )
+        .order("period_start", { ascending: false })
+        .order("kpi_score", { ascending: false, nullsFirst: false })
+        .range(from, from + pageSize - 1);
+
+      if (params.awardType) {
+        query = query.eq("award_type", params.awardType);
+      }
+      if (params.signal && typeof query.abortSignal === "function") {
+        query = query.abortSignal(params.signal);
+      }
+
+      const { data, error, count } = await query;
+      if (error) {
+        throw error;
+      }
+
+      return { rows: data || [], count: Number(count) || 0 };
+    } catch (error) {
+      throw friendlyEmployeeError(error, "Không tải được dữ liệu vinh danh.");
+    }
+  }
+
+  async function getMonthlyEmployeeRanking(options) {
+    const params = options || {};
+    return await executeEmployeeRpc(
+      "get_monthly_employee_ranking",
+      {
+        p_period_start: normalizeText(params.periodStart),
+        p_period_end: normalizeText(params.periodEnd)
+      },
+      "Không tải được bảng xếp hạng điểm quy đổi.",
+      { signal: params.signal }
+    ) || [];
+  }
+
+  async function getEmployeeAwardPodium(options) {
+    const params = options || {};
+    const rows = await executeEmployeeRpc(
+      "list_employee_award_podium",
+      {
+        p_period_start: normalizeText(params.periodStart),
+        p_period_end: normalizeText(params.periodEnd)
+      },
+      "Không tải được sân khấu vinh danh.",
+      { signal: params.signal }
+    ) || [];
+    return rows.map((row) => row && row.ranking ? row.ranking : row).filter(Boolean);
+  }
+
+  async function getEmployeeAwardDetail(employeeId, options) {
+    const params = options || {};
+    return firstRpcRow(await executeEmployeeRpc(
+      "get_employee_award_detail",
+      {
+        p_employee_id: normalizeId(employeeId),
+        p_period_start: normalizeText(params.periodStart),
+        p_period_end: normalizeText(params.periodEnd)
+      },
+      "Không tải được chi tiết thành tích nhân viên.",
+      { signal: params.signal }
+    ));
+  }
+
+  async function getEmployeeScoredTickets(employeeId, options) {
+    const params = options || {};
+    const rows = await executeEmployeeRpc(
+      "list_employee_scored_tickets",
+      {
+        p_employee_id: normalizeId(employeeId),
+        p_period_start: normalizeText(params.periodStart),
+        p_period_end: normalizeText(params.periodEnd),
+        p_page: Math.max(Number(params.page) || 1, 1),
+        p_page_size: Math.min(Math.max(Number(params.pageSize) || 10, 1), 100)
+      },
+      "Không tải được danh sách tivi tính điểm.",
+      { signal: params.signal }
+    ) || [];
+    return {
+      rows,
+      count: rows.length > 0 ? Number(rows[0].total_count) || 0 : 0
+    };
+  }
+
+  async function getMonthlyTeamPerformance(options) {
+    const params = options || {};
+    return firstRpcRow(await executeEmployeeRpc(
+      "get_monthly_team_performance",
+      {
+        p_period_start: normalizeText(params.periodStart),
+        p_period_end: normalizeText(params.periodEnd)
+      },
+      "Không tải được báo cáo hiệu suất tháng.",
+      { signal: params.signal }
+    ));
+  }
+
+  async function getWorkPointAdjustments(snapshotId, options) {
+    const params = options || {};
+    return await executeEmployeeRpc(
+      "list_work_point_adjustments",
+      {
+        p_snapshot_id: normalizeId(snapshotId),
+        p_limit: Math.min(Math.max(Number(params.limit) || 50, 1), 100)
+      },
+      "Không tải được lịch sử điều chỉnh điểm.",
+      { signal: params.signal }
+    ) || [];
+  }
+
+  async function previewEmployeeWorkPoints(input, options) {
+    const data = input || {};
+    const params = options || {};
+    return firstRpcRow(await executeEmployeeRpc(
+      "preview_work_points",
+      {
+        p_size: normalizeText(data.size),
+        p_model: normalizeText(data.model),
+        p_manual_size: normalizeNumber(data.manualSize),
+        p_complexity_level: normalizeText(data.complexityLevel) || "standard",
+        p_rule_version: normalizeText(data.ruleVersion)
+      },
+      "Không xem trước được điểm công việc.",
+      { signal: params.signal }
+    ));
+  }
+
+  async function updateEmployeeAssignmentClassification(input, requestId) {
+    const data = input || {};
+    const entityKey = normalizeId(data.assignmentId);
+    const operation = "UPDATE_ASSIGNMENT_COMPLEXITY";
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, operation);
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "update_assignment_complexity",
+        {
+          p_assignment_id: entityKey,
+          p_complexity_level: normalizeText(data.complexityLevel),
+          p_manual_size_inches: normalizeNumber(data.manualSize),
+          p_reason: normalizeText(data.reason),
+          p_expected_updated_at: normalizeText(data.expectedUpdatedAt),
+          p_client_request_id: clientRequestId
+        },
+        "Không cập nhật được phân loại công việc."
+      ));
+      clearEmployeeClientRequestId(entityKey, operation);
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, operation);
+      }
+      throw error;
+    }
+  }
+
+  async function adjustEmployeeCompletedWorkPoints(input, requestId) {
+    const data = input || {};
+    const entityKey = normalizeId(data.snapshotId);
+    const operation = "ADJUST_WORK_POINTS";
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, operation);
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "adjust_completed_work_points",
+        {
+          p_snapshot_id: entityKey,
+          p_manual_size_inches: normalizeNumber(data.manualSize),
+          p_complexity_level: normalizeText(data.complexityLevel),
+          p_reason: normalizeText(data.reason),
+          p_expected_calculated_at: normalizeText(data.expectedCalculatedAt),
+          p_client_request_id: clientRequestId
+        },
+        "Không điều chỉnh được điểm công việc."
+      ));
+      clearEmployeeClientRequestId(entityKey, operation);
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, operation);
+      }
+      throw error;
+    }
+  }
+
+  async function setEmployeeWeightedKpiTarget(input, requestId) {
+    const data = input || {};
+    const entityKey = normalizeId(data.targetId);
+    const operation = "SET_WEIGHTED_KPI_TARGET";
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, operation);
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "set_employee_weighted_kpi_target",
+        {
+          p_target_id: entityKey,
+          p_target_weighted_work_points: normalizeNumber(data.weightedTarget),
+          p_expected_updated_at: normalizeText(data.expectedUpdatedAt),
+          p_client_request_id: clientRequestId
+        },
+        "Không cập nhật được mục tiêu điểm quy đổi."
+      ));
+      clearEmployeeClientRequestId(entityKey, operation);
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, operation);
+      }
+      throw error;
+    }
+  }
+
+  async function saveEmployeeScoringRules(input, requestId) {
+    const data = input || {};
+    const entityKey = normalizeText(data.versionCode);
+    const operation = "UPSERT_SCORING_RULES";
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, operation);
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "upsert_kpi_scoring_rules",
+        {
+          p_version_code: entityKey,
+          p_effective_from: normalizeText(data.effectiveFrom),
+          p_productivity_weight: normalizeNumber(data.productivityWeight),
+          p_quality_weight: normalizeNumber(data.qualityWeight),
+          p_progress_weight: normalizeNumber(data.progressWeight),
+          p_score_cap: normalizeNumber(data.scoreCap),
+          p_size_rules: Array.isArray(data.sizeRules) ? data.sizeRules : [],
+          p_complexity_rules: Array.isArray(data.complexityRules) ? data.complexityRules : [],
+          p_note: normalizeText(data.note),
+          p_client_request_id: clientRequestId
+        },
+        "Không lưu được cấu hình tính điểm."
+      ));
+      clearEmployeeClientRequestId(entityKey, operation);
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, operation);
+      }
+      throw error;
+    }
+  }
+
+  async function getEmployeeManagementNotes(employeeId, options) {
+    const params = options || {};
+    return await executeEmployeeRpc(
+      "list_employee_management_notes",
+      {
+        p_employee_id: normalizeId(employeeId),
+        p_limit: Math.min(Math.max(Number(params.limit) || 20, 1), 100)
+      },
+      "Không tải được ghi chú quản lý.",
+      { signal: params.signal }
+    ) || [];
+  }
+
+  async function saveEmployeeManagementNote(employeeId, note, requestId) {
+    const entityKey = normalizeId(employeeId);
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "SAVE_MANAGEMENT_NOTE");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "save_employee_management_note",
+        {
+          p_employee_id: entityKey,
+          p_note: normalizeText(note),
+          p_client_request_id: clientRequestId
+        },
+        "Không lưu được ghi chú quản lý."
+      ));
+      clearEmployeeClientRequestId(entityKey, "SAVE_MANAGEMENT_NOTE");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "SAVE_MANAGEMENT_NOTE");
+      }
+      throw error;
+    }
+  }
+
+  async function saveEmployeeProfile(profile, requestId) {
+    const data = profile || {};
+    const employeeId = normalizeId(data.id);
+    const isUpdate = Boolean(employeeId);
+    const operation = isUpdate ? "UPDATE_EMPLOYEE_PROFILE" : "CREATE_EMPLOYEE_PROFILE";
+    const entityKey = employeeId
+      || `new:${normalizeText(data.full_name).toLocaleLowerCase("vi-VN")}`;
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, operation);
+    const payload = {
+      p_internal_user_id: normalizeId(data.internal_user_id) || null,
+      p_full_name: normalizeText(data.full_name),
+      p_phone: normalizeText(data.phone),
+      p_email: normalizeText(data.email),
+      p_avatar_url: normalizeText(data.avatar_url),
+      p_job_title: normalizeText(data.job_title),
+      p_department: normalizeText(data.department),
+      p_employment_status: normalizeText(data.employment_status) || "active",
+      p_joined_date: normalizeText(data.joined_date),
+      p_notes: normalizeText(data.notes),
+      p_is_kpi_eligible: data.is_kpi_eligible !== false,
+      p_client_request_id: clientRequestId
+    };
+
+    if (isUpdate) {
+      payload.p_employee_id = employeeId;
+      payload.p_expected_updated_at = normalizeText(data.updated_at);
+    }
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        isUpdate ? "update_employee_profile" : "create_employee_profile",
+        payload,
+        "Không lưu được hồ sơ nhân viên."
+      ));
+      clearEmployeeClientRequestId(entityKey, operation);
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, operation);
+      }
+      throw error;
+    }
+  }
+
+  async function assignTicketToEmployee(ticketId, employeeId, note, requestId) {
+    const entityKey = normalizeId(ticketId);
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "ASSIGN_TICKET");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "assign_ticket_to_employee",
+        {
+          p_ticket_id: entityKey,
+          p_employee_id: normalizeId(employeeId),
+          p_assignment_note: normalizeText(note),
+          p_client_request_id: clientRequestId
+        },
+        "Không giao được tivi cho nhân viên."
+      ));
+      clearEmployeeClientRequestId(entityKey, "ASSIGN_TICKET");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "ASSIGN_TICKET");
+      }
+      throw error;
+    }
+  }
+
+  async function assignTicketToEmployeeClassified(ticketId, employeeId, note, classification, requestId) {
+    const data = classification || {};
+    const entityKey = normalizeId(ticketId);
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "ASSIGN_TICKET");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "assign_ticket_to_employee_classified",
+        {
+          p_ticket_id: entityKey,
+          p_employee_id: normalizeId(employeeId),
+          p_assignment_note: normalizeText(note),
+          p_complexity_level: normalizeText(data.complexityLevel) || "standard",
+          p_manual_size_inches: normalizeNumber(data.manualSize),
+          p_classification_note: normalizeText(data.classificationNote),
+          p_client_request_id: clientRequestId
+        },
+        "Không giao được tivi kèm phân loại công việc."
+      ));
+      clearEmployeeClientRequestId(entityKey, "ASSIGN_TICKET");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "ASSIGN_TICKET");
+      }
+      throw error;
+    }
+  }
+
+  async function reassignTicketToEmployee(assignmentId, employeeId, note, requestId) {
+    const entityKey = normalizeId(assignmentId);
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "REASSIGN_TICKET");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "reassign_ticket_to_employee",
+        {
+          p_assignment_id: entityKey,
+          p_employee_id: normalizeId(employeeId),
+          p_assignment_note: normalizeText(note),
+          p_client_request_id: clientRequestId
+        },
+        "Không đổi được nhân viên phụ trách."
+      ));
+      clearEmployeeClientRequestId(entityKey, "REASSIGN_TICKET");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "REASSIGN_TICKET");
+      }
+      throw error;
+    }
+  }
+
+  async function reassignTicketToEmployeeClassified(assignmentId, employeeId, note, classification, requestId) {
+    const data = classification || {};
+    const entityKey = normalizeId(assignmentId);
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "REASSIGN_TICKET");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "reassign_ticket_to_employee_classified",
+        {
+          p_assignment_id: entityKey,
+          p_employee_id: normalizeId(employeeId),
+          p_assignment_note: normalizeText(note),
+          p_complexity_level: normalizeText(data.complexityLevel) || "standard",
+          p_manual_size_inches: normalizeNumber(data.manualSize),
+          p_classification_note: normalizeText(data.classificationNote),
+          p_client_request_id: clientRequestId
+        },
+        "Không đổi được nhân viên kèm phân loại công việc."
+      ));
+      clearEmployeeClientRequestId(entityKey, "REASSIGN_TICKET");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "REASSIGN_TICKET");
+      }
+      throw error;
+    }
+  }
+
+  async function cancelEmployeeAssignment(assignmentId, reason, requestId) {
+    const entityKey = normalizeId(assignmentId);
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "CANCEL_ASSIGNMENT");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "cancel_ticket_assignment",
+        {
+          p_assignment_id: entityKey,
+          p_reason: normalizeText(reason),
+          p_client_request_id: clientRequestId
+        },
+        "Không hủy được phân công."
+      ));
+      clearEmployeeClientRequestId(entityKey, "CANCEL_ASSIGNMENT");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "CANCEL_ASSIGNMENT");
+      }
+      throw error;
+    }
+  }
+
+  async function saveEmployeeKpiTarget(target, requestId) {
+    const data = target || {};
+    const entityKey = normalizeId(data.id)
+      || `${normalizeId(data.employee_id)}:${normalizeText(data.period_start)}:${normalizeText(data.period_end)}`;
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "UPSERT_KPI_TARGET");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "upsert_employee_kpi_target",
+        {
+          p_target_id: normalizeId(data.id) || null,
+          p_employee_id: normalizeId(data.employee_id),
+          p_period_type: normalizeText(data.period_type) || "monthly",
+          p_period_start: normalizeText(data.period_start),
+          p_period_end: normalizeText(data.period_end),
+          p_target_completed_tickets: normalizeNumber(data.target_completed_tickets),
+          p_target_completion_rate: normalizeNumber(data.target_completion_rate),
+          p_target_average_hours: normalizeNumber(data.target_average_hours),
+          p_bonus_base: normalizeNumber(data.bonus_base),
+          p_bonus_per_ticket: normalizeNumber(data.bonus_per_ticket),
+          p_maximum_bonus: normalizeNumber(data.maximum_bonus),
+          p_weight_completed: normalizeNumber(data.weight_completed),
+          p_weight_completion_rate: normalizeNumber(data.weight_completion_rate),
+          p_weight_average_hours: normalizeNumber(data.weight_average_hours),
+          p_policy_note: normalizeText(data.policy_note),
+          p_expected_updated_at: normalizeText(data.updated_at),
+          p_client_request_id: clientRequestId
+        },
+        "Không lưu được chỉ tiêu KPI."
+      ));
+      clearEmployeeClientRequestId(entityKey, "UPSERT_KPI_TARGET");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "UPSERT_KPI_TARGET");
+      }
+      throw error;
+    }
+  }
+
+  async function finalizeEmployeeAward(award, requestId) {
+    const data = award || {};
+    const entityKey = `${normalizeId(data.employee_id)}:${normalizeText(data.award_type)}:${normalizeText(data.period_start)}:${normalizeText(data.period_end)}`;
+    const clientRequestId = requestId
+      || ensureEmployeeClientRequestId(entityKey, "FINALIZE_AWARD");
+
+    try {
+      const result = firstRpcRow(await executeEmployeeRpc(
+        "finalize_employee_award",
+        {
+          p_employee_id: normalizeId(data.employee_id),
+          p_award_type: normalizeText(data.award_type),
+          p_period_start: normalizeText(data.period_start),
+          p_period_end: normalizeText(data.period_end),
+          p_title: normalizeText(data.title),
+          p_award_amount: normalizeNumber(data.award_amount),
+          p_note: normalizeText(data.note),
+          p_client_request_id: clientRequestId
+        },
+        "Không chốt được vinh danh."
+      ));
+      clearEmployeeClientRequestId(entityKey, "FINALIZE_AWARD");
+      return result;
+    } catch (error) {
+      if (shouldClearEmployeeClientRequestId(error)) {
+        clearEmployeeClientRequestId(entityKey, "FINALIZE_AWARD");
+      }
+      throw error;
+    }
+  }
+
+  async function getTicketAssignmentOutcome(ticketId, clientRequestId) {
+    return firstRpcRow(await executeEmployeeRpc(
+      "get_ticket_assignment_outcome",
+      {
+        p_ticket_id: normalizeId(ticketId),
+        p_client_request_id: normalizeId(clientRequestId)
+      },
+      "Không đọc được kết quả ghi nhận KPI."
+    ));
+  }
+
+  async function getTicketAssignmentContext(ticketId) {
+    return firstRpcRow(await executeEmployeeRpc(
+      "get_ticket_assignment_context",
+      {
+        p_ticket_id: normalizeId(ticketId)
+      },
+      "Không đọc được thông tin phân công của phiếu."
+    ));
+  }
+
   window.AMTvUtils = {
     brands: TV_BRANDS.slice(),
     sizes: TV_SIZE_VALUES.slice(),
@@ -4664,6 +5979,46 @@
     ensureWorkflowClientRequestId,
     clearWorkflowClientRequestId,
     shouldClearWorkflowClientRequestId,
-    recordTicketWorkflowAction
+    recordTicketWorkflowAction,
+    ensureEmployeeClientRequestId,
+    clearEmployeeClientRequestId,
+    shouldClearEmployeeClientRequestId,
+    verifyEmployeeModulePin,
+    validateEmployeeModuleUnlock,
+    revokeEmployeeModuleUnlock,
+    setEmployeeModulePin,
+    getEmployeeModuleAccess,
+    listAssignableEmployees,
+    listLinkableInternalUsers,
+    getEmployeeTeamOverview,
+    getEmployeeKpiSummary,
+    getEmployeeKpiDetail,
+    getEmployeeAssignments,
+    getEmployeeKpiTargets,
+    getEmployeeScoringRuleConfig,
+    getEmployeeAwards,
+    getMonthlyEmployeeRanking,
+    getEmployeeAwardPodium,
+    getEmployeeAwardDetail,
+    getEmployeeScoredTickets,
+    getMonthlyTeamPerformance,
+    getWorkPointAdjustments,
+    previewEmployeeWorkPoints,
+    updateEmployeeAssignmentClassification,
+    adjustEmployeeCompletedWorkPoints,
+    setEmployeeWeightedKpiTarget,
+    saveEmployeeScoringRules,
+    getEmployeeManagementNotes,
+    saveEmployeeProfile,
+    saveEmployeeManagementNote,
+    assignTicketToEmployee,
+    assignTicketToEmployeeClassified,
+    reassignTicketToEmployee,
+    reassignTicketToEmployeeClassified,
+    cancelEmployeeAssignment,
+    saveEmployeeKpiTarget,
+    finalizeEmployeeAward,
+    getTicketAssignmentOutcome,
+    getTicketAssignmentContext
   };
 })();

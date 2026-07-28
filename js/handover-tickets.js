@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  document.documentElement.classList.add("handover-layout-root");
+
   const PAGE_SIZE = 10;
   const SEARCH_DELAY_MS = 420;
   const TIMER_REFRESH_MS = 60000;
@@ -20,6 +22,7 @@
     state: document.getElementById("handoverState"),
     content: document.getElementById("handoverContent"),
     listSummary: document.getElementById("handoverListSummary"),
+    tableWrap: document.querySelector(".handover-table-wrap"),
     tableBody: document.getElementById("handoverTableBody"),
     cards: document.getElementById("handoverCards"),
     pagination: document.getElementById("handoverPagination"),
@@ -36,6 +39,9 @@
   let searchTimerId = null;
   let refreshTimerId = null;
   let loadRequestId = 0;
+  let pageTransitionFrameId = null;
+  let deepLinkFrameId = null;
+  let pendingPageFocus = false;
 
   function showNotice(type, message) {
     if (!handover.notice) {
@@ -80,6 +86,10 @@
 
   function customerName(ticket) {
     return ticket.customer_master_name || ticket.customer_name || "";
+  }
+
+  function customerAddress(ticket) {
+    return ticket.customer_master_address || ticket.customer_address || "";
   }
 
   function customerPhone(ticket) {
@@ -158,7 +168,7 @@
 
     tickets.forEach((ticket) => {
       const row = document.createElement("tr");
-      const alertCell = createCell();
+      const alertCell = createCell("handover-alert-cell");
       const codeCell = createCell("handover-code-cell");
       const customerCell = createCell("handover-customer-cell");
       const deviceCell = createCell("handover-device-cell");
@@ -173,6 +183,7 @@
       appendLine(codeCell, "handover-cell-muted", "Bàn giao tivi");
       appendLine(customerCell, "handover-cell-strong", window.AMApi.formatCustomerCode(ticket.customer_code));
       appendLine(customerCell, "handover-cell-muted", customerName(ticket));
+      appendLine(customerCell, "handover-cell-address", customerAddress(ticket));
       appendLine(deviceCell, "handover-cell-strong", [ticket.brand, ticket.model].filter(Boolean).join(" "));
       appendLine(deviceCell, "handover-cell-muted", ticket.device_type || "Tivi");
       appendLine(waitCell, `handover-wait-text handover-wait-text--${timing.level}`, timing.text);
@@ -214,6 +225,7 @@
       const title = document.createElement("div");
       const code = document.createElement("strong");
       const customer = document.createElement("span");
+      const address = document.createElement("span");
       const meta = document.createElement("div");
       const condition = document.createElement("p");
       const timing = handoverTiming(ticket);
@@ -224,9 +236,11 @@
       title.className = "handover-card-title";
       meta.className = "handover-card-meta";
       condition.className = "handover-card-condition";
+      address.className = "handover-card-address";
       code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
       customer.textContent = `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${textOrDash(customerName(ticket))}`;
-      title.append(code, customer);
+      address.textContent = `Địa chỉ: ${textOrDash(customerAddress(ticket))}`;
+      title.append(code, customer, address);
       top.append(title, createBadge(ticket));
       meta.append(
         createMeta("SĐT", customerPhone(ticket)),
@@ -266,16 +280,8 @@
       button.type = "button";
       button.className = `handover-filter-chip ${state.filter === filter.key ? "active" : ""}`.trim();
       button.textContent = `${filter.label} (${Number(filterCounts[filter.key] || 0)})`;
+      button.dataset.filter = filter.key;
       button.setAttribute("aria-pressed", String(state.filter === filter.key));
-      button.addEventListener("click", () => {
-        if (state.filter === filter.key) {
-          return;
-        }
-        state.filter = filter.key;
-        state.page = 1;
-        updateUrl();
-        loadTickets(false);
-      });
       fragment.appendChild(button);
     });
 
@@ -297,9 +303,72 @@
     return pages;
   }
 
+  function prefersReducedMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function scrollElementVertically(element, block) {
+    if (!element) {
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const scrollMarginTop = Number.parseFloat(window.getComputedStyle(element).scrollMarginTop) || 0;
+    const targetTop = block === "center"
+      ? window.scrollY + rect.top + (rect.height / 2) - (window.innerHeight / 2)
+      : window.scrollY + rect.top - scrollMarginTop;
+
+    window.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: prefersReducedMotion() ? "auto" : "smooth"
+    });
+  }
+
+  function schedulePageTransitionCompletion() {
+    if (pageTransitionFrameId) {
+      window.cancelAnimationFrame(pageTransitionFrameId);
+    }
+
+    pageTransitionFrameId = window.requestAnimationFrame(() => {
+      pageTransitionFrameId = null;
+
+      if (handover.tableWrap) {
+        handover.tableWrap.scrollLeft = 0;
+      }
+
+      if (pendingPageFocus) {
+        const activePage = handover.pagination.querySelector('[aria-current="page"]');
+        if (activePage) {
+          activePage.focus({ preventScroll: true });
+        }
+      }
+
+      pendingPageFocus = false;
+      scrollElementVertically(handover.section, "start");
+    });
+  }
+
+  function scheduleDeepLinkFocus(element) {
+    if (deepLinkFrameId) {
+      window.cancelAnimationFrame(deepLinkFrameId);
+    }
+
+    deepLinkFrameId = window.requestAnimationFrame(() => {
+      deepLinkFrameId = null;
+      scrollElementVertically(element, "center");
+    });
+  }
+
   function setPage(page) {
     const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-    state.page = Math.min(Math.max(page, 1), totalPages);
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
+
+    if (nextPage === state.page) {
+      return;
+    }
+
+    state.page = nextPage;
+    pendingPageFocus = true;
     updateUrl();
     loadTickets(true);
   }
@@ -317,7 +386,7 @@
     previous.type = "button";
     previous.textContent = "← Trang trước";
     previous.disabled = state.page === 1;
-    previous.addEventListener("click", () => setPage(state.page - 1));
+    previous.dataset.pageAction = "previous";
     fragment.appendChild(previous);
 
     visiblePages(totalPages).forEach((page) => {
@@ -334,8 +403,8 @@
       button.textContent = String(page);
       button.className = page === state.page ? "active" : "";
       button.setAttribute("aria-label", `Trang ${page}`);
+      button.dataset.page = String(page);
       if (page === state.page) button.setAttribute("aria-current", "page");
-      button.addEventListener("click", () => setPage(page));
       fragment.appendChild(button);
     });
 
@@ -343,7 +412,7 @@
     next.type = "button";
     next.textContent = "Trang sau →";
     next.disabled = state.page === totalPages;
-    next.addEventListener("click", () => setPage(state.page + 1));
+    next.dataset.pageAction = "next";
     fragment.appendChild(next);
     handover.pagination.appendChild(fragment);
   }
@@ -375,10 +444,7 @@
       const match = handover.section.querySelector(`[data-ticket-code="${CSS.escape(requestedCode)}"]`);
       if (match) {
         match.classList.add("handover-focus-ticket");
-        match.scrollIntoView({
-          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-          block: "center"
-        });
+        scheduleDeepLinkFocus(match);
       }
     }
   }
@@ -440,15 +506,13 @@
 
       renderTickets(result.tickets || []);
       if (shouldScroll) {
-        handover.section.scrollIntoView({
-          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-          block: "start"
-        });
+        schedulePageTransitionCompletion();
       }
     } catch (error) {
       if (requestId !== loadRequestId) {
         return;
       }
+      pendingPageFocus = false;
       setSectionState("error", "Không thể tải danh sách bàn giao tivi. Vui lòng thử lại.");
     }
   }
@@ -497,6 +561,11 @@
   }
 
   function attachControls() {
+    if (handover.form.dataset.handoverControlsReady === "true") {
+      return;
+    }
+
+    handover.form.dataset.handoverControlsReady = "true";
     handover.form.addEventListener("submit", (event) => {
       event.preventDefault();
       runSearch();
@@ -506,7 +575,48 @@
       handover.searchInput.value = "";
       runSearch();
     });
-    window.addEventListener("pagehide", stopTimer, { once: true });
+    handover.filterChips.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-filter]");
+      if (!button || !handover.filterChips.contains(button)) {
+        return;
+      }
+
+      const filter = button.dataset.filter;
+      if (!FILTERS.some((item) => item.key === filter) || state.filter === filter) {
+        return;
+      }
+
+      state.filter = filter;
+      state.page = 1;
+      updateUrl();
+      loadTickets(false);
+    });
+    handover.pagination.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || !handover.pagination.contains(button) || button.disabled) {
+        return;
+      }
+
+      if (button.dataset.pageAction === "previous") {
+        setPage(state.page - 1);
+        return;
+      }
+
+      if (button.dataset.pageAction === "next") {
+        setPage(state.page + 1);
+        return;
+      }
+
+      const page = Number.parseInt(button.dataset.page || "", 10);
+      if (Number.isFinite(page)) {
+        setPage(page);
+      }
+    });
+    window.addEventListener("pagehide", () => {
+      stopTimer();
+      if (pageTransitionFrameId) window.cancelAnimationFrame(pageTransitionFrameId);
+      if (deepLinkFrameId) window.cancelAnimationFrame(deepLinkFrameId);
+    }, { once: true });
   }
 
   async function init() {

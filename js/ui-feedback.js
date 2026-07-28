@@ -540,6 +540,7 @@
     const ticket = config.ticket || {};
     const ticketId = String(ticket.id || config.ticketId || "").trim();
     const action = "READY_FOR_HANDOVER";
+    const repairOutcome = "returned_unrepaired";
     const lockKey = `${ticketId}:${action}`;
     const button = config.button instanceof HTMLElement ? config.button : null;
     const progress = repairReturnProgress.get(ticketId);
@@ -572,9 +573,11 @@
         repairReturnProgress.set(ticketId, { ticket: updatedTicket, details });
       }
 
-      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action);
-      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId);
-      window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action, repairOutcome);
+      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId, {
+        repair_outcome: repairOutcome
+      });
+      window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
       repairReturnProgress.delete(ticketId);
 
       let refreshError = null;
@@ -591,11 +594,17 @@
         }
       }
 
+      if (result.assignment_warning) {
+        toast(result.assignment_warning, {
+          type: "warning",
+          duration: 7000
+        });
+      }
       toast("Đã ghi nhận giao trả sửa chữa và chuyển phiếu sang Bàn giao tivi.", { type: "success" });
       outcome = { ok: true, result, refreshError };
     } catch (error) {
       if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
-        window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+        window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
       }
 
       toast(error.message || "Không thể chuyển phiếu sang Bàn giao tivi.", {
@@ -625,6 +634,7 @@
     const config = options || {};
     const ticketId = String(config.ticketId || "").trim();
     const action = "READY_FOR_HANDOVER";
+    const repairOutcome = "repaired_successfully";
     const lockKey = `${ticketId}:${action}`;
     const button = config.button instanceof HTMLElement ? config.button : null;
 
@@ -645,9 +655,11 @@
     });
 
     try {
-      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action);
-      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId);
-      window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action, repairOutcome);
+      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId, {
+        repair_outcome: repairOutcome
+      });
+      window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
 
       if (typeof config.onSuccess === "function") {
         try {
@@ -661,6 +673,12 @@
         }
       }
 
+      if (result.assignment_warning) {
+        toast(result.assignment_warning, {
+          type: "warning",
+          duration: 7000
+        });
+      }
       toast(
         result.was_replayed
           ? "Phiếu đã ở khu Bàn giao tivi. Dữ liệu hiện tại đã được đồng bộ."
@@ -670,7 +688,7 @@
       return { ok: true, result };
     } catch (error) {
       if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
-        window.AMApi.clearWorkflowClientRequestId(ticketId, action);
+        window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
       }
 
       toast(error.message || "Không thể chuyển phiếu sang Bàn giao tivi.", {

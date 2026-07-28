@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="js/ui-shell-bootstrap.js?v=20260728-admin-redesign"></script>
+    <title>Nhân viên & Hiệu suất - Anh Minh Admin</title>
+    <link rel="stylesheet" href="css/admin.css?v=20260728-admin-redesign">
+    <link rel="stylesheet" href="css/admin-redesign.css?v=20260728-admin-redesign" media="screen">
+  </head>
+  <body class="employees-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <section
+        id="employeeAccessGate"
+        class="employee-access-gate"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="employee-access-gate__icon" aria-hidden="true">
+          <span></span>
+          <span></span>
+        </span>
+        <div>
+          <strong>Khu vực được bảo vệ</strong>
+          <p id="employeeAccessGateMessage">Đang kiểm tra quyền truy cập module Nhân viên...</p>
+        </div>
+      </section>
+
+      <main
+        class="page-main employee-master-page"
+        id="employeeMainContent"
+        aria-hidden="true"
+        hidden
+      >
+        <header class="employee-master-header">
+          <div class="employee-page-heading">
+            <span class="employee-page-eyebrow">Vận hành nội bộ</span>
+            <h1 class="page-title">Nhân viên & Hiệu suất</h1>
+            <p class="page-subtitle">
+              Phân công tivi, theo dõi tiến độ và đánh giá hiệu suất từ dữ liệu hoàn thành thực tế.
+            </p>
+          </div>
+          <div class="employee-master-header__actions">
+            <div class="employee-view-switcher" role="group" aria-label="Chọn không gian làm việc">
+              <button class="is-active" type="button" data-employee-view="profile" aria-pressed="true">
+                Hồ sơ
+              </button>
+              <button type="button" data-employee-view="team" aria-pressed="false">
+                Tổng quan đội ngũ
+              </button>
+              <button type="button" data-employee-view="awards" aria-pressed="false">
+                Vinh danh
+              </button>
+            </div>
+            <button id="employeeRefreshButton" class="btn secondary employee-refresh-button" type="button">
+              Tải lại
+            </button>
+            <span id="employeeLastUpdated" class="employee-last-updated" aria-live="polite">Chưa cập nhật</span>
+          </div>
+        </header>
+
+        <div id="employeeModuleNotice" class="employee-module-notice" role="status" aria-live="polite" hidden></div>
+
+        <button
+          id="employeeDirectoryToggle"
+          class="employee-directory-toggle"
+          type="button"
+          aria-controls="employeeDirectory"
+          aria-expanded="false"
+        >
+          <span id="employeeMobileSummary" class="employee-directory-toggle__copy">
+            <strong>Chọn nhân viên</strong>
+            <span>Mở danh sách hồ sơ</span>
+          </span>
+          <span aria-hidden="true">Chọn</span>
+        </button>
+
+        <div class="employee-master-layout">
+          <aside id="employeeDirectory" class="employee-directory" aria-label="Danh sách nhân viên">
+            <header class="employee-directory-header">
+              <div>
+                <span class="employee-eyebrow">Danh sách</span>
+                <h2>Nhân viên</h2>
+                <p id="employeeDirectoryCount">Đang tải...</p>
+              </div>
+              <button
+                id="employeeDirectoryClose"
+                class="employee-directory-close"
+                type="button"
+                aria-label="Đóng danh sách nhân viên"
+              >
+                ×
+              </button>
+            </header>
+
+            <div class="employee-directory-tools">
+              <label class="employee-directory-search" for="employeeDirectorySearch">
+                <span>Tìm nhân viên</span>
+                <input
+                  id="employeeDirectorySearch"
+                  type="search"
+                  placeholder="Tên, mã, SĐT..."
+                  autocomplete="off"
+                >
+              </label>
+              <label class="employee-directory-filter" for="employeeDirectoryStatus">
+                <span>Trạng thái</span>
+                <select id="employeeDirectoryStatus">
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="active">Đang hoạt động</option>
+                  <option value="inactive">Ngừng hoạt động</option>
+                  <option value="suspended">Tạm khóa</option>
+                </select>
+              </label>
+              <button id="employeeCreateButton" class="btn primary employee-directory-create" type="button">
+                Thêm nhân viên
+              </button>
+            </div>
+
+            <div
+              id="employeeDirectoryList"
+              class="employee-directory-list"
+              role="listbox"
+              aria-label="Chọn nhân viên để xem hồ sơ"
+              aria-live="polite"
+            ></div>
+          </aside>
+
+          <section class="employee-detail-workspace" aria-label="Nội dung Nhân viên">
+            <section id="employeeProfileView" data-employee-workspace-view="profile">
+              <div id="employeeProfileContent" class="employee-profile-content"></div>
+            </section>
+
+            <section id="employeeTeamView" data-employee-workspace-view="team" hidden>
+              <header class="employee-view-header">
+                <div>
+                  <span class="employee-eyebrow">Toàn đội</span>
+                  <h2>Tổng quan hiệu suất</h2>
+                  <p>Các chỉ số tổng hợp trong kỳ đang chọn, không thay thế đánh giá nghiệp vụ.</p>
+                </div>
+              </header>
+
+              <div class="employee-period-toolbar" aria-label="Khoảng thời gian báo cáo">
+                <div class="employee-period-presets" role="group" aria-label="Chọn nhanh khoảng thời gian">
+                  <button type="button" data-period-key="today" aria-pressed="false">Hôm nay</button>
+                  <button type="button" data-period-key="7-days" aria-pressed="false">7 ngày</button>
+                  <button type="button" data-period-key="30-days" aria-pressed="false">30 ngày</button>
+                  <button class="is-active" type="button" data-period-key="this-month" aria-pressed="true">Tháng này</button>
+                  <button type="button" data-period-key="previous-month" aria-pressed="false">Tháng trước</button>
+                  <button type="button" data-period-key="custom" aria-pressed="false">Tùy chỉnh</button>
+                </div>
+                <div id="employeeCustomPeriod" class="employee-custom-period" hidden>
+                  <label>
+                    <span>Từ ngày</span>
+                    <input id="employeePeriodStart" type="date">
+                  </label>
+                  <label>
+                    <span>Đến ngày</span>
+                    <input id="employeePeriodEnd" type="date">
+                  </label>
+                  <button id="employeeApplyPeriod" class="btn secondary compact" type="button">Áp dụng</button>
+                </div>
+                <p id="employeePeriodLabel" class="employee-period-label"></p>
+              </div>
+
+              <div id="employeeOverviewState" class="list-state loading" role="status" aria-live="polite">
+                Đang tải tổng quan hiệu suất...
+              </div>
+              <div id="employeeOverviewContent" class="employee-overview-content" hidden>
+                <section class="employee-kpi-grid" aria-label="Chỉ số hiệu suất chính">
+                  <article class="employee-kpi-card">
+                    <div class="employee-kpi-card__heading"><span>Nhân viên hoạt động</span><button type="button" class="employee-info-button" data-tooltip="Hồ sơ active trong phạm vi quyền hiện tại." aria-label="Giải thích Nhân viên hoạt động">i</button></div>
+                    <strong id="employeeKpiActiveEmployees">0</strong>
+                    <span id="employeeTrendActiveEmployees" class="employee-kpi-trend is-neutral">Theo hồ sơ hiện tại</span>
+                  </article>
+                  <article class="employee-kpi-card">
+                    <div class="employee-kpi-card__heading"><span>Tivi đang được sửa</span><button type="button" class="employee-info-button" data-tooltip="Assignment active chưa chuyển sang Bàn giao tivi." aria-label="Giải thích Tivi đang sửa">i</button></div>
+                    <strong id="employeeKpiActiveAssignments">0</strong>
+                    <span id="employeeTrendActiveAssignments" class="employee-kpi-trend is-neutral">Khối lượng hiện tại</span>
+                  </article>
+                  <article class="employee-kpi-card">
+                    <div class="employee-kpi-card__heading"><span>Hoàn thành hôm nay</span><button type="button" class="employee-info-button" data-tooltip="Assignment hoàn thành trong ngày theo giờ Việt Nam." aria-label="Giải thích Hoàn thành hôm nay">i</button></div>
+                    <strong id="employeeKpiCompletedToday">0</strong>
+                    <span id="employeeTrendCompleted" class="employee-kpi-trend is-neutral">So với kỳ liền trước</span>
+                  </article>
+                  <article class="employee-kpi-card">
+                    <div class="employee-kpi-card__heading"><span>Hoàn thành tháng này</span><button type="button" class="employee-info-button" data-tooltip="Assignment hoàn thành trong tháng theo giờ Việt Nam." aria-label="Giải thích Hoàn thành tháng">i</button></div>
+                    <strong id="employeeKpiCompletedMonth">0</strong>
+                    <span class="employee-kpi-trend is-neutral">Dữ liệu KPI hợp lệ</span>
+                  </article>
+                  <article class="employee-kpi-card">
+                    <div class="employee-kpi-card__heading"><span>Tỷ lệ hoàn thành</span><button type="button" class="employee-info-button" data-tooltip="Hoàn thành trong kỳ chia số được giao trong cùng kỳ." aria-label="Giải thích Tỷ lệ hoàn thành">i</button></div>
+                    <strong id="employeeKpiCompletionRate">0%</strong>
+                    <span id="employeeTrendCompletionRate" class="employee-kpi-trend is-neutral">So với kỳ liền trước</span>
+                  </article>
+                  <article class="employee-kpi-card">
+                    <div class="employee-kpi-card__heading"><span>Thời gian sửa trung bình</span><button type="button" class="employee-info-button" data-tooltip="Từ assigned_at đến ready_for_handover_at." aria-label="Giải thích Thời gian sửa trung bình">i</button></div>
+                    <strong id="employeeKpiAverageHours">—</strong>
+                    <span id="employeeTrendAverageHours" class="employee-kpi-trend is-neutral">Thấp hơn thường tốt hơn</span>
+                  </article>
+                </section>
+
+                <section class="employee-chart-grid">
+                  <article class="employee-chart-card">
+                    <header class="employee-card-header">
+                      <div><h3>Hiệu suất theo ngày</h3><p>Tuần/kỳ hiện tại so với kỳ liền trước.</p></div>
+                    </header>
+                    <div id="employeeWeeklyChart" class="employee-chart-surface"></div>
+                    <p id="employeeWeeklyChartFallback" class="employee-chart-fallback" hidden>Chưa đủ dữ liệu để vẽ biểu đồ.</p>
+                  </article>
+                  <article class="employee-chart-card">
+                    <header class="employee-card-header">
+                      <div><h3>Phân bổ công việc</h3><p>Khối lượng đang sửa, bàn giao và chưa phân công.</p></div>
+                    </header>
+                    <div id="employeeDistributionChart" class="employee-chart-surface employee-chart-surface--compact"></div>
+                    <p id="employeeDistributionFallback" class="employee-chart-fallback" hidden>Chưa có công việc để phân bổ.</p>
+                  </article>
+                </section>
+
+                <section class="employee-ranking-section" aria-labelledby="employeeTopTitle">
+                  <header class="employee-ranking-header">
+                    <div class="employee-ranking-header__copy">
+                      <span class="employee-eyebrow">Hiệu suất trong kỳ</span>
+                      <div class="employee-ranking-title-row">
+                        <h2 id="employeeTopTitle">Bảng xếp hạng hiệu suất</h2>
+                        <button
+                          type="button"
+                          class="employee-info-button"
+                          data-tooltip="Bảng xếp hạng được cập nhật theo kỳ đang chọn và chỉ sử dụng dữ liệu hoàn thành thực tế."
+                          aria-label="Giải thích Bảng xếp hạng hiệu suất"
+                        >i</button>
+                      </div>
+                      <p>Xếp hạng dựa trên kết quả sửa chữa trong kỳ đang chọn.</p>
+                      <small>Ưu tiên số tivi hoàn thành, tỷ lệ hoàn thành và thời gian xử lý trung bình.</small>
+                    </div>
+                    <div class="employee-ranking-period" aria-label="Kỳ dữ liệu của bảng xếp hạng">
+                      <span>Kỳ dữ liệu</span>
+                      <strong id="employeeTopPeriod">Đang xác định</strong>
+                      <small>Kết quả tạm tính, chưa phải quyết định thưởng chính thức.</small>
+                    </div>
+                  </header>
+                  <div id="employeeTopList" class="employee-top-list" aria-live="polite"></div>
+                </section>
+
+                <section class="employee-data-card" aria-labelledby="employeeQueueTitle">
+                  <header class="employee-card-header">
+                    <div>
+                      <span class="employee-eyebrow">Phân công</span>
+                      <h2 id="employeeQueueTitle">Tivi chưa giao nhân viên</h2>
+                      <p>Chọn phiếu để giao việc; RPC phân công không đổi trạng thái workflow.</p>
+                    </div>
+                  </header>
+                  <div id="employeeUnassignedState" class="employee-inline-state" role="status">Đang tải hàng chờ...</div>
+                  <div id="employeeUnassignedList" class="employee-unassigned-list"></div>
+                </section>
+              </div>
+            </section>
+
+            <section id="employeeAwardsView" data-employee-workspace-view="awards" hidden>
+              <header class="employee-view-header employee-recognition-header">
+                <div>
+                  <span class="employee-eyebrow">Điểm công việc quy đổi</span>
+                  <h2>Vinh danh & hiệu suất tháng</h2>
+                  <p>Ghi nhận công bằng theo khối lượng thực tế, đồng thời giữ rõ số tivi đã hoàn thành.</p>
+                </div>
+                <div class="employee-recognition-header__actions">
+                  <div class="employee-recognition-month-presets" role="group" aria-label="Chọn nhanh tháng báo cáo">
+                    <button type="button" data-recognition-month="current">Tháng này</button>
+                    <button type="button" data-recognition-month="previous">Tháng trước</button>
+                  </div>
+                  <label class="employee-recognition-month-picker" for="employeeRecognitionMonth">
+                    <span>Tháng báo cáo</span>
+                    <input id="employeeRecognitionMonth" type="month">
+                  </label>
+                  <button id="employeeRecognitionRefresh" class="btn secondary" type="button">Tải lại</button>
+                  <button id="employeeScoringRulesButton" class="btn secondary" type="button" hidden>
+                    Cấu hình cách tính
+                  </button>
+                  <button id="employeeAwardCreateButton" class="btn primary" type="button">Chốt vinh danh</button>
+                </div>
+              </header>
+
+              <div id="employeeRecognitionRoot" class="employee-recognition" aria-live="polite">
+                <section class="employee-recognition-stage" aria-labelledby="employeeRecognitionStageTitle">
+                  <header class="employee-recognition-section-heading">
+                    <div>
+                      <span class="employee-eyebrow">Ba vị trí dẫn đầu</span>
+                      <h3 id="employeeRecognitionStageTitle">Sân khấu vinh danh tháng</h3>
+                      <p id="employeeRecognitionStageDescription">
+                        Xếp hạng tạm tính theo sản lượng quy đổi khi chất lượng hoặc tiến độ chưa đủ dữ liệu.
+                      </p>
+                    </div>
+                    <div class="employee-recognition-period-card">
+                      <span>Kỳ đánh giá</span>
+                      <strong id="employeeRecognitionPeriodLabel">Đang xác định</strong>
+                      <small id="employeeRecognitionScoringStatus">Đang tải trạng thái tính điểm</small>
+                    </div>
+                  </header>
+                  <div id="employeeRecognitionPodiumState" class="employee-recognition-state is-loading" role="status">
+                    Đang tải sân khấu vinh danh...
+                  </div>
+                  <div
+                    id="employeeRecognitionPodium"
+                    class="employee-recognition-podium"
+                    role="listbox"
+                    aria-label="Ba nhân viên dẫn đầu tháng"
+                    hidden
+                  ></div>
+                </section>
+
+                <section class="employee-recognition-detail" aria-labelledby="employeeRecognitionDetailTitle">
+                  <header class="employee-recognition-section-heading employee-recognition-section-heading--detail">
+                    <div>
+                      <span class="employee-eyebrow">Kiểm chứng thành tích</span>
+                      <h3 id="employeeRecognitionDetailTitle">Chọn một nhân viên trên sân khấu</h3>
+                      <p id="employeeRecognitionDetailDescription">Chi tiết từng tivi sẽ giải thích chính xác tổng điểm.</p>
+                    </div>
+                    <button id="employeeRecognitionExplainButton" class="btn secondary" type="button" disabled>
+                      Xem cách tính
+                    </button>
+                  </header>
+                  <div id="employeeRecognitionDetailState" class="employee-recognition-state is-empty" role="status">
+                    Chưa chọn nhân viên để xem thành tích.
+                  </div>
+                  <div id="employeeRecognitionDetailContent" hidden>
+                    <div id="employeeRecognitionSummary" class="employee-recognition-summary"></div>
+                    <section class="employee-scored-work" aria-labelledby="employeeScoredWorkTitle">
+                      <header>
+                        <div>
+                          <h4 id="employeeScoredWorkTitle">Tivi được ghi nhận trong tháng</h4>
+                          <p id="employeeScoredWorkCount">Đang xác định số công việc.</p>
+                        </div>
+                      </header>
+                      <div id="employeeScoredWorkState" class="employee-recognition-state is-loading" role="status">
+                        Đang tải danh sách tivi tính điểm...
+                      </div>
+                      <div id="employeeScoredWorkContent" hidden>
+                        <div id="employeeScoredWorkList" class="employee-scored-work-list"></div>
+                        <nav id="employeeScoredWorkPagination" class="employee-pagination" aria-label="Phân trang tivi tính điểm"></nav>
+                      </div>
+                    </section>
+                  </div>
+                </section>
+
+                <section class="employee-monthly-report" aria-labelledby="employeeMonthlyReportTitle">
+                  <header class="employee-recognition-section-heading">
+                    <div>
+                      <span class="employee-eyebrow">Góc nhìn quản lý</span>
+                      <h3 id="employeeMonthlyReportTitle">Báo cáo hiệu suất tháng</h3>
+                      <p>Đối chiếu số tivi thật, điểm quy đổi, cơ cấu công việc và mức cân bằng phân công.</p>
+                    </div>
+                  </header>
+                  <div id="employeeMonthlyReportState" class="employee-recognition-state is-loading" role="status">
+                    Đang tải báo cáo hiệu suất tháng...
+                  </div>
+                  <div id="employeeMonthlyReportContent" hidden>
+                    <div id="employeeMonthlyKpis" class="employee-monthly-kpis"></div>
+                    <div class="employee-monthly-chart-grid">
+                      <article class="employee-monthly-chart employee-monthly-chart--wide">
+                        <header><h4>Điểm quy đổi theo nhân viên</h4><p>Sản lượng đã cân theo kích thước và độ khó.</p></header>
+                        <div id="employeeWeightedPointsChart" class="employee-recognition-chart"></div>
+                      </article>
+                      <article class="employee-monthly-chart">
+                        <header><h4>Số tivi và điểm quy đổi</h4><p>Hai đại lượng được giữ riêng để tránh hiểu sai hiệu suất.</p></header>
+                        <div id="employeeCountPointsChart" class="employee-recognition-chart"></div>
+                      </article>
+                      <article class="employee-monthly-chart">
+                        <header><h4>Cơ cấu kích thước</h4><p>Phân bổ theo bậc hệ số đã chụp tại lúc hoàn thành.</p></header>
+                        <div id="employeeSizeDistributionChart" class="employee-recognition-chart"></div>
+                      </article>
+                      <article class="employee-monthly-chart">
+                        <header><h4>Phân bổ độ khó</h4><p>Cơ bản, Tiêu chuẩn, Khó và Rất khó.</p></header>
+                        <div id="employeeComplexityChart" class="employee-recognition-chart"></div>
+                      </article>
+                      <article class="employee-monthly-chart employee-monthly-chart--wide">
+                        <header><h4>Xu hướng theo tuần</h4><p>Số tivi hoàn thành và điểm quy đổi theo tuần trong tháng.</p></header>
+                        <div id="employeeWeeklyPointsChart" class="employee-recognition-chart"></div>
+                      </article>
+                    </div>
+
+                    <section class="employee-full-ranking" aria-labelledby="employeeFullRankingTitle">
+                      <header>
+                        <div><h4 id="employeeFullRankingTitle">Xếp hạng đầy đủ trong tháng</h4><p id="employeeFullRankingCount"></p></div>
+                      </header>
+                      <div id="employeeFullRankingTable" class="employee-full-ranking-table"></div>
+                      <nav
+                        id="employeeFullRankingPagination"
+                        class="employee-pagination employee-full-ranking-pagination"
+                        aria-label="Phân trang xếp hạng nhân viên"
+                      ></nav>
+                    </section>
+
+                    <div class="employee-recognition-insight-grid">
+                      <article><h4>Danh hiệu phụ</h4><div id="employeeSecondaryAwards"></div></article>
+                      <article><h4>Phân bổ công việc</h4><div id="employeeWorkloadBalance"></div></article>
+                      <article><h4>Thưởng dự kiến</h4><div id="employeeBonusPreview"></div></article>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="employee-award-history" aria-labelledby="employeeAwardHistoryTitle">
+                  <header class="employee-recognition-section-heading">
+                    <div>
+                      <span class="employee-eyebrow">Snapshot đã chốt</span>
+                      <h3 id="employeeAwardHistoryTitle">Lịch sử vinh danh</h3>
+                      <p>Kết quả đã chốt giữ nguyên theo kỳ, không bị dữ liệu tương lai thay đổi.</p>
+                    </div>
+                  </header>
+                  <div id="employeeAwardHistoryState" class="employee-recognition-state is-loading" role="status">
+                    Đang tải lịch sử vinh danh...
+                  </div>
+                  <div id="employeeAwardHistoryContent" hidden>
+                    <div id="employeeAwardHistoryList" class="employee-award-list"></div>
+                  </div>
+                </section>
+
+                <div id="employeeCalculationBackdrop" class="employee-calculation-backdrop" hidden></div>
+                <aside
+                  id="employeeCalculationDrawer"
+                  class="employee-calculation-drawer"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="employeeCalculationTitle"
+                  hidden
+                >
+                  <header>
+                    <div><span class="employee-eyebrow">Minh bạch điểm số</span><h3 id="employeeCalculationTitle">Cách tính thành tích</h3></div>
+                    <button id="employeeCalculationClose" type="button" aria-label="Đóng cách tính">×</button>
+                  </header>
+                  <div id="employeeCalculationContent" class="employee-calculation-content"></div>
+                </aside>
+              </div>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div id="employeeDirectoryBackdrop" class="employee-directory-backdrop" hidden></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
+    <script src="js/api.js?v=20260728-admin-redesign"></script>
+    <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-access-guard.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-kpi.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-charts.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-assignment.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-sidebar.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-profile.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-recognition.js?v=20260728-admin-redesign"></script>
+    <script src="js/employees.js?v=20260728-admin-redesign"></script>
+    <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>
+  </body>
+</html>

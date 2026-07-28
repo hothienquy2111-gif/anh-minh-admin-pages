@@ -4,8 +4,10 @@
     <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow, noarchive">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="js/ui-shell-bootstrap.js?v=20260728-admin-redesign"></script>
     <title>Bàn giao tivi - Anh Minh Admin</title>
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/admin.css?v=20260728-admin-redesign">
+    <link rel="stylesheet" href="css/admin-redesign.css?v=20260728-admin-redesign" media="screen">
   </head>
   <body class="handover-page">
     <div class="page-shell">
@@ -101,17 +103,28 @@
 
             <div class="handover-table-wrap">
               <table class="handover-table">
+                <colgroup>
+                  <col class="handover-col-alert">
+                  <col class="handover-col-code">
+                  <col class="handover-col-customer">
+                  <col class="handover-col-phone">
+                  <col class="handover-col-device">
+                  <col class="handover-col-ready">
+                  <col class="handover-col-wait">
+                  <col class="handover-col-condition">
+                  <col class="handover-col-actions">
+                </colgroup>
                 <thead>
                   <tr>
-                    <th>Cảnh báo</th>
-                    <th>Mã phiếu</th>
-                    <th>Khách hàng</th>
-                    <th>Số điện thoại</th>
-                    <th>Hãng / Model</th>
-                    <th>Sửa xong lúc</th>
-                    <th>Thời gian chờ</th>
-                    <th>Tình trạng</th>
-                    <th>Hành động</th>
+                    <th class="handover-col-alert" scope="col">Cảnh báo</th>
+                    <th class="handover-col-code" scope="col">Mã phiếu</th>
+                    <th class="handover-col-customer" scope="col">Khách hàng</th>
+                    <th class="handover-col-phone" scope="col">Số điện thoại</th>
+                    <th class="handover-col-device" scope="col">Hãng / Model</th>
+                    <th class="handover-col-ready" scope="col">Sửa xong lúc</th>
+                    <th class="handover-col-wait" scope="col">Thời gian chờ</th>
+                    <th class="handover-col-condition" scope="col">Tình trạng</th>
+                    <th class="handover-col-actions" scope="col">Hành động</th>
                   </tr>
                 </thead>
                 <tbody id="handoverTableBody"></tbody>
@@ -126,11 +139,12 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/supabase-config.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/ui-feedback.js"></script>
-    <script src="js/handover-tickets.js"></script>
-    <script src="js/admin-navigation.js"></script>
-    <script src="js/back-navigation.js"></script>
+    <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
+    <script src="js/api.js?v=20260728-admin-redesign"></script>
+    <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
+    <script src="js/handover-tickets.js?v=20260728-admin-redesign"></script>
+    <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>
   </body>
 </html>

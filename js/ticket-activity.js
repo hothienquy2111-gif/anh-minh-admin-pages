@@ -27,6 +27,10 @@
   let totalPages = 1;
   let searchTimer = null;
   let visibleTickets = [];
+  let actionMenu = null;
+  let actionMenuTrigger = null;
+  let actionMenuTriggerSerial = 0;
+  const ACTION_MENU_ID = "ticketActivityActionMenu";
   const state = {
     page: 1,
     keyword: "",
@@ -209,22 +213,157 @@
     return "Chưa có kết quả";
   }
 
-  function workflowWaitText(ticket) {
+  function latestUpdateTime(ticket) {
+    return ticket.last_activity_at
+      || ticket.updated_at
+      || ticket.ready_for_handover_at
+      || ticket.repair_started_at
+      || ticket.created_at;
+  }
+
+  function relativeUpdateText(value) {
+    const time = parseTicketTime(value);
+
+    if (!time) {
+      return "Chưa có mốc cập nhật";
+    }
+
+    const elapsed = Math.max(0, Date.now() - time);
+    const minutes = Math.floor(elapsed / 60000);
+
+    if (minutes < 1) {
+      return "Vừa cập nhật";
+    }
+
+    if (minutes < 60) {
+      return `Cập nhật ${minutes} phút trước`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return `Cập nhật ${hours} giờ trước`;
+    }
+
+    return `Cập nhật ${Math.floor(hours / 24)} ngày trước`;
+  }
+
+  function workflowActivityDetails(ticket) {
+    const workflowText = workflowActivityText(ticket);
+    const resultText = repairResultText(ticket);
+    let mainText = resultText;
+
+    if (ticket.status === "đã trả") {
+      mainText = "Đã hoàn tất bàn giao";
+    } else if (resultText === "Chưa có kết quả") {
+      mainText = workflowText;
+    }
+
+    return {
+      mainText,
+      relativeText: relativeUpdateText(latestUpdateTime(ticket)),
+      title: `${workflowText} · ${resultText}`
+    };
+  }
+
+  function workflowWaitDetails(ticket) {
     const priority = workflowPriority(ticket);
 
     if (priority.rank === 1) {
-      return `Quá 48 giờ — ${elapsedParts(priority.wait)}`;
+      const overdue = Math.max(0, priority.wait - 48 * 60 * 60 * 1000);
+      return {
+        mainText: elapsedParts(priority.wait),
+        detailText: overdue > 0 ? `Quá hạn ${elapsedParts(overdue)}` : "Quá hạn 48 giờ",
+        overdue: true
+      };
     }
 
     if (priority.rank === 2) {
-      return `Đang sửa — ${elapsedParts(priority.wait)}`;
+      return {
+        mainText: elapsedParts(priority.wait),
+        detailText: "Đang sửa",
+        overdue: false
+      };
     }
 
     if (ticket.status === "chờ bàn giao" && ticket.ready_for_handover_at) {
-      return `Chờ bàn giao — ${elapsedParts(timeFrom(ticket.ready_for_handover_at))}`;
+      return {
+        mainText: elapsedParts(timeFrom(ticket.ready_for_handover_at)),
+        detailText: "Chờ bàn giao",
+        overdue: false
+      };
     }
 
-    return priority.label;
+    if (priority.wait > 0 && PRE_REPAIR_STATUSES.includes(ticket.status)) {
+      return {
+        mainText: elapsedParts(priority.wait),
+        detailText: priority.label,
+        overdue: false
+      };
+    }
+
+    return {
+      mainText: priority.label || "—",
+      detailText: "",
+      overdue: false
+    };
+  }
+
+  function formatDeviceSize(value) {
+    const size = String(value || "").trim();
+
+    if (!size) {
+      return "";
+    }
+
+    if (/^\d+(?:[.,]\d+)?$/.test(size)) {
+      return `${size.replace(",", ".")} inch`;
+    }
+
+    return size.replace(/\binch\b/gi, "inch");
+  }
+
+  function employeeInitials(value) {
+    const words = String(value || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (words.length === 0) {
+      return "NV";
+    }
+
+    return words
+      .slice(-2)
+      .map((word) => Array.from(word)[0] || "")
+      .join("")
+      .toLocaleUpperCase("vi-VN");
+  }
+
+  function ticketAssignmentDetails(ticket) {
+    if (ticket.assignment_load_error) {
+      return { state: "error" };
+    }
+
+    const assignment = ticket.current_assignment;
+    if (!assignment) {
+      return { state: "empty" };
+    }
+
+    const relation = Array.isArray(assignment.employee)
+      ? assignment.employee[0]
+      : assignment.employee;
+
+    if (!relation || !relation.full_name) {
+      return { state: "error" };
+    }
+
+    return {
+      state: assignment.status === "completed" ? "completed" : "active",
+      fullName: relation.full_name,
+      employeeCode: window.AMApi.formatCompactBusinessCode(relation.employee_code, "NV"),
+      jobTitle: String(relation.job_title || "").trim(),
+      initials: employeeInitials(relation.full_name)
+    };
   }
 
   function createElement(tagName, className, text) {
@@ -251,6 +390,11 @@
 
   function createPriorityBadge(ticket) {
     const priority = workflowPriority(ticket);
+
+    if (priority.rank !== 1) {
+      return createElement("span", "ticket-activity-priority-empty", "—");
+    }
+
     return createElement("span", `workflow-priority ${priority.className}`, priority.label);
   }
 
@@ -275,97 +419,328 @@
   function createReadyButton(ticket) {
     const button = createElement("button", "btn primary compact workflow-action", "Hoàn thành sửa chữa");
     button.type = "button";
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.AMUI.completeRepairInPlace({
-        ticketId: ticket.id,
-        ticket,
-        expectedStatus: ticket.status,
-        button,
-        source: "ticket-activity",
-        onSuccess: refreshCurrentView
-      });
-    });
+    button.dataset.workflowAction = "ready-for-handover";
+    button.dataset.ticketId = ticket.id || "";
     return button;
   }
 
   function createRepairReturnButton(ticket) {
     const button = createElement("button", "btn secondary compact workflow-action workflow-return-action", "Giao trả sửa chữa");
     button.type = "button";
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.AMUI.returnRepairInPlace({
-        ticket,
-        button,
-        source: "ticket-activity",
-        onSuccess: refreshCurrentView
-      });
-    });
+    button.dataset.workflowAction = "return-repair";
+    button.dataset.ticketId = ticket.id || "";
     return button;
   }
 
-  function createActionMenu(items) {
-    const details = createElement("details", "workflow-action-menu");
-    const summary = createElement("summary", "btn secondary compact workflow-action-menu-trigger", "Thêm thao tác");
-    const menu = createElement("div", "workflow-action-menu-list");
-
-    items.forEach((item) => menu.appendChild(item));
-    details.append(summary, menu);
-    return details;
+  function createActionMenuTrigger(ticket) {
+    const button = createElement(
+      "button",
+      "btn secondary compact workflow-action workflow-action-menu-trigger",
+      "Thêm thao tác"
+    );
+    button.type = "button";
+    button.id = `ticketActivityActionTrigger${++actionMenuTriggerSerial}`;
+    button.dataset.actionMenuTrigger = "true";
+    button.dataset.ticketId = ticket.id || "";
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-controls", ACTION_MENU_ID);
+    return button;
   }
 
   function createWorkflowActions(ticket) {
     const actions = createElement("div", "workflow-actions ticket-activity-actions");
     const query = ticketQuery(ticket);
-    const secondary = [];
 
     if (canStartRepair(ticket)) {
       actions.appendChild(createWorkflowLink("In tem & bắt đầu sửa chữa", `print-label.html?${query}`, true));
     } else if (canReadyForHandover(ticket)) {
       actions.append(createReadyButton(ticket), createRepairReturnButton(ticket));
-      secondary.push(createWorkflowLink("Chỉ in lại tem", `print-label.html?${query}`, false));
     } else if (ticket.status === "chờ bàn giao") {
       actions.appendChild(createWorkflowLink("Mở Bàn giao tivi", `handover-tickets.html?${query}`, true));
-      if (canReprintLabel(ticket)) {
-        secondary.push(createWorkflowLink("Chỉ in lại tem", `print-label.html?${query}`, false));
-      }
     } else if (canReprintReceipt(ticket)) {
       actions.appendChild(createWorkflowLink("Chỉ in lại biên nhận", `print-delivery-receipt.html?${query}`, false));
     } else if (ticket.status === "đã xong") {
       actions.appendChild(createElement("span", "workflow-inline-note", "Dữ liệu workflow cũ"));
-    } else if (canReprintLabel(ticket)) {
-      secondary.push(createWorkflowLink("Chỉ in lại tem", `print-label.html?${query}`, false));
     }
 
-    secondary.push(createWorkflowLink("Xem phiếu", `search.html?${query}`, false));
-
-    if (ticket.customer_id) {
-      secondary.push(createWorkflowLink(
-        "Lịch sử khách hàng",
-        `search.html?customer_id=${encodeURIComponent(ticket.customer_id)}`,
-        false
-      ));
-    }
-
-    if (secondary.length === 1 && actions.childElementCount === 0) {
-      actions.appendChild(secondary[0]);
-    } else if (secondary.length > 0) {
-      actions.appendChild(createActionMenu(secondary));
-    }
-
+    actions.appendChild(createActionMenuTrigger(ticket));
     return actions;
   }
 
-  function createTicketCodeCell(ticket) {
-    const cell = createElement("td", "workflow-ticket-code");
-    const code = createElement("strong", "workflow-ticket-code-value", window.AMApi.formatTicketCode(ticket.ticket_code));
-    code.dataset.ticketCode = ticket.ticket_code || "";
-    cell.appendChild(code);
+  function findVisibleTicket(ticketId) {
+    return visibleTickets.find((ticket) => String(ticket.id || "") === String(ticketId || "")) || null;
+  }
 
-    if (ticket.search_match_label) {
-      cell.appendChild(createElement("span", "workflow-search-match", ticket.search_match_label));
+  function createActionMenuItem(label, href, disabledReason) {
+    if (href) {
+      const link = createElement("a", "ticket-activity-menu-item", label);
+      link.href = href;
+      link.setAttribute("role", "menuitem");
+      link.tabIndex = -1;
+      return link;
+    }
+
+    const item = createElement("button", "ticket-activity-menu-item is-disabled", label);
+    item.type = "button";
+    item.disabled = true;
+    item.setAttribute("role", "menuitem");
+    item.setAttribute("aria-disabled", "true");
+    item.title = disabledReason || "";
+    item.tabIndex = -1;
+    return item;
+  }
+
+  function actionMenuItems(ticket) {
+    const query = ticketQuery(ticket);
+    return [
+      createActionMenuItem(
+        "Chỉ in lại tem",
+        canReprintLabel(ticket) ? `print-label.html?${query}` : "",
+        "Phiếu chưa đủ điều kiện in lại tem."
+      ),
+      createActionMenuItem("Xem phiếu", `search.html?${query}`),
+      createActionMenuItem(
+        "Lịch sử khách hàng",
+        ticket.customer_id ? `search.html?customer_id=${encodeURIComponent(ticket.customer_id)}` : "",
+        "Phiếu chưa liên kết với hồ sơ khách hàng."
+      )
+    ];
+  }
+
+  function positionActionMenu() {
+    if (!actionMenu || !actionMenuTrigger || actionMenu.hidden) {
+      return;
+    }
+
+    const triggerRect = actionMenuTrigger.getBoundingClientRect();
+    const menuRect = actionMenu.getBoundingClientRect();
+    const viewportPadding = 8;
+    const gap = 6;
+    const spaceBelow = window.innerHeight - triggerRect.bottom - viewportPadding;
+    const openUpward = spaceBelow < menuRect.height + gap && triggerRect.top > menuRect.height + gap;
+    const top = openUpward
+      ? Math.max(viewportPadding, triggerRect.top - menuRect.height - gap)
+      : Math.min(window.innerHeight - menuRect.height - viewportPadding, triggerRect.bottom + gap);
+    const left = Math.min(
+      Math.max(viewportPadding, triggerRect.right - menuRect.width),
+      window.innerWidth - menuRect.width - viewportPadding
+    );
+
+    actionMenu.classList.toggle("opens-upward", openUpward);
+    actionMenu.style.top = `${Math.round(top)}px`;
+    actionMenu.style.left = `${Math.round(left)}px`;
+  }
+
+  function closeActionMenu(options) {
+    const config = options || {};
+    const trigger = actionMenuTrigger;
+
+    if (!actionMenu || actionMenu.hidden) {
+      return;
+    }
+
+    actionMenu.classList.remove("is-open", "opens-upward");
+    actionMenu.hidden = true;
+    actionMenu.replaceChildren();
+    actionMenu.removeAttribute("aria-labelledby");
+    actionMenu.style.removeProperty("top");
+    actionMenu.style.removeProperty("left");
+    actionMenuTrigger = null;
+
+    if (trigger) {
+      trigger.setAttribute("aria-expanded", "false");
+      if (config.restoreFocus && document.contains(trigger)) {
+        trigger.focus({ preventScroll: true });
+      }
+    }
+  }
+
+  function openActionMenu(trigger, ticket) {
+    if (!actionMenu || !trigger || !ticket) {
+      return;
+    }
+
+    if (actionMenuTrigger === trigger && !actionMenu.hidden) {
+      closeActionMenu({ restoreFocus: true });
+      return;
+    }
+
+    closeActionMenu();
+    actionMenuTrigger = trigger;
+    actionMenu.replaceChildren(...actionMenuItems(ticket));
+    actionMenu.setAttribute("aria-labelledby", trigger.id);
+    actionMenu.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+    positionActionMenu();
+
+    window.requestAnimationFrame(() => {
+      if (!actionMenu.hidden) {
+        actionMenu.classList.add("is-open");
+        const firstItem = actionMenu.querySelector('[role="menuitem"]:not([aria-disabled="true"])');
+        if (firstItem) {
+          firstItem.focus({ preventScroll: true });
+        }
+      }
+    });
+  }
+
+  function moveActionMenuFocus(direction) {
+    if (!actionMenu || actionMenu.hidden) {
+      return;
+    }
+
+    const items = Array.from(
+      actionMenu.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])')
+    );
+
+    if (items.length === 0) {
+      return;
+    }
+
+    const currentIndex = items.indexOf(document.activeElement);
+    const nextIndex = direction === "first"
+      ? 0
+      : direction === "last"
+        ? items.length - 1
+        : (currentIndex + direction + items.length) % items.length;
+    items[nextIndex].focus({ preventScroll: true });
+  }
+
+  function setupActionMenu() {
+    actionMenu = createElement("div", "ticket-activity-action-popover");
+    actionMenu.id = ACTION_MENU_ID;
+    actionMenu.hidden = true;
+    actionMenu.setAttribute("role", "menu");
+    actionMenu.setAttribute("aria-label", "Thêm thao tác cho phiếu");
+    document.body.appendChild(actionMenu);
+  }
+
+  function createTicketCustomerCell(ticket) {
+    const cell = createElement("td", "ticket-activity-identity-cell");
+    const code = createElement(
+      "strong",
+      "workflow-ticket-code-value",
+      window.AMApi.formatTicketCode(ticket.ticket_code)
+    );
+    const customerName = textOrDash(ticket.customer_name || ticket.customer_master_name);
+    const customerCode = window.AMApi.formatCustomerCode(ticket.customer_code);
+    const name = createElement("span", "ticket-activity-customer-name", customerName);
+    const codeMeta = createElement("span", "ticket-activity-customer-code", customerCode);
+
+    code.dataset.ticketCode = ticket.ticket_code || "";
+    name.title = customerName;
+    cell.title = ticket.search_match_label || "";
+    cell.append(code, name, codeMeta);
+    return cell;
+  }
+
+  function createDeviceCell(ticket) {
+    const cell = createElement("td", "ticket-activity-device-cell");
+    const brand = String(ticket.brand || "").trim();
+    const model = String(ticket.model || "").trim();
+    const deviceName = model ? [brand, model].filter(Boolean).join(" ") : "Chưa cập nhật model";
+    const primary = createElement("strong", "ticket-activity-device-name", deviceName);
+    const size = formatDeviceSize(ticket.size);
+
+    primary.title = deviceName;
+    cell.appendChild(primary);
+
+    if (size) {
+      cell.appendChild(createElement("span", "ticket-activity-device-size", size));
+    }
+
+    return cell;
+  }
+
+  function createEmployeeDisplay(ticket) {
+    const details = ticketAssignmentDetails(ticket);
+    const container = createElement("div", "ticket-activity-employee");
+
+    if (details.state === "error") {
+      container.appendChild(createElement(
+        "span",
+        "ticket-activity-assignment-state assignment-unavailable",
+        "Không thể tải phân công"
+      ));
+      return container;
+    }
+
+    if (details.state === "empty") {
+      container.appendChild(createElement(
+        "span",
+        "ticket-activity-assignment-state",
+        "Chưa phân công"
+      ));
+      return container;
+    }
+
+    const identity = createElement("div", "ticket-activity-employee-identity");
+    const avatar = createElement("span", "ticket-activity-employee-avatar", details.initials);
+    const copy = createElement("span", "ticket-activity-employee-copy");
+    const name = createElement("strong", "", details.fullName);
+    const metadata = createElement("span", "ticket-activity-employee-meta");
+
+    name.title = details.fullName;
+    metadata.appendChild(createElement(
+      "span",
+      "ticket-activity-employee-code",
+      details.employeeCode || "Nhân viên"
+    ));
+    if (details.jobTitle) {
+      metadata.append(
+        createElement("span", "ticket-activity-employee-separator", " · "),
+        createElement("span", "ticket-activity-employee-title", details.jobTitle)
+      );
+    }
+    copy.append(name, metadata);
+    identity.append(avatar, copy);
+
+    if (details.state === "completed") {
+      container.appendChild(createElement(
+        "span",
+        "ticket-activity-assignment-context",
+        "Đã thực hiện bởi"
+      ));
+    }
+
+    container.appendChild(identity);
+    return container;
+  }
+
+  function createEmployeeCell(ticket) {
+    const cell = createElement("td", "ticket-activity-employee-cell");
+    cell.appendChild(createEmployeeDisplay(ticket));
+    return cell;
+  }
+
+  function createActivityCell(ticket) {
+    const activity = workflowActivityDetails(ticket);
+    const cell = createElement("td", "ticket-activity-update-cell");
+    const main = createElement("strong", "ticket-activity-update-main", activity.mainText);
+
+    main.title = activity.title;
+    cell.append(
+      main,
+      createElement("span", "ticket-activity-update-relative", activity.relativeText)
+    );
+    return cell;
+  }
+
+  function createWaitCell(ticket) {
+    const wait = workflowWaitDetails(ticket);
+    const cell = createElement(
+      "td",
+      `workflow-wait ticket-activity-wait-cell${wait.overdue ? " is-overdue" : ""}`
+    );
+
+    cell.appendChild(createElement("strong", "ticket-activity-wait-main", wait.mainText));
+    if (wait.detailText) {
+      cell.appendChild(createElement(
+        "span",
+        `ticket-activity-wait-detail${wait.overdue ? " is-overdue" : ""}`,
+        wait.detailText
+      ));
     }
 
     return cell;
@@ -386,12 +761,11 @@
       actionCell.appendChild(createWorkflowActions(ticket));
       row.append(
         priorityCell,
-        createTicketCodeCell(ticket),
-        createCell(window.AMApi.formatCustomerCode(ticket.customer_code), "workflow-customer-code"),
-        createCell(textOrDash(ticket.customer_name || ticket.customer_master_name), "workflow-customer-name"),
-        createCell(textOrDash(ticket.model)),
-        createCell(`${workflowActivityText(ticket)} · ${repairResultText(ticket)}`),
-        createCell(workflowWaitText(ticket), "workflow-wait"),
+        createTicketCustomerCell(ticket),
+        createDeviceCell(ticket),
+        createEmployeeCell(ticket),
+        createActivityCell(ticket),
+        createWaitCell(ticket),
         statusCell,
         actionCell
       );
@@ -410,37 +784,50 @@
     return item;
   }
 
+  function createWorkflowMetaContent(label, content) {
+    const item = document.createElement("div");
+    item.append(createElement("span", "", label), content);
+    return item;
+  }
+
   function renderWorkflowCards(tickets) {
     const fragment = document.createDocumentFragment();
 
     tickets.forEach((ticket) => {
       const card = createElement("article", "workflow-card ticket-activity-mobile-card");
-      const top = createElement("div", "workflow-card-top");
+      const top = createElement("div", "workflow-card-top ticket-activity-mobile-top");
       const title = createElement("div", "workflow-card-title");
       const code = createElement("strong", "", window.AMApi.formatTicketCode(ticket.ticket_code));
-      const customer = createElement(
-        "span",
-        "",
-        `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${textOrDash(ticket.customer_name || ticket.customer_master_name)}`
+      const customer = createElement("span", "", textOrDash(ticket.customer_name || ticket.customer_master_name));
+      const customerCode = createElement(
+        "small",
+        "ticket-activity-mobile-customer-code",
+        window.AMApi.formatCustomerCode(ticket.customer_code)
       );
       const badges = createElement("div", "workflow-card-badges");
       const meta = createElement("div", "workflow-card-meta");
+      const activity = workflowActivityDetails(ticket);
+      const wait = workflowWaitDetails(ticket);
+      const device = createElement("strong", "ticket-activity-card-device");
+      const brand = String(ticket.brand || "").trim();
+      const model = String(ticket.model || "").trim();
+      const deviceName = model ? [brand, model].filter(Boolean).join(" ") : "Chưa cập nhật model";
+      const size = formatDeviceSize(ticket.size);
 
       card.dataset.ticketCode = ticket.ticket_code || "";
       code.dataset.ticketCode = ticket.ticket_code || "";
-      title.append(code, customer);
+      customer.title = customer.textContent;
+      title.append(code, customer, customerCode);
       badges.append(createPriorityBadge(ticket), createStatusBadge(ticket.status));
-      top.append(title, badges);
+      top.append(badges, title);
+      device.textContent = size ? `${deviceName} · ${size}` : deviceName;
+      device.title = device.textContent;
       meta.append(
-        createWorkflowMeta("Hãng / Model", [ticket.brand, ticket.model].filter(Boolean).join(" ")),
-        createWorkflowMeta("Kết quả sửa chữa", repairResultText(ticket)),
-        createWorkflowMeta("Hoạt động", workflowActivityText(ticket)),
-        createWorkflowMeta("Thời gian", workflowWaitText(ticket))
+        createWorkflowMetaContent("Thiết bị", device),
+        createWorkflowMetaContent("Nhân viên thực hiện", createEmployeeDisplay(ticket)),
+        createWorkflowMeta("Thời gian chờ", wait.mainText),
+        createWorkflowMeta("Cập nhật gần nhất", `${activity.mainText} · ${activity.relativeText}`)
       );
-
-      if (ticket.search_match_label) {
-        card.appendChild(createElement("span", "workflow-search-match", ticket.search_match_label));
-      }
 
       card.append(top, meta, createWorkflowActions(ticket));
       fragment.appendChild(card);
@@ -523,15 +910,7 @@
   }
 
   function emptyMessage() {
-    if (state.keyword) {
-      return "Không tìm thấy phiếu phù hợp.";
-    }
-
-    if (state.filter !== "all") {
-      return "Không có phiếu trong nhóm trạng thái này.";
-    }
-
-    return "Chưa có phiếu nào.";
+    return "Không có phiếu phù hợp.";
   }
 
   function renderSummary(tickets) {
@@ -562,7 +941,24 @@
   }
 
   function setWorkflowState(type, message) {
-    workflow.state.replaceChildren(document.createTextNode(message));
+    const messageElement = createElement("span", "ticket-activity-state-message", message);
+    workflow.state.replaceChildren(messageElement);
+
+    if (type === "loading") {
+      const skeleton = createElement("div", "ticket-activity-skeleton");
+      skeleton.setAttribute("aria-hidden", "true");
+
+      for (let rowIndex = 0; rowIndex < 4; rowIndex += 1) {
+        const row = createElement("div", "ticket-activity-skeleton-row");
+        for (let columnIndex = 0; columnIndex < 8; columnIndex += 1) {
+          row.appendChild(createElement("span", ""));
+        }
+        skeleton.appendChild(row);
+      }
+
+      workflow.state.appendChild(skeleton);
+    }
+
     window.AMUI.setSectionState({
       section: workflow.section,
       stateElement: workflow.state,
@@ -599,6 +995,7 @@
   }
 
   function renderWorkflow(tickets, filterCounts) {
+    closeActionMenu();
     visibleTickets = tickets.slice();
     renderFilterCounts(filterCounts);
     renderSummary(tickets);
@@ -686,7 +1083,7 @@
         return;
       }
 
-      setWorkflowState("error", "Không tải được hoạt động của phiếu. Vui lòng thử lại.");
+      setWorkflowState("error", "Không thể tải danh sách phiếu.");
       const retry = createElement("button", "btn secondary list-state-action", "Thử lại");
       retry.type = "button";
       retry.addEventListener("click", () => loadWorkflowTickets({ refresh: true, forceRefresh: true }));
@@ -746,8 +1143,118 @@
     loadWorkflowTickets({ refresh: true });
   }
 
+  async function runWorkflowAction(button, ticket) {
+    if (!button || !ticket || button.dataset.actionPending === "true") {
+      return;
+    }
+
+    button.dataset.actionPending = "true";
+
+    try {
+      if (button.dataset.workflowAction === "ready-for-handover") {
+        await window.AMUI.completeRepairInPlace({
+          ticketId: ticket.id,
+          ticket,
+          expectedStatus: ticket.status,
+          button,
+          source: "ticket-activity",
+          onSuccess: refreshCurrentView
+        });
+      } else if (button.dataset.workflowAction === "return-repair") {
+        await window.AMUI.returnRepairInPlace({
+          ticket,
+          button,
+          source: "ticket-activity",
+          onSuccess: refreshCurrentView
+        });
+      }
+    } catch (error) {
+      window.AMUI.toast(
+        error && error.message ? error.message : "Không thể thực hiện thao tác. Vui lòng thử lại.",
+        { type: "error" }
+      );
+    } finally {
+      if (document.contains(button)) {
+        delete button.dataset.actionPending;
+      }
+    }
+  }
+
+  function handleWorkflowInteraction(event) {
+    const menuTrigger = event.target.closest("[data-action-menu-trigger]");
+    if (menuTrigger && workflow.section.contains(menuTrigger)) {
+      event.preventDefault();
+      event.stopPropagation();
+      openActionMenu(menuTrigger, findVisibleTicket(menuTrigger.dataset.ticketId));
+      return;
+    }
+
+    const actionButton = event.target.closest("[data-workflow-action]");
+    if (actionButton && workflow.section.contains(actionButton)) {
+      event.preventDefault();
+      event.stopPropagation();
+      runWorkflowAction(actionButton, findVisibleTicket(actionButton.dataset.ticketId));
+    }
+  }
+
+  function handleDocumentClick(event) {
+    if (!actionMenu || actionMenu.hidden) {
+      return;
+    }
+
+    if (actionMenu.contains(event.target)) {
+      const menuItem = event.target.closest('[role="menuitem"]');
+      if (menuItem && menuItem.getAttribute("aria-disabled") !== "true") {
+        closeActionMenu();
+      }
+      return;
+    }
+
+    if (actionMenuTrigger && actionMenuTrigger.contains(event.target)) {
+      return;
+    }
+
+    closeActionMenu();
+  }
+
+  function handleActionMenuKeydown(event) {
+    if (event.key === "ArrowDown" && event.target.closest("[data-action-menu-trigger]")) {
+      event.preventDefault();
+      const trigger = event.target.closest("[data-action-menu-trigger]");
+      openActionMenu(trigger, findVisibleTicket(trigger.dataset.ticketId));
+      return;
+    }
+
+    if (!actionMenu || actionMenu.hidden) {
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeActionMenu({ restoreFocus: true });
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      moveActionMenuFocus(1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveActionMenuFocus(-1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      moveActionMenuFocus("first");
+    } else if (event.key === "End") {
+      event.preventDefault();
+      moveActionMenuFocus("last");
+    } else if (event.key === " " && event.target.closest('[role="menuitem"]:not([aria-disabled="true"])')) {
+      event.preventDefault();
+      event.target.closest('[role="menuitem"]').click();
+    } else if (event.key === "Tab") {
+      closeActionMenu();
+    }
+  }
+
   async function initTicketActivity() {
     attachLogout();
+    setupActionMenu();
     readStateFromUrl();
     syncFilterButtons();
 
@@ -769,6 +1276,11 @@
         setPage(button.dataset.page);
       }
     });
+    workflow.section.addEventListener("click", handleWorkflowInteraction);
+    document.addEventListener("click", handleDocumentClick);
+    document.addEventListener("keydown", handleActionMenuKeydown);
+    window.addEventListener("resize", () => closeActionMenu());
+    document.addEventListener("scroll", positionActionMenu, true);
 
     try {
       const access = await window.AMApi.requireInternalAccess();

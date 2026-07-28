@@ -3,8 +3,11 @@
 
   const APPOINTMENT_PAGE = "appointment-reminders.html";
   const HANDOVER_PAGE = "handover-tickets.html";
+  const EMPLOYEES_PAGE = "employees.html";
+  const EMPLOYEE_ACCESS_SCRIPT = "js/employee-access-guard.js";
   const CLOSE_DELAY_MS = 180;
   const EXIT_DURATION_MS = 140;
+  let employeeAccessScriptPromise = null;
 
   function currentPageName() {
     const parts = window.location.pathname.split("/").filter(Boolean);
@@ -21,6 +24,83 @@
     description.textContent = descriptionText;
     copy.append(title, description);
     return copy;
+  }
+
+  function createEmployeesIcon() {
+    const namespace = "http://www.w3.org/2000/svg";
+    const icon = document.createElementNS(namespace, "svg");
+    const head = document.createElementNS(namespace, "circle");
+    const shoulders = document.createElementNS(namespace, "path");
+
+    icon.classList.add("admin-more-menu-icon");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("focusable", "false");
+
+    head.setAttribute("cx", "12");
+    head.setAttribute("cy", "8");
+    head.setAttribute("r", "3.25");
+    shoulders.setAttribute("d", "M5.5 20c.45-4.05 2.65-6.25 6.5-6.25s6.05 2.2 6.5 6.25");
+
+    icon.append(head, shoulders);
+    return icon;
+  }
+
+  function createEmployeesAccessIcon() {
+    const icon = document.createElement("span");
+    const shackle = document.createElement("span");
+    const body = document.createElement("span");
+
+    icon.className = "admin-more-menu-access-icon";
+    icon.setAttribute("aria-hidden", "true");
+    shackle.className = "admin-more-menu-access-icon__shackle";
+    body.className = "admin-more-menu-access-icon__body";
+    icon.append(shackle, body);
+    return icon;
+  }
+
+  function loadEmployeeAccessGuard() {
+    if (window.AMEmployeeAccess) {
+      return Promise.resolve(window.AMEmployeeAccess);
+    }
+    if (employeeAccessScriptPromise) {
+      return employeeAccessScriptPromise;
+    }
+
+    employeeAccessScriptPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${EMPLOYEE_ACCESS_SCRIPT}"]`);
+      const script = existing || document.createElement("script");
+
+      const handleLoad = () => {
+        if (window.AMEmployeeAccess) {
+          resolve(window.AMEmployeeAccess);
+          return;
+        }
+        reject(new Error("Employee access guard is unavailable."));
+      };
+      const handleError = () => reject(new Error("Employee access guard could not load."));
+
+      script.addEventListener("load", handleLoad, { once: true });
+      script.addEventListener("error", handleError, { once: true });
+      if (!existing) {
+        script.src = EMPLOYEE_ACCESS_SCRIPT;
+        document.head.appendChild(script);
+      }
+    }).catch((error) => {
+      employeeAccessScriptPromise = null;
+      throw error;
+    });
+
+    return employeeAccessScriptPromise;
+  }
+
+  function showEmployeeAccessError() {
+    const message = "Không thể xác thực quyền truy cập lúc này.";
+    if (window.AMUI && typeof window.AMUI.toast === "function") {
+      window.AMUI.toast(message, { type: "error" });
+      return;
+    }
+    window.alert(message);
   }
 
   function createTrigger() {
@@ -72,6 +152,30 @@
       "Bàn giao tivi",
       "Theo dõi tivi đã sửa xong và đang chờ giao hoặc khách đến nhận."
     ));
+
+    if (isCurrentPage) {
+      link.setAttribute("aria-current", "page");
+    }
+
+    return link;
+  }
+
+  function createEmployeesLink(isCurrentPage) {
+    const link = document.createElement("a");
+    const accessIcon = createEmployeesAccessIcon();
+
+    link.className = "admin-more-menu-item admin-more-menu-item-with-icon";
+    link.href = EMPLOYEES_PAGE;
+    link.setAttribute("role", "menuitem");
+    link.dataset.employeeAccessLink = "true";
+    link.append(
+      createEmployeesIcon(),
+      createMenuCopy(
+        "Nhân viên",
+        "Phân công công việc và theo dõi KPI hiệu suất."
+      ),
+      accessIcon
+    );
 
     if (isCurrentPage) {
       link.setAttribute("aria-current", "page");
@@ -261,6 +365,7 @@
     const pageName = currentPageName();
     const isAppointmentPage = pageName === APPOINTMENT_PAGE;
     const isHandoverPage = pageName === HANDOVER_PAGE;
+    const isEmployeesPage = pageName === EMPLOYEES_PAGE;
     const wrapper = document.createElement("div");
     const trigger = createTrigger();
     const menu = document.createElement("div");
@@ -268,6 +373,8 @@
     const divider = document.createElement("span");
     const appointmentLink = createAppointmentLink(isAppointmentPage);
     const handoverLink = createHandoverLink(isHandoverPage);
+    const employeesLink = createEmployeesLink(isEmployeesPage);
+    const employeesAccessIcon = employeesLink.querySelector(".admin-more-menu-access-icon");
     let closeTimerId = null;
     let hideTimerId = null;
     let openFrameId = null;
@@ -287,11 +394,18 @@
     divider.className = "admin-more-menu-divider";
     divider.setAttribute("aria-hidden", "true");
 
-    if (isAppointmentPage || isHandoverPage) {
+    if (isAppointmentPage || isHandoverPage || isEmployeesPage) {
       trigger.classList.add("active");
     }
 
-    menu.append(menuHeading, appointmentLink, handoverLink, divider, prepareLogoutButton(logoutButton));
+    menu.append(
+      menuHeading,
+      appointmentLink,
+      handoverLink,
+      employeesLink,
+      divider,
+      prepareLogoutButton(logoutButton)
+    );
     wrapper.append(trigger, menu);
     nav.appendChild(wrapper);
 
@@ -392,6 +506,59 @@
       setOpen(true);
     });
 
+    employeesLink.addEventListener("click", async function (event) {
+      if (
+        event.button !== 0
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (employeesLink.getAttribute("aria-busy") === "true") {
+        return;
+      }
+
+      setOpen(false);
+      employeesLink.setAttribute("aria-busy", "true");
+      try {
+        const guard = await loadEmployeeAccessGuard();
+        const unlocked = await guard.requireUnlock({
+          mode: "menu",
+          returnFocus: trigger
+        });
+        if (unlocked) {
+          window.location.assign(EMPLOYEES_PAGE);
+        }
+      } catch (error) {
+        showEmployeeAccessError();
+      } finally {
+        employeesLink.removeAttribute("aria-busy");
+      }
+    });
+
+    document.addEventListener("am:employee-access-change", function (event) {
+      const unlocked = Boolean(event.detail && event.detail.unlocked);
+      if (employeesAccessIcon) {
+        employeesAccessIcon.classList.toggle("is-unlocked", unlocked);
+      }
+    });
+
+    if (
+      employeesAccessIcon
+      && window.AMEmployeeAccess
+      && typeof window.AMEmployeeAccess.hasLocalUnlock === "function"
+    ) {
+      employeesAccessIcon.classList.toggle(
+        "is-unlocked",
+        window.AMEmployeeAccess.hasLocalUnlock()
+      );
+    }
+
     trigger.addEventListener("keydown", function (event) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -441,5 +608,7 @@
     initMobileDrawer(nav, () => setOpen(false));
   }
 
-  document.addEventListener("DOMContentLoaded", initNavigation);
+  document.addEventListener("DOMContentLoaded", function () {
+    initNavigation();
+  });
 })();

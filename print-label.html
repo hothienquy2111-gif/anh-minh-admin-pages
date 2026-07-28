@@ -5,7 +5,8 @@
     <meta name="robots" content="noindex, nofollow, noarchive">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>In tem - Anh Minh Admin</title>
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/admin.css?v=20260728-admin-redesign">
+    <link rel="stylesheet" href="css/admin-redesign.css?v=20260728-admin-redesign" media="screen">
   </head>
   <body class="print-label-page label-50x30">
     <div class="page-shell">
@@ -60,6 +61,19 @@
               <button id="printButton" class="btn primary" type="button">In tem</button>
               <a class="btn secondary" href="search.html">Quay lại tìm kiếm</a>
             </div>
+            <section id="labelAssignmentPanel" class="label-assignment-panel" aria-labelledby="labelAssignmentTitle">
+              <div class="label-assignment-panel__heading">
+                <span>Bước 2</span>
+                <h2 id="labelAssignmentTitle">Giao cho nhân viên</h2>
+              </div>
+              <p id="labelAssignmentHint" class="form-hint" aria-live="polite">
+                Không bắt buộc. Bạn có thể in tem trước và phân công nhân viên sau.
+              </p>
+              <div id="labelAssignmentSummary" class="employee-assignment-summary" hidden></div>
+              <button id="assignEmployeeButton" class="btn primary" type="button" disabled>
+                Giao cho nhân viên
+              </button>
+            </section>
           </div>
 
           <div class="label-preview-wrap">
@@ -87,10 +101,14 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/supabase-config.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/print-label.js"></script>
-    <script src="js/admin-navigation.js"></script>
-    <script src="js/back-navigation.js"></script>
+    <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
+    <script src="js/api.js?v=20260728-admin-redesign"></script>
+    <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-kpi.js?v=20260728-admin-redesign"></script>
+    <script src="js/employee-assignment.js?v=20260728-admin-redesign"></script>
+    <script src="js/print-label.js?v=20260728-admin-redesign"></script>
+    <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>
   </body>
 </html>

@@ -9,6 +9,9 @@
   const labelCondition = document.getElementById("labelCondition");
   const labelDate = document.getElementById("labelDate");
   const printButton = document.getElementById("printButton");
+  const assignEmployeeButton = document.getElementById("assignEmployeeButton");
+  const assignmentHint = document.getElementById("labelAssignmentHint");
+  const assignmentSummary = document.getElementById("labelAssignmentSummary");
   const labelSizeSelect = document.getElementById("labelSizeSelect");
   const thermalLabel = document.getElementById("thermalLabel");
   const workflowHint = document.getElementById("labelWorkflowHint");
@@ -35,6 +38,10 @@
   let currentTicket = null;
   let currentWorkflowAction = null;
   let printRequestInFlight = false;
+  let employeeAccess = null;
+  let assignmentContext = null;
+  let assignmentReadyAfterPrint = false;
+  let assignmentLoading = false;
   let pendingFitFrame = null;
   let pendingFitTimer = null;
   let fitInProgress = false;
@@ -130,6 +137,12 @@
   function textOrBlank(value) {
     const text = value === null || value === undefined ? "" : String(value).trim();
     return !text || /^(null|undefined)$/i.test(text) ? "Chưa có" : text;
+  }
+
+  function setAssignmentHint(message) {
+    if (assignmentHint) {
+      assignmentHint.textContent = message || "";
+    }
   }
 
   function normalizeLabelCustomerName(ticket) {
@@ -706,6 +719,125 @@
     }
   }
 
+  function canAssignCurrentTicket() {
+    return Boolean(
+      currentTicket
+      && currentTicket.status === "đang sửa"
+      && currentTicket.repair_started_at
+      && !currentTicket.ready_for_handover_at
+      && !currentTicket.completed_at
+    );
+  }
+
+  function renderAssignmentControls() {
+    if (!assignEmployeeButton || !assignmentSummary) {
+      return;
+    }
+
+    const activeAssignment = assignmentContext && assignmentContext.assignment_id
+      ? assignmentContext
+      : null;
+    window.AMEmployeeAssignment.renderAssignmentSummary(
+      assignmentSummary,
+      activeAssignment
+    );
+
+    assignEmployeeButton.hidden = false;
+    assignEmployeeButton.textContent = activeAssignment
+      ? "Đổi nhân viên"
+      : "Giao cho nhân viên";
+    assignEmployeeButton.disabled = true;
+
+    if (!employeeAccess) {
+      setAssignmentHint("Module Nhân viên chưa sẵn sàng. Việc in tem vẫn hoạt động bình thường.");
+      return;
+    }
+
+    if (activeAssignment && !employeeAccess.can_manage) {
+      setAssignmentHint("Phiếu đang được giao cho bạn. Chỉ Owner/Admin có thể đổi người phụ trách.");
+      return;
+    }
+
+    if (!employeeAccess.can_manage) {
+      setAssignmentHint(
+        employeeAccess.role_bootstrap_required
+          ? "Chưa có vai trò Owner/Admin được cấu hình để giao việc."
+          : "Chỉ Owner/Admin có thể giao hoặc đổi nhân viên phụ trách."
+      );
+      return;
+    }
+
+    if (!canAssignCurrentTicket()) {
+      setAssignmentHint(
+        activeAssignment
+          ? "Assignment được giữ để tra cứu; phiếu hiện không còn ở bước đang sửa."
+          : "Phiếu phải ở trạng thái đang sửa trước khi giao cho nhân viên."
+      );
+      return;
+    }
+
+    if (!activeAssignment && !assignmentReadyAfterPrint) {
+      setAssignmentHint("Không bắt buộc. Bạn có thể in tem trước và phân công nhân viên sau.");
+      return;
+    }
+
+    assignEmployeeButton.disabled = assignmentLoading;
+    setAssignmentHint(
+      activeAssignment
+        ? "Đổi người sẽ giữ nguyên lịch sử phân công cũ."
+        : "Chọn đúng một kỹ thuật viên để bắt đầu tính thời gian xử lý."
+    );
+  }
+
+  async function loadAssignmentContext() {
+    if (!currentTicket || !assignEmployeeButton) {
+      return;
+    }
+
+    assignmentLoading = true;
+    renderAssignmentControls();
+
+    try {
+      employeeAccess = await window.AMApi.getEmployeeModuleAccess();
+      assignmentContext = await window.AMApi.getTicketAssignmentContext(currentTicket.id);
+    } catch (error) {
+      employeeAccess = null;
+      assignmentContext = null;
+      if (!error.employeeModuleUnavailable) {
+        setAssignmentHint(error.message || "Không đọc được thông tin phân công.");
+      }
+    } finally {
+      assignmentLoading = false;
+      renderAssignmentControls();
+    }
+  }
+
+  async function openEmployeeAssignment() {
+    if (
+      !currentTicket
+      || !employeeAccess
+      || !employeeAccess.can_manage
+      || !canAssignCurrentTicket()
+      || assignEmployeeButton.disabled
+    ) {
+      return;
+    }
+
+    await window.AMEmployeeAssignment.open({
+      trigger: assignEmployeeButton,
+      ticket: currentTicket,
+      currentAssignment: assignmentContext && assignmentContext.assignment_id
+        ? assignmentContext
+        : null,
+      onSuccess: async (result) => {
+        assignmentContext = Object.assign({}, result, {
+          can_manage: true
+        });
+        renderAssignmentControls();
+      }
+    });
+  }
+
   function renderWorkflowControls(ticket) {
     currentWorkflowAction = null;
     printButton.disabled = false;
@@ -724,15 +856,17 @@
       return;
     }
 
-    if (canStartRepair(ticket)) {
-      currentWorkflowAction = "START_REPAIR";
+    const nextAction = resolveWorkflowAction(ticket);
+
+    if (nextAction === "START_REPAIR") {
+      currentWorkflowAction = nextAction;
       printButton.textContent = "In tem & bắt đầu sửa chữa";
       setWorkflowHint("Nút này sẽ chuyển phiếu sang trạng thái đang sửa trước khi mở in tem.");
       return;
     }
 
-    if (canReprintLabel(ticket)) {
-      currentWorkflowAction = "REPRINT_LABEL";
+    if (nextAction === "REPRINT_LABEL") {
+      currentWorkflowAction = nextAction;
       printButton.textContent = "Chỉ in lại tem";
       setWorkflowHint("In lại tem không đổi trạng thái và không reset thời gian sửa chữa.");
       return;
@@ -789,10 +923,21 @@
       });
 
       if (latestAction === "START_REPAIR") {
+        assignmentReadyAfterPrint = false;
+      }
+      if (latestAction === "START_REPAIR") {
         showNotice("success", "Phiếu đã chuyển trạng thái. Trường hợp chưa in được, hãy dùng chức năng Chỉ in lại.");
       }
       await prepareLabelForPrint();
       window.print();
+      assignmentReadyAfterPrint = true;
+      await loadAssignmentContext();
+      setAssignmentHint(
+        assignmentContext && assignmentContext.assignment_id
+          ? "Phiếu đã có nhân viên phụ trách. Có thể đổi người nếu cần."
+          : "Không bắt buộc. Đã mở cửa sổ in; bạn có thể phân công nhân viên sau."
+      );
+      renderAssignmentControls();
     } catch (error) {
       if (requestId && window.AMApi.shouldClearWorkflowClientRequestId(error)) {
         window.AMApi.clearWorkflowClientRequestId(currentTicket.id, requestedAction);
@@ -892,6 +1037,13 @@
     attachLogout();
     attachPaperControls();
     printButton.addEventListener("click", runWorkflowAndPrint);
+    if (assignEmployeeButton) {
+      assignEmployeeButton.addEventListener("click", () => {
+        openEmployeeAssignment().catch((error) => {
+          setAssignmentHint(error.message || "Không mở được giao diện phân công.");
+        });
+      });
+    }
 
     try {
       const access = await window.AMApi.requireInternalAccess();
@@ -912,9 +1064,11 @@
       }
 
       currentTicket = ticket;
+      assignmentReadyAfterPrint = ticket.status === "đang sửa" && Boolean(ticket.repair_started_at);
       renderLabel(ticket);
       renderWorkflowControls(ticket);
       clearNotice();
+      await loadAssignmentContext();
     } catch (error) {
       showNotice("error", error.message);
       printButton.disabled = true;
