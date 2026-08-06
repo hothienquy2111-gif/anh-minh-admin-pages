@@ -2542,51 +2542,106 @@
     }
   }
 
-  async function searchCustomers(keyword) {
+  async function searchCustomers(keyword, options) {
     try {
       const client = getClient();
+      const params = options || {};
       const rawKeyword = String(keyword || "").trim();
+      const safeKeyword = cleanPostgrestSearchValue(rawKeyword);
       const normalizedPhone = normalizeVNPhone(rawKeyword);
+      const phoneDigits = rawKeyword.replace(/\D/g, "");
       const customerCodeVariants = businessCodeSearchVariants(rawKeyword, "KH");
+      const mode = params.mode === "name" || params.mode === "phone" ? params.mode : "all";
+      const requestedLimit = Number(params.limit);
+      const hasExplicitLimit = Number.isFinite(requestedLimit) && requestedLimit > 0;
+      const resultLimit = hasExplicitLimit
+        ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 25)
+        : 25;
       const searches = [];
 
-      if (!rawKeyword) {
+      if (!safeKeyword) {
         return [];
       }
 
-      customerCodeVariants.forEach((code) => {
-        searches.push(
-          client
-            .from("customers")
-            .select(CUSTOMER_FIELDS)
-            .ilike("customer_code", `%${code}%`)
-            .limit(25)
-        );
-      });
+      function prepareQuery(query) {
+        const limitedQuery = query.limit(resultLimit);
 
-      searches.push(
-        client
-          .from("customers")
-          .select(CUSTOMER_FIELDS)
-          .ilike("name", `%${rawKeyword}%`)
-          .limit(25)
-      );
+        if (params.signal && typeof limitedQuery.abortSignal === "function") {
+          return limitedQuery.abortSignal(params.signal);
+        }
 
-      if (normalizedPhone) {
+        return limitedQuery;
+      }
+
+      if (mode === "all") {
+        customerCodeVariants.forEach((code) => {
+          searches.push(
+            prepareQuery(
+              client
+                .from("customers")
+                .select(CUSTOMER_FIELDS)
+                .ilike("customer_code", `%${code}%`)
+            )
+          );
+        });
+      }
+
+      if (mode === "name") {
         searches.push(
-          client
-            .from("customers")
-            .select(CUSTOMER_FIELDS)
-            .eq("phone_normalized", normalizedPhone)
-            .limit(25)
+          prepareQuery(
+            client
+              .from("customers")
+              .select(CUSTOMER_FIELDS)
+              .ilike("name", `${safeKeyword}%`)
+          ),
+          prepareQuery(
+            client
+              .from("customers")
+              .select(CUSTOMER_FIELDS)
+              .ilike("name", `%${safeKeyword}%`)
+          )
         );
-      } else {
+      } else if (mode === "all") {
         searches.push(
-          client
-            .from("customers")
-            .select(CUSTOMER_FIELDS)
-            .ilike("phone", `%${rawKeyword}%`)
-            .limit(25)
+          prepareQuery(
+            client
+              .from("customers")
+              .select(CUSTOMER_FIELDS)
+              .ilike("name", `%${safeKeyword}%`)
+          )
+        );
+      }
+
+      if (mode === "phone" || mode === "all") {
+        if (normalizedPhone) {
+          searches.push(
+            prepareQuery(
+              client
+                .from("customers")
+                .select(CUSTOMER_FIELDS)
+                .eq("phone_normalized", normalizedPhone)
+            )
+          );
+        }
+
+        if (phoneDigits.length >= 3) {
+          searches.push(
+            prepareQuery(
+              client
+                .from("customers")
+                .select(CUSTOMER_FIELDS)
+                .ilike("phone_normalized", `%${phoneDigits}%`)
+            )
+          );
+        }
+
+        searches.push(
+          prepareQuery(
+            client
+              .from("customers")
+              .select(CUSTOMER_FIELDS)
+              .ilike("phone", `%${safeKeyword}%`)
+          )
         );
       }
 
@@ -2598,7 +2653,38 @@
         }
       });
 
-      return mergeById(results.map((result) => result.data || []));
+      const merged = mergeById(results.map((result) => result.data || []));
+
+      if (mode === "name") {
+        const normalizedKeyword = safeKeyword.toLocaleLowerCase("vi-VN");
+        merged.sort((left, right) => {
+          const leftName = String(left && left.name || "").trim().toLocaleLowerCase("vi-VN");
+          const rightName = String(right && right.name || "").trim().toLocaleLowerCase("vi-VN");
+          const leftRank = leftName.startsWith(normalizedKeyword) ? 0 : leftName.includes(normalizedKeyword) ? 1 : 2;
+          const rightRank = rightName.startsWith(normalizedKeyword) ? 0 : rightName.includes(normalizedKeyword) ? 1 : 2;
+
+          return leftRank - rightRank
+            || leftName.localeCompare(rightName, "vi")
+            || String(left && left.customer_code || "").localeCompare(String(right && right.customer_code || ""));
+        });
+      } else if (mode === "phone") {
+        merged.sort((left, right) => {
+          const leftPhone = String(left && (left.phone_normalized || left.phone) || "").replace(/\D/g, "");
+          const rightPhone = String(right && (right.phone_normalized || right.phone) || "").replace(/\D/g, "");
+          const leftRank = normalizedPhone && leftPhone === normalizedPhone
+            ? 0
+            : leftPhone.startsWith(phoneDigits) ? 1 : 2;
+          const rightRank = normalizedPhone && rightPhone === normalizedPhone
+            ? 0
+            : rightPhone.startsWith(phoneDigits) ? 1 : 2;
+
+          return leftRank - rightRank
+            || leftPhone.localeCompare(rightPhone)
+            || String(left && left.customer_code || "").localeCompare(String(right && right.customer_code || ""));
+        });
+      }
+
+      return hasExplicitLimit ? merged.slice(0, resultLimit) : merged;
     } catch (error) {
       throw friendlyError(error, "Không tìm được khách hàng.");
     }

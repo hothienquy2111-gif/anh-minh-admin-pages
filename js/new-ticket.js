@@ -13,8 +13,13 @@
   const customerNameInput = document.getElementById("customer_name");
   const customerPhoneInput = document.getElementById("customer_phone");
   const customerAddressInput = document.getElementById("customer_address");
+  const customerIdInput = document.getElementById("customer_id");
+  const customerCodeInput = document.getElementById("customer_code");
   const customerLookupState = document.getElementById("customerLookupState");
   const customerLookupResults = document.getElementById("customerLookupResults");
+  const customerLookupActions = document.getElementById("customerLookupActions");
+  const customerCreateNewButton = document.getElementById("customerCreateNewButton");
+  const customerHistoryButton = document.getElementById("customerHistoryButton");
   const customerHistoryPanel = document.getElementById("customerHistoryPanel");
   const brandInput = document.getElementById("brand");
   const modelInput = document.getElementById("model");
@@ -26,11 +31,23 @@
   const machineConditionPicker = document.getElementById("machineConditionPicker");
   const appearanceConditionPicker = document.getElementById("appearanceConditionPicker");
 
-  const CUSTOMER_LOOKUP_DELAY = 420;
+  const CUSTOMER_LOOKUP_DELAY = 200;
+  const CUSTOMER_RESULT_LIMIT = 8;
+  const CUSTOMER_SEARCH_MIN_LENGTH = Object.freeze({
+    name: 2,
+    phone: 3
+  });
   let customerLookupTimer = null;
+  let customerLookupAbortController = null;
   let customerLookupRequestId = 0;
+  let activeCustomerLookupInput = null;
+  let activeCustomerLookupSource = null;
+  let activeCustomerOptionIndex = -1;
+  let lastCompletedLookupKey = "";
+  let lastCompletedCustomers = [];
   let matchedCustomers = [];
   let selectedCustomer = null;
+  let selectionNeedsVerification = false;
   let customerMode = "new";
   let currentClientRequestId = null;
   let isSubmitting = false;
@@ -101,49 +118,292 @@
     customerLookupState.textContent = message;
   }
 
-  function clearCustomerLookupResults() {
+  function customerLookupInputs() {
+    return [customerNameInput, customerPhoneInput].filter(Boolean);
+  }
+
+  function normalizeCustomerName(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLocaleLowerCase("vi-VN");
+  }
+
+  function customerPhoneDigits(value) {
+    return String(value || "").replace(/\D/g, "");
+  }
+
+  function customerLookupSource(input) {
+    return input === customerPhoneInput ? "phone" : "name";
+  }
+
+  function customerLookupQuery(input) {
+    if (customerLookupSource(input) === "phone") {
+      return customerPhoneDigits(input && input.value);
+    }
+
+    return String(input && input.value || "").trim().replace(/\s+/g, " ");
+  }
+
+  function customerLookupKey(source, query) {
+    return `${source}:${String(query || "").toLocaleLowerCase("vi-VN")}`;
+  }
+
+  function formatCustomerPhone(value) {
+    const digits = customerPhoneDigits(value);
+
+    if (/^0\d{9}$/.test(digits)) {
+      return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
+    }
+
+    return String(value || "").trim() || "—";
+  }
+
+  function setComboboxExpanded(input, isExpanded) {
+    customerLookupInputs().forEach((field) => {
+      field.setAttribute("aria-expanded", String(field === input && isExpanded));
+      if (field !== input || !isExpanded) {
+        field.removeAttribute("aria-activedescendant");
+      }
+    });
+  }
+
+  function cancelCustomerLookupRequest() {
+    if (customerLookupTimer) {
+      window.clearTimeout(customerLookupTimer);
+      customerLookupTimer = null;
+    }
+
+    if (customerLookupAbortController) {
+      customerLookupAbortController.abort();
+      customerLookupAbortController = null;
+    }
+
+    isCustomerLookupPending = false;
+  }
+
+  function closeCustomerSuggestions(options) {
+    const settings = options || {};
+
+    if (settings.cancelRequest) {
+      customerLookupRequestId += 1;
+      cancelCustomerLookupRequest();
+    }
+
+    activeCustomerOptionIndex = -1;
+    setComboboxExpanded(null, false);
+
     if (customerLookupResults) {
-      customerLookupResults.innerHTML = "";
+      customerLookupResults.hidden = true;
+    }
+  }
+
+  function openCustomerSuggestions(input) {
+    if (!customerLookupResults || !input) {
+      return;
+    }
+
+    const field = input.closest("[data-customer-autocomplete-field]");
+
+    if (!field) {
+      return;
+    }
+
+    if (customerLookupResults.parentElement !== field) {
+      field.appendChild(customerLookupResults);
+    }
+
+    activeCustomerLookupInput = input;
+    activeCustomerLookupSource = customerLookupSource(input);
+    customerLookupResults.hidden = false;
+    setComboboxExpanded(input, true);
+  }
+
+  function clearCustomerSuggestionContent() {
+    if (customerLookupResults) {
+      customerLookupResults.replaceChildren();
+    }
+
+    activeCustomerOptionIndex = -1;
+    customerLookupInputs().forEach((input) => input.removeAttribute("aria-activedescendant"));
+  }
+
+  function setCustomerLookupActions(options) {
+    if (!customerLookupActions) {
+      return;
+    }
+
+    const settings = options || {};
+    const showCreate = Boolean(settings.showCreate);
+    const showHistory = Boolean(settings.showHistory);
+
+    customerCreateNewButton.classList.toggle("hidden", !showCreate);
+    customerHistoryButton.classList.toggle("hidden", !showHistory);
+    customerLookupActions.classList.toggle("hidden", !showCreate && !showHistory);
+  }
+
+  function clearSelectedCustomerState() {
+    selectedCustomer = null;
+
+    if (customerIdInput) {
+      customerIdInput.value = "";
+    }
+
+    if (customerCodeInput) {
+      customerCodeInput.value = "";
     }
 
     resetCustomerHistory();
   }
 
-  function createCustomerMeta(label, value) {
-    const item = document.createElement("span");
-    const key = document.createElement("b");
-    const val = document.createElement("span");
+  function updateActiveCustomerOption(nextIndex) {
+    if (!customerLookupResults) {
+      return;
+    }
 
-    key.textContent = `${label}: `;
-    val.textContent = textOrDash(value);
-    item.append(key, val);
-    return item;
+    const options = Array.from(customerLookupResults.querySelectorAll('[role="option"]'));
+
+    if (options.length === 0) {
+      activeCustomerOptionIndex = -1;
+      return;
+    }
+
+    activeCustomerOptionIndex = Math.min(Math.max(nextIndex, 0), options.length - 1);
+
+    options.forEach((option, index) => {
+      const isActive = index === activeCustomerOptionIndex;
+      option.classList.toggle("is-active", isActive);
+      option.setAttribute("aria-selected", String(isActive));
+    });
+
+    const activeOption = options[activeCustomerOptionIndex];
+    activeCustomerLookupInput.setAttribute("aria-activedescendant", activeOption.id);
+
+    if (activeOption.offsetTop < customerLookupResults.scrollTop) {
+      customerLookupResults.scrollTop = activeOption.offsetTop;
+    } else if (
+      activeOption.offsetTop + activeOption.offsetHeight
+      > customerLookupResults.scrollTop + customerLookupResults.clientHeight
+    ) {
+      customerLookupResults.scrollTop = activeOption.offsetTop
+        + activeOption.offsetHeight
+        - customerLookupResults.clientHeight;
+    }
+  }
+
+  function renderCustomerSuggestionState(input, type, message) {
+    clearCustomerSuggestionContent();
+
+    const state = document.createElement("div");
+    state.className = `customer-suggestion-state ${type || ""}`.trim();
+    state.setAttribute("role", "status");
+    state.textContent = message;
+    customerLookupResults.appendChild(state);
+    openCustomerSuggestions(input);
+  }
+
+  function renderCustomerSuggestions(input, customers) {
+    clearCustomerSuggestionContent();
+
+    customers.forEach((customer, index) => {
+      const option = document.createElement("button");
+      const name = document.createElement("strong");
+      const meta = document.createElement("span");
+      const address = document.createElement("span");
+      const code = window.AMApi.formatCustomerCode(customer.customer_code);
+      const addressText = String(customer.address || "").trim();
+
+      option.id = `customerLookupOption-${customerLookupRequestId}-${index}`;
+      option.type = "button";
+      option.className = "customer-suggestion-option";
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
+
+      name.className = "customer-suggestion-name";
+      name.textContent = String(customer.name || "").trim() || "Khách hàng chưa có tên";
+
+      meta.className = "customer-suggestion-meta";
+      meta.textContent = `${formatCustomerPhone(customer.phone)} • ${code}`;
+
+      option.append(name, meta);
+
+      if (addressText) {
+        address.className = "customer-suggestion-address";
+        address.textContent = addressText;
+        option.appendChild(address);
+      }
+
+      option.addEventListener("pointerdown", (event) => event.preventDefault());
+      option.addEventListener("click", () => setExistingCustomer(customer));
+      customerLookupResults.appendChild(option);
+    });
+
+    openCustomerSuggestions(input);
   }
 
   function fillCustomerFields(customer) {
     customerNameInput.value = customer.name || "";
-    customerPhoneInput.value = customer.phone || customerPhoneInput.value;
+    customerPhoneInput.value = customer.phone || "";
     customerAddressInput.value = customer.address || "";
   }
 
   function setExistingCustomer(customer) {
     selectedCustomer = customer;
+    selectionNeedsVerification = false;
     customerMode = "existing";
     fillCustomerFields(customer);
+    if (customerIdInput) {
+      customerIdInput.value = customer.id || "";
+    }
+    if (customerCodeInput) {
+      customerCodeInput.value = customer.customer_code || "";
+    }
     resetCustomerHistory();
     setCustomerLookupState(
       "selected",
-      `Đã chọn ${window.AMApi.formatCustomerCode(customer.customer_code)} - ${customer.name || "khách hàng cũ"}. Phiếu mới sẽ lưu snapshot hiện tại.`
+      `Đã chọn ${window.AMApi.formatCustomerCode(customer.customer_code)} — ${customer.name || "khách hàng cũ"}.`
     );
-    renderCustomerMatches(matchedCustomers);
+    setCustomerLookupActions({ showHistory: true });
+    closeCustomerSuggestions({ cancelRequest: true });
+
+    try {
+      customerAddressInput.focus({ preventScroll: true });
+    } catch (error) {
+      customerAddressInput.focus();
+    }
   }
 
   function setNewCustomerMode(message) {
-    selectedCustomer = null;
+    clearSelectedCustomerState();
+    selectionNeedsVerification = false;
     customerMode = "new";
-    resetCustomerHistory();
-    setCustomerLookupState("new", message || "Khách hàng mới. Phiếu sẽ tạo customer mới và gắn customer_id.");
-    renderCustomerMatches(matchedCustomers);
+    setCustomerLookupState("new", message || "Đang dùng thông tin nhập tay để tạo khách hàng mới.");
+    setCustomerLookupActions({});
+    closeCustomerSuggestions({ cancelRequest: true });
+  }
+
+  function invalidateSelectedCustomerIfNeeded() {
+    if (!selectedCustomer) {
+      return;
+    }
+
+    const nameChanged = normalizeCustomerName(customerNameInput.value)
+      !== normalizeCustomerName(selectedCustomer.name);
+    const phoneChanged = customerPhoneDigits(customerPhoneInput.value)
+      !== customerPhoneDigits(selectedCustomer.phone);
+
+    if (!nameChanged && !phoneChanged) {
+      return;
+    }
+
+    clearSelectedCustomerState();
+    selectionNeedsVerification = true;
+    customerMode = null;
+    setCustomerLookupState(
+      "warning",
+      "Tên hoặc số điện thoại đã thay đổi. Hãy chọn lại khách phù hợp hoặc xác nhận tạo khách mới."
+    );
+    setCustomerLookupActions({ showCreate: true });
   }
 
   async function showCustomerHistory(customer) {
@@ -188,139 +448,210 @@
     }
   }
 
-  function renderCustomerMatches(customers) {
-    if (!customerLookupResults) {
-      return;
-    }
-
-    customerLookupResults.innerHTML = "";
-
-    customers.forEach((customer) => {
-      const card = document.createElement("article");
-      const header = document.createElement("div");
-      const title = document.createElement("strong");
-      const code = document.createElement("span");
-      const meta = document.createElement("div");
-      const actions = document.createElement("div");
-      const useButton = document.createElement("button");
-      const historyButton = document.createElement("button");
-      const isSelected = selectedCustomer && selectedCustomer.id === customer.id;
-
-      card.className = `customer-match-card ${isSelected ? "selected" : ""}`.trim();
-      header.className = "customer-match-header";
-      meta.className = "customer-match-meta";
-      actions.className = "customer-match-actions";
-
-      title.textContent = textOrDash(customer.name);
-      code.textContent = window.AMApi.formatCustomerCode(customer.customer_code);
-      header.append(title, code);
-
-      meta.append(
-        createCustomerMeta("SĐT", customer.phone),
-        createCustomerMeta("Địa chỉ", customer.address),
-        createCustomerMeta("Số phiếu", customer.ticket_count || 0),
-        createCustomerMeta("Phiếu gần nhất", window.AMApi.formatTicketCode(customer.latest_ticket && customer.latest_ticket.ticket_code))
-      );
-
-      useButton.type = "button";
-      useButton.className = "btn primary compact";
-      useButton.textContent = isSelected ? "Đang dùng" : "Dùng khách này";
-      useButton.disabled = isSelected;
-      useButton.addEventListener("click", () => setExistingCustomer(customer));
-
-      historyButton.type = "button";
-      historyButton.className = "btn secondary compact";
-      historyButton.textContent = "Xem lịch sử";
-      historyButton.addEventListener("click", () => showCustomerHistory(customer));
-
-      actions.append(useButton, historyButton);
-      card.append(header, meta, actions);
-      customerLookupResults.appendChild(card);
-    });
-
-    if (customers.length > 0) {
-      const createOther = document.createElement("button");
-      createOther.type = "button";
-      createOther.className = "btn secondary compact customer-create-other";
-      createOther.textContent = "Tạo người khác cùng SĐT";
-      createOther.addEventListener("click", () => setNewCustomerMode("Đang tạo người khác cùng số điện thoại. Customer cũ sẽ không bị ghi đè."));
-      customerLookupResults.appendChild(createOther);
-    }
-  }
-
-  async function runCustomerLookup(phone, requestId) {
+  async function runCustomerLookup(input, source, query, requestId, controller) {
     try {
-      setCustomerLookupState("loading", "Đang tìm khách hàng theo số điện thoại...");
-      const customers = await window.AMApi.findCustomersByPhone(phone);
+      const customers = await window.AMApi.searchCustomers(query, {
+        mode: source,
+        limit: CUSTOMER_RESULT_LIMIT,
+        signal: controller.signal
+      });
 
-      if (requestId !== customerLookupRequestId) {
+      if (requestId !== customerLookupRequestId || controller.signal.aborted) {
         return;
       }
 
       isCustomerLookupPending = false;
       matchedCustomers = customers;
-      selectedCustomer = null;
+      lastCompletedLookupKey = customerLookupKey(source, query);
+      lastCompletedCustomers = customers.slice();
       resetCustomerHistory();
 
       if (customers.length === 0) {
-        setNewCustomerMode("Khách hàng mới. Khi tạo phiếu sẽ tạo mã KH mới.");
+        renderCustomerSuggestionState(input, "empty", "Không tìm thấy khách hàng phù hợp.");
+
+        if (selectionNeedsVerification) {
+          customerMode = null;
+          setCustomerLookupState(
+            "warning",
+            "Không tìm thấy khách phù hợp với thông tin mới. Hãy xác nhận tạo khách mới nếu muốn tiếp tục."
+          );
+          setCustomerLookupActions({ showCreate: true });
+        } else {
+          customerMode = "new";
+          setCustomerLookupState("new", "Không tìm thấy khách hàng phù hợp. Bạn có thể tiếp tục nhập khách mới.");
+          setCustomerLookupActions({});
+        }
         return;
       }
 
       customerMode = null;
       setCustomerLookupState(
         "found",
-        customers.length === 1
-          ? "Tìm thấy 1 khách hàng. Hãy xác nhận dùng khách này hoặc tạo người khác cùng SĐT."
-          : `Tìm thấy ${customers.length} khách hàng dùng chung SĐT. Hãy chọn đúng khách.`
+        `Tìm thấy ${customers.length} khách hàng phù hợp.`
       );
-      renderCustomerMatches(customers);
+      setCustomerLookupActions({ showCreate: true });
+      renderCustomerSuggestions(input, customers);
     } catch (error) {
-      if (requestId !== customerLookupRequestId) {
+      if (requestId !== customerLookupRequestId || controller.signal.aborted) {
         return;
       }
 
       isCustomerLookupPending = false;
-      selectedCustomer = null;
-      customerMode = null;
+      clearSelectedCustomerState();
+      selectionNeedsVerification = false;
+      customerMode = "new";
       matchedCustomers = [];
-      clearCustomerLookupResults();
-      setCustomerLookupState("error", error.message);
+      lastCompletedLookupKey = "";
+      lastCompletedCustomers = [];
+      setCustomerLookupState("error", "Không thể tải khách hàng. Bạn vẫn có thể nhập thông tin thủ công.");
+      setCustomerLookupActions({});
+      renderCustomerSuggestionState(input, "error", "Không thể tải khách hàng. Vui lòng thử lại.");
     }
   }
 
-  function scheduleCustomerLookup() {
-    const phone = customerPhoneInput.value;
-    const normalizedPhone = window.AMApi.normalizeVNPhone(phone);
-
-    selectedCustomer = null;
-    customerMode = normalizedPhone ? "new" : null;
+  function showCachedCustomerLookup(input, source, query) {
+    const customers = lastCompletedCustomers.slice();
     matchedCustomers = [];
-    clearCustomerLookupResults();
 
-    if (customerLookupTimer) {
-      window.clearTimeout(customerLookupTimer);
-    }
-
-    customerLookupRequestId += 1;
-
-    if (!String(phone || "").trim()) {
-      isCustomerLookupPending = false;
-      setCustomerLookupState("", "Nhập số điện thoại hợp lệ để nhận diện khách hàng.");
+    if (customers.length === 0) {
+      customerMode = selectionNeedsVerification ? null : "new";
+      renderCustomerSuggestionState(input, "empty", "Không tìm thấy khách hàng phù hợp.");
+      setCustomerLookupActions({ showCreate: selectionNeedsVerification });
       return;
     }
 
-    if (!normalizedPhone) {
-      isCustomerLookupPending = false;
-      setCustomerLookupState("warning", "Số điện thoại chưa hợp lệ, chưa tìm khách hàng.");
+    matchedCustomers = customers;
+    customerMode = null;
+    setCustomerLookupState("found", `Tìm thấy ${customers.length} khách hàng phù hợp.`);
+    setCustomerLookupActions({ showCreate: true });
+    renderCustomerSuggestions(input, customers);
+  }
+
+  function scheduleCustomerLookup(event) {
+    const input = event.currentTarget;
+    const source = customerLookupSource(input);
+    const query = customerLookupQuery(input);
+    const lookupKey = customerLookupKey(source, query);
+    const minimumLength = CUSTOMER_SEARCH_MIN_LENGTH[source];
+
+    activeCustomerLookupInput = input;
+    activeCustomerLookupSource = source;
+    invalidateSelectedCustomerIfNeeded();
+    customerLookupRequestId += 1;
+    cancelCustomerLookupRequest();
+    matchedCustomers = [];
+    clearCustomerSuggestionContent();
+    closeCustomerSuggestions();
+
+    if (query.length < minimumLength) {
+      if (!selectionNeedsVerification) {
+        customerMode = "new";
+        setCustomerLookupActions({});
+        setCustomerLookupState("", "Nhập tên hoặc số điện thoại để tìm khách hàng đã có.");
+      }
+      return;
+    }
+
+    if (lookupKey === lastCompletedLookupKey) {
+      showCachedCustomerLookup(input, source, query);
       return;
     }
 
     const requestId = customerLookupRequestId;
+    const controller = new AbortController();
+    customerLookupAbortController = controller;
     isCustomerLookupPending = true;
+    setCustomerLookupState("loading", "Đang tìm khách hàng…");
+    renderCustomerSuggestionState(input, "loading", "Đang tìm khách hàng…");
     customerLookupTimer = window.setTimeout(() => {
-      runCustomerLookup(normalizedPhone, requestId);
+      customerLookupTimer = null;
+      runCustomerLookup(input, source, query, requestId, controller);
     }, CUSTOMER_LOOKUP_DELAY);
+  }
+
+  function handleCustomerLookupFocus(event) {
+    const input = event.currentTarget;
+    const source = customerLookupSource(input);
+    const query = customerLookupQuery(input);
+
+    activeCustomerLookupInput = input;
+    activeCustomerLookupSource = source;
+
+    if (
+      query.length >= CUSTOMER_SEARCH_MIN_LENGTH[source]
+      && customerLookupKey(source, query) === lastCompletedLookupKey
+    ) {
+      showCachedCustomerLookup(input, source, query);
+    }
+  }
+
+  function handleCustomerLookupKeydown(event) {
+    const isOpen = customerLookupResults && !customerLookupResults.hidden;
+    const options = isOpen
+      ? Array.from(customerLookupResults.querySelectorAll('[role="option"]'))
+      : [];
+
+    if (event.key === "Escape" && isOpen) {
+      event.preventDefault();
+      closeCustomerSuggestions({ cancelRequest: true });
+      return;
+    }
+
+    if (event.key === "Tab") {
+      closeCustomerSuggestions({ cancelRequest: true });
+      return;
+    }
+
+    if (!isOpen || options.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      updateActiveCustomerOption(activeCustomerOptionIndex < 0 ? 0 : activeCustomerOptionIndex + 1);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      updateActiveCustomerOption(activeCustomerOptionIndex < 0 ? options.length - 1 : activeCustomerOptionIndex - 1);
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (activeCustomerOptionIndex >= 0) {
+        setExistingCustomer(matchedCustomers[activeCustomerOptionIndex]);
+      }
+    }
+  }
+
+  function handleCustomerLookupDocumentPointer(event) {
+    if (!customerLookupResults || customerLookupResults.hidden) {
+      return;
+    }
+
+    if (!event.target.closest("[data-customer-autocomplete-field]")) {
+      closeCustomerSuggestions({ cancelRequest: true });
+    }
+  }
+
+  function resetCustomerLookup() {
+    customerLookupRequestId += 1;
+    cancelCustomerLookupRequest();
+    activeCustomerLookupInput = null;
+    activeCustomerLookupSource = null;
+    activeCustomerOptionIndex = -1;
+    lastCompletedLookupKey = "";
+    lastCompletedCustomers = [];
+    matchedCustomers = [];
+    selectionNeedsVerification = false;
+    customerMode = "new";
+    clearSelectedCustomerState();
+    clearCustomerSuggestionContent();
+    closeCustomerSuggestions();
+    setCustomerLookupActions({});
+    setCustomerLookupState("", "Nhập tên hoặc số điện thoại để tìm khách hàng đã có.");
   }
 
   function ensureClientRequestId() {
@@ -347,10 +678,23 @@
     }
 
     if (customerMode === "existing" && selectedCustomer) {
+      if (
+        !customerIdInput
+        || customerIdInput.value !== String(selectedCustomer.id || "")
+        || !customerCodeInput
+        || customerCodeInput.value !== String(selectedCustomer.customer_code || "")
+      ) {
+        throw new Error("Thông tin khách hàng đã chọn không còn đồng nhất. Vui lòng chọn lại khách hàng.");
+      }
+
       return {
         customerMode: "existing",
         existingCustomerId: selectedCustomer.id
       };
+    }
+
+    if (selectionNeedsVerification && customerMode !== "new") {
+      throw new Error("Tên hoặc số điện thoại đã thay đổi. Hãy chọn lại khách phù hợp hoặc xác nhận tạo khách mới.");
     }
 
     if (matchedCustomers.length > 0 && customerMode !== "new") {
@@ -360,6 +704,38 @@
     return {
       customerMode: "new",
       existingCustomerId: null
+    };
+  }
+
+  function setExistingCustomerFromCreatedTicket(created) {
+    if (!created || !created.customer_id) {
+      throw new Error("Phiếu đã tạo không trả về customer_id để tiếp tục đợt.");
+    }
+
+    selectedCustomer = {
+      id: created.customer_id,
+      customer_code: created.customer_code || "",
+      name: created.customer_name || customerNameInput.value.trim(),
+      phone: created.customer_phone || customerPhoneInput.value.trim(),
+      address: customerAddressInput.value.trim()
+    };
+    customerMode = "existing";
+    selectionNeedsVerification = false;
+    matchedCustomers = [selectedCustomer];
+    customerIdInput.value = selectedCustomer.id;
+    customerCodeInput.value = selectedCustomer.customer_code;
+    setCustomerLookupState(
+      "success",
+      `Đã khóa ${window.AMApi.formatCustomerCode(selectedCustomer.customer_code)} cho toàn bộ đợt tạo phiếu.`
+    );
+    setCustomerLookupActions({ showHistory: true });
+  }
+
+  function getSharedCustomerData() {
+    return {
+      customer_name: customerNameInput.value.trim(),
+      customer_phone: customerPhoneInput.value.trim(),
+      customer_address: customerAddressInput.value.trim()
     };
   }
 
@@ -472,12 +848,7 @@
     });
     currentClientRequestId = null;
     isSubmitting = false;
-    selectedCustomer = null;
-    matchedCustomers = [];
-    customerMode = "new";
-    isCustomerLookupPending = false;
-    clearCustomerLookupResults();
-    setCustomerLookupState("", "Nhập số điện thoại hợp lệ để nhận diện khách hàng.");
+    resetCustomerLookup();
     setDefaultDate();
     if (deviceAssist) {
       deviceAssist.reset();
@@ -485,6 +856,14 @@
     conditionAssists.forEach((assist) => assist.reset());
     createdActions.classList.add("hidden");
     clearNotice();
+  }
+
+  function resetDeviceAssists() {
+    if (deviceAssist) {
+      deviceAssist.reset();
+    }
+
+    conditionAssists.forEach((assist) => assist.reset());
   }
 
   async function initNewTicket() {
@@ -529,12 +908,7 @@
       form.addEventListener("submit", handleSubmit);
       form.addEventListener("reset", function () {
         currentClientRequestId = null;
-        selectedCustomer = null;
-        matchedCustomers = [];
-        customerMode = "new";
-        isCustomerLookupPending = false;
-        clearCustomerLookupResults();
-        setCustomerLookupState("", "Nhập số điện thoại hợp lệ để nhận diện khách hàng.");
+        resetCustomerLookup();
         setTimeout(() => {
           setDefaultDate();
           if (deviceAssist) {
@@ -543,12 +917,42 @@
           conditionAssists.forEach((assist) => assist.reset());
         }, 0);
       });
-      customerPhoneInput.addEventListener("input", scheduleCustomerLookup);
+
+      if (form.dataset.customerAutocompleteAttached !== "true") {
+        form.dataset.customerAutocompleteAttached = "true";
+        customerLookupInputs().forEach((input) => {
+          input.addEventListener("input", scheduleCustomerLookup);
+          input.addEventListener("focus", handleCustomerLookupFocus);
+          input.addEventListener("keydown", handleCustomerLookupKeydown);
+        });
+        customerCreateNewButton.addEventListener("click", () => {
+          setNewCustomerMode("Đã xác nhận dùng thông tin hiện tại để tạo khách hàng mới.");
+        });
+        customerHistoryButton.addEventListener("click", () => {
+          if (selectedCustomer) {
+            showCustomerHistory(selectedCustomer);
+          }
+        });
+        document.addEventListener("pointerdown", handleCustomerLookupDocumentPointer);
+        window.addEventListener("pagehide", cancelCustomerLookupRequest, { once: true });
+      }
+
       newTicketButton.addEventListener("click", resetForNewTicket);
     } catch (error) {
       showNotice("error", error.message);
     }
   }
+
+  window.AMNewTicket = Object.freeze({
+    clearNotice,
+    getCustomerSubmitOptions,
+    getSharedCustomerData,
+    resetCustomerLookup,
+    resetDeviceAssists,
+    resetForNewTicket,
+    setExistingCustomerFromCreatedTicket,
+    showNotice
+  });
 
   document.addEventListener("DOMContentLoaded", initNewTicket);
 })();

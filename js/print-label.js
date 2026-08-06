@@ -665,6 +665,80 @@
     fitLabelContent();
   }
 
+  function postEmbedMessage(message) {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(message, window.location.origin);
+    }
+  }
+
+  async function renderEmbeddedLabelRequest(event) {
+    if (
+      event.source !== window.parent
+      || event.origin !== window.location.origin
+      || !event.data
+      || event.data.type !== "am-label-embed-render"
+    ) {
+      return;
+    }
+
+    const token = String(event.data.token || "");
+    const ticket = event.data.ticket;
+    let requestId = null;
+    let workflowApplied = false;
+
+    try {
+      if (!token || !ticket || !ticket.id) {
+        throw new Error("Thiếu dữ liệu phiếu để dựng tem.");
+      }
+
+      currentTicket = Object.assign({}, ticket);
+
+      if (event.data.runWorkflow === true) {
+        const action = resolveWorkflowAction(currentTicket);
+        if (!action) {
+          throw new Error(`Phiếu ${window.AMApi.formatTicketCode(currentTicket.ticket_code)} không ở trạng thái có thể in tem.`);
+        }
+
+        requestId = window.AMApi.ensureWorkflowClientRequestId(currentTicket.id, action);
+        const result = await window.AMApi.recordTicketWorkflowAction(currentTicket.id, action, requestId);
+        window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
+        currentTicket = Object.assign({}, currentTicket, {
+          status: result.status,
+          repair_started_at: result.repair_started_at,
+          completed_at: result.completed_at,
+          last_activity_at: result.activity_created_at,
+          workflow_available: true
+        });
+        workflowApplied = true;
+      }
+
+      renderLabel(currentTicket);
+      await prepareLabelForPrint();
+      postEmbedMessage({
+        type: "am-label-embed-rendered",
+        token,
+        ticketId: currentTicket.id,
+        workflowApplied
+      });
+    } catch (error) {
+      if (
+        requestId
+        && currentTicket
+        && window.AMApi.shouldClearWorkflowClientRequestId(error)
+      ) {
+        const action = resolveWorkflowAction(currentTicket);
+        if (action) {
+          window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
+        }
+      }
+      postEmbedMessage({
+        type: "am-label-embed-error",
+        token,
+        message: error.message || "Không dựng được tem."
+      });
+    }
+  }
+
   function renderLabel(ticket) {
     const displayBrand = normalizeLabelBrand(ticket.brand);
     const displayCustomerName = normalizeLabelCustomerName(ticket);
@@ -1036,7 +1110,12 @@
   async function initPrintLabel() {
     attachLogout();
     attachPaperControls();
-    printButton.addEventListener("click", runWorkflowAndPrint);
+    const params = new URLSearchParams(window.location.search);
+    const embedMode = params.get("embed") === "1";
+
+    if (!embedMode) {
+      printButton.addEventListener("click", runWorkflowAndPrint);
+    }
     if (assignEmployeeButton) {
       assignEmployeeButton.addEventListener("click", () => {
         openEmployeeAssignment().catch((error) => {
@@ -1051,7 +1130,12 @@
         return;
       }
 
-      const params = new URLSearchParams(window.location.search);
+      if (embedMode) {
+        window.addEventListener("message", renderEmbeddedLabelRequest);
+        postEmbedMessage({ type: "am-label-embed-ready" });
+        return;
+      }
+
       const ticket = await window.AMApi.getTicketForLabel({
         code: params.get("code"),
         id: params.get("id")
@@ -1069,6 +1153,9 @@
       renderWorkflowControls(ticket);
       clearNotice();
       await loadAssignmentContext();
+      if (params.get("autoprint") === "1") {
+        await runWorkflowAndPrint();
+      }
     } catch (error) {
       showNotice("error", error.message);
       printButton.disabled = true;

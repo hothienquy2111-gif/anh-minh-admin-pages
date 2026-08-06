@@ -40,117 +40,250 @@
           </div>
         </div>
 
+        <fieldset id="ticketCreateMode" class="ticket-create-mode" aria-label="Chế độ tạo phiếu">
+          <legend>Chọn cách tạo phiếu</legend>
+          <label class="ticket-create-mode__option ticket-create-mode__option--single">
+            <input id="ticketCreateModeSingle" type="radio" name="ticket_create_mode" value="single" checked aria-describedby="ticketCreateModeSingleDescription">
+            <span class="ticket-create-mode__icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32" focusable="false">
+                <rect x="4" y="7" width="24" height="16" rx="2"></rect>
+                <path d="M12 27h8M16 23v4"></path>
+              </svg>
+            </span>
+            <span class="ticket-create-mode__copy">
+              <span class="ticket-create-mode__badge">1 TIVI • 1 TEM</span>
+              <strong>Tạo 1 phiếu</strong>
+              <small id="ticketCreateModeSingleDescription">Nhập một tivi và in một tem ngay.</small>
+            </span>
+            <span class="ticket-create-mode__check" aria-hidden="true">
+              <svg viewBox="0 0 16 16" focusable="false">
+                <path d="m3.25 8.25 3.1 3.1 6.4-6.7"></path>
+              </svg>
+            </span>
+          </label>
+          <label class="ticket-create-mode__option ticket-create-mode__option--batch">
+            <input id="ticketCreateModeBatch" type="radio" name="ticket_create_mode" value="batch" aria-describedby="ticketCreateModeBatchDescription">
+            <span class="ticket-create-mode__icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32" focusable="false">
+                <rect x="8" y="4" width="17" height="20" rx="2"></rect>
+                <path d="M8 9H6a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-2M12 10h9M12 15h9M12 20h6"></path>
+              </svg>
+            </span>
+            <span class="ticket-create-mode__copy">
+              <span class="ticket-create-mode__badge">NHIỀU TIVI • NHIỀU TEM</span>
+              <strong>Tạo nhiều phiếu</strong>
+              <small id="ticketCreateModeBatchDescription">Dùng chung khách hàng, tạo nhiều phiếu và in tem một lượt.</small>
+            </span>
+            <span class="ticket-create-mode__check" aria-hidden="true">
+              <svg viewBox="0 0 16 16" focusable="false">
+                <path d="m3.25 8.25 3.1 3.1 6.4-6.7"></path>
+              </svg>
+            </span>
+          </label>
+        </fieldset>
+
         <div id="ticketNotice" class="notice"></div>
 
         <form id="ticketForm" class="form-panel" data-back-dirty-check>
           <section class="form-section">
-            <h2 class="section-title">Thông tin khách hàng</h2>
+            <div class="section-heading-row">
+              <h2 class="section-title">Thông tin khách hàng</h2>
+              <p id="sharedCustomerHint" class="form-hint ticket-shared-customer-hint" hidden>
+                Thông tin khách hàng này được dùng chung cho tất cả tivi bên dưới.
+              </p>
+            </div>
             <div class="field-grid">
-              <div class="field">
+              <div class="field customer-autocomplete-field" data-customer-autocomplete-field>
                 <label for="customer_name">Tên khách</label>
-                <input id="customer_name" name="customer_name" type="text" autocomplete="name" placeholder="Ví dụ: Nguyễn Văn A">
+                <input
+                  id="customer_name"
+                  name="customer_name"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="customerLookupResults"
+                >
+                <div
+                  id="customerLookupResults"
+                  class="customer-lookup-results"
+                  role="listbox"
+                  aria-label="Khách hàng phù hợp"
+                  hidden
+                ></div>
               </div>
-              <div class="field">
+              <div class="field customer-autocomplete-field" data-customer-autocomplete-field>
                 <label for="customer_phone">Số điện thoại</label>
-                <input id="customer_phone" name="customer_phone" type="tel" autocomplete="tel" placeholder="Số khách liên hệ">
+                <input
+                  id="customer_phone"
+                  name="customer_phone"
+                  type="tel"
+                  autocomplete="off"
+                  placeholder="Số khách liên hệ"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="customerLookupResults"
+                >
               </div>
               <div class="field">
                 <label for="customer_address">Địa chỉ</label>
                 <input id="customer_address" name="customer_address" type="text" autocomplete="street-address" placeholder="Địa chỉ nhận/trả thiết bị">
               </div>
             </div>
+            <input id="customer_id" name="customer_id" type="hidden">
+            <input id="customer_code" name="customer_code" type="hidden">
             <div id="customerLookupPanel" class="customer-lookup-panel" aria-live="polite">
               <div id="customerLookupState" class="customer-lookup-state">
-                Nhập số điện thoại hợp lệ để nhận diện khách hàng.
+                Nhập tên hoặc số điện thoại để tìm khách hàng đã có.
               </div>
-              <div id="customerLookupResults" class="customer-lookup-results"></div>
+              <div id="customerLookupActions" class="customer-lookup-actions hidden">
+                <button id="customerCreateNewButton" class="btn secondary compact" type="button">
+                  Tạo khách mới với thông tin này
+                </button>
+                <button id="customerHistoryButton" class="btn secondary compact" type="button">
+                  Xem lịch sử phiếu
+                </button>
+              </div>
               <div id="customerHistoryPanel" class="customer-history-panel hidden"></div>
             </div>
           </section>
 
-          <section class="form-section">
-            <h2 class="section-title">Thông tin thiết bị</h2>
-            <div class="field-grid">
-              <div class="field">
-                <label for="device_type">Loại thiết bị</label>
-                <input id="device_type" name="device_type" type="text" value="Tivi">
-              </div>
-              <div class="field">
-                <label for="brand">Hãng</label>
-                <input id="brand" name="brand" type="text" list="tv-brand-options" autocomplete="off" placeholder="Samsung, LG, Sony...">
-              </div>
-              <div class="field">
-                <label for="model">Model</label>
-                <input id="model" name="model" type="text" autocomplete="off" placeholder="Ví dụ: UA55...">
-              </div>
-              <div class="field">
-                <label for="size">Kích thước</label>
-                <input id="size" name="size" type="text" autocomplete="off" placeholder="Ví dụ: 55 inch">
-                <p id="sizeAssistHint" class="form-hint tv-size-hint" hidden></p>
-              </div>
-              <div class="field">
-                <label for="serial_number">Serial</label>
-                <input id="serial_number" name="serial_number" type="text" placeholder="Số serial nếu có">
+          <section id="deviceListSection" class="ticket-device-list-section" aria-labelledby="deviceListTitle">
+            <div id="deviceListHeading" class="ticket-device-list-heading" hidden>
+              <div>
+                <h2 id="deviceListTitle" class="section-title">Danh sách tivi</h2>
+                <p>Mỗi tivi sẽ được tạo thành một phiếu và một tem riêng.</p>
               </div>
             </div>
-            <datalist id="tv-brand-options"></datalist>
+
+            <article id="primaryDeviceCard" class="ticket-device-card is-primary" data-device-card data-device-index="0">
+              <header class="ticket-device-card__header" data-device-card-header hidden>
+                <div class="ticket-device-card__identity">
+                  <span class="ticket-device-card__number" data-device-number>Tivi 01</span>
+                  <strong data-device-summary>Chưa nhập thông tin thiết bị</strong>
+                  <small data-device-condition-summary>Thêm hãng, model và tình trạng để dễ nhận diện.</small>
+                </div>
+                <div class="ticket-device-card__status">
+                  <span class="ticket-device-status" data-device-status>Cần bổ sung</span>
+                  <span class="ticket-device-code" data-device-code hidden></span>
+                </div>
+                <div class="ticket-device-card__actions">
+                  <button class="btn secondary compact" type="button" data-device-action="toggle" aria-expanded="true">
+                    Thu gọn
+                  </button>
+                  <button class="btn secondary compact" type="button" data-device-action="duplicate">
+                    Nhân bản
+                  </button>
+                  <button class="btn danger compact" type="button" data-device-action="remove">
+                    Xóa
+                  </button>
+                </div>
+              </header>
+
+              <div class="ticket-device-card__body" data-device-card-body>
+                <section class="form-section">
+                  <h2 class="section-title">Thông tin thiết bị</h2>
+                  <div class="field-grid">
+                    <div class="field">
+                      <label for="device_type">Loại thiết bị</label>
+                      <input id="device_type" name="device_type" type="text" value="Tivi" data-ticket-field="device_type">
+                    </div>
+                    <div class="field">
+                      <label for="brand">Hãng</label>
+                      <input id="brand" name="brand" type="text" list="tv-brand-options" autocomplete="off" placeholder="Samsung, LG, Sony..." data-ticket-field="brand">
+                    </div>
+                    <div class="field">
+                      <label for="model">Model</label>
+                      <input id="model" name="model" type="text" autocomplete="off" placeholder="Ví dụ: UA55..." data-ticket-field="model">
+                    </div>
+                    <div class="field">
+                      <label for="size">Kích thước</label>
+                      <input id="size" name="size" type="text" autocomplete="off" placeholder="Ví dụ: 55 inch" data-ticket-field="size">
+                      <p id="sizeAssistHint" class="form-hint tv-size-hint" hidden></p>
+                    </div>
+                    <div class="field">
+                      <label for="serial_number">Serial</label>
+                      <input id="serial_number" name="serial_number" type="text" placeholder="Số serial nếu có" data-ticket-field="serial_number">
+                    </div>
+                  </div>
+                  <datalist id="tv-brand-options"></datalist>
+                </section>
+
+                <section class="form-section">
+                  <h2 class="section-title">Lỗi khách báo / tình trạng nhận máy</h2>
+                  <div class="field-grid">
+                    <div class="field full">
+                      <label for="condition_text">Tình trạng máy</label>
+                      <textarea id="condition_text" name="condition_text" placeholder="Ghi lỗi khách báo, hiện tượng, tình trạng khi nhận" data-ticket-field="condition_text"></textarea>
+                      <div id="machineConditionPicker" class="condition-picker" data-condition-picker="machine"></div>
+                    </div>
+                    <div class="field full">
+                      <label for="external_condition">Tình trạng ngoại quan</label>
+                      <textarea id="external_condition" name="external_condition" placeholder="Trầy xước, vỡ màn, mất chân đế, phụ kiện đi kèm..." data-ticket-field="external_condition"></textarea>
+                      <div id="appearanceConditionPicker" class="condition-picker" data-condition-picker="appearance"></div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="form-section">
+                  <h2 class="section-title">Báo giá / cọc / trạng thái</h2>
+                  <div class="field-grid">
+                    <div class="field">
+                      <label for="received_date">Ngày nhận</label>
+                      <input id="received_date" name="received_date" type="date" required data-ticket-field="received_date">
+                    </div>
+                    <div class="field">
+                      <label for="status">Trạng thái</label>
+                      <select id="status" name="status" data-ticket-field="status"></select>
+                    </div>
+                    <div class="field">
+                      <label for="deposit_amount">Tiền cọc</label>
+                      <input id="deposit_amount" name="deposit_amount" type="text" inputmode="numeric" autocomplete="off" data-money-input data-ticket-field="deposit_amount" placeholder="0">
+                    </div>
+                    <div class="field">
+                      <label for="estimated_price">Giá dự kiến</label>
+                      <input id="estimated_price" name="estimated_price" type="text" inputmode="numeric" autocomplete="off" data-money-input data-ticket-field="estimated_price" placeholder="Ví dụ: 1.800.000">
+                    </div>
+                    <div class="field">
+                      <label for="final_price">Giá cuối cùng</label>
+                      <input id="final_price" name="final_price" type="text" inputmode="numeric" autocomplete="off" data-money-input data-ticket-field="final_price" placeholder="Ví dụ: 1.800.000">
+                    </div>
+                  </div>
+                </section>
+
+                <section class="form-section">
+                  <h2 class="section-title">Ghi chú nội bộ</h2>
+                  <div class="field-grid">
+                    <div class="field full">
+                      <label for="internal_note">Ghi chú nội bộ</label>
+                      <textarea id="internal_note" name="internal_note" placeholder="Ghi chú cho kỹ thuật/kế toán, không in lên tem" data-ticket-field="internal_note"></textarea>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </article>
+
+            <div id="additionalDeviceCards" class="ticket-device-cards"></div>
+            <button id="addDeviceButton" class="btn secondary ticket-add-device" type="button" hidden>
+              + Thêm một tivi
+            </button>
           </section>
 
-          <section class="form-section">
-            <h2 class="section-title">Lỗi khách báo / tình trạng nhận máy</h2>
-            <div class="field-grid">
-              <div class="field full">
-                <label for="condition_text">Tình trạng máy</label>
-                <textarea id="condition_text" name="condition_text" placeholder="Ghi lỗi khách báo, hiện tượng, tình trạng khi nhận"></textarea>
-                <div id="machineConditionPicker" class="condition-picker" data-condition-picker="machine"></div>
-              </div>
-              <div class="field full">
-                <label for="external_condition">Tình trạng ngoại quan</label>
-                <textarea id="external_condition" name="external_condition" placeholder="Trầy xước, vỡ màn, mất chân đế, phụ kiện đi kèm..."></textarea>
-                <div id="appearanceConditionPicker" class="condition-picker" data-condition-picker="appearance"></div>
-              </div>
-            </div>
-          </section>
-
-          <section class="form-section">
-            <h2 class="section-title">Báo giá / cọc / trạng thái</h2>
-            <div class="field-grid">
-              <div class="field">
-                <label for="received_date">Ngày nhận</label>
-                <input id="received_date" name="received_date" type="date" required>
-              </div>
-              <div class="field">
-                <label for="status">Trạng thái</label>
-                <select id="status" name="status"></select>
-              </div>
-              <div class="field">
-                <label for="deposit_amount">Tiền cọc</label>
-                <input id="deposit_amount" name="deposit_amount" type="text" inputmode="numeric" autocomplete="off" data-money-input placeholder="0">
-              </div>
-              <div class="field">
-                <label for="estimated_price">Giá dự kiến</label>
-                <input id="estimated_price" name="estimated_price" type="text" inputmode="numeric" autocomplete="off" data-money-input placeholder="Ví dụ: 1.800.000">
-              </div>
-              <div class="field">
-                <label for="final_price">Giá cuối cùng</label>
-                <input id="final_price" name="final_price" type="text" inputmode="numeric" autocomplete="off" data-money-input placeholder="Ví dụ: 1.800.000">
-              </div>
-            </div>
-          </section>
-
-          <section class="form-section">
-            <h2 class="section-title">Ghi chú nội bộ</h2>
-            <div class="field-grid">
-              <div class="field full">
-                <label for="internal_note">Ghi chú nội bộ</label>
-                <textarea id="internal_note" name="internal_note" placeholder="Ghi chú cho kỹ thuật/kế toán, không in lên tem"></textarea>
-              </div>
-            </div>
-          </section>
-
-          <div class="actions">
-            <button id="createTicketButton" class="btn primary" type="submit">Tạo phiếu</button>
+          <div id="singleCreateActions" class="actions">
+            <button id="createTicketButton" class="btn primary" type="submit">Tạo phiếu &amp; in tem</button>
             <button class="btn secondary" type="reset">Xoá form</button>
+          </div>
+
+          <div id="batchActionBar" class="ticket-batch-action-bar" hidden>
+            <p id="batchActionSummary" aria-live="polite">1 tivi • 1 đã đủ thông tin</p>
+            <div class="ticket-batch-action-bar__buttons">
+              <button id="cancelBatchButton" class="btn secondary" type="button">Hủy</button>
+              <button id="validateBatchButton" class="btn secondary" type="button">Kiểm tra lại</button>
+              <button id="createBatchButton" class="btn primary" type="button">Tạo 1 phiếu &amp; in 1 tem</button>
+            </div>
           </div>
         </form>
 
@@ -160,8 +293,82 @@
           <button id="newTicketButton" class="btn secondary" type="button">Tạo phiếu mới</button>
           <a id="viewCreatedLink" class="btn secondary" href="#">Xem chi tiết</a>
         </div>
+
+        <section id="batchResult" class="ticket-batch-result" aria-live="polite" hidden>
+          <div>
+            <h2 id="batchResultTitle">Đã tạo các phiếu.</h2>
+            <ul id="batchResultList"></ul>
+          </div>
+          <div class="ticket-batch-result__actions">
+            <button id="reprintBatchButton" class="btn primary" type="button">In lại toàn bộ tem</button>
+            <a class="btn secondary" href="search.html">Xem Danh sách phiếu</a>
+            <button id="newBatchButton" class="btn secondary" type="button">Tạo đợt mới</button>
+            <button id="addForSameCustomerButton" class="btn secondary" type="button">
+              Tạo thêm tivi cho cùng khách
+            </button>
+          </div>
+        </section>
       </main>
     </div>
+
+    <template id="deviceCardTemplate">
+      <article class="ticket-device-card" data-device-card>
+        <header class="ticket-device-card__header" data-device-card-header>
+          <div class="ticket-device-card__identity">
+            <span class="ticket-device-card__number" data-device-number>Tivi</span>
+            <strong data-device-summary>Chưa nhập thông tin thiết bị</strong>
+            <small data-device-condition-summary>Thêm hãng, model và tình trạng để dễ nhận diện.</small>
+          </div>
+          <div class="ticket-device-card__status">
+            <span class="ticket-device-status" data-device-status>Cần bổ sung</span>
+            <span class="ticket-device-code" data-device-code hidden></span>
+          </div>
+          <div class="ticket-device-card__actions">
+            <button class="btn secondary compact" type="button" data-device-action="toggle" aria-expanded="true">Thu gọn</button>
+            <button class="btn secondary compact" type="button" data-device-action="duplicate">Nhân bản</button>
+            <button class="btn danger compact" type="button" data-device-action="remove">Xóa</button>
+          </div>
+        </header>
+        <div class="ticket-device-card__body" data-device-card-body>
+          <section class="form-section">
+            <h2 class="section-title">Thông tin thiết bị</h2>
+            <div class="field-grid">
+              <div class="field"><label data-field-label="device_type">Loại thiết bị</label><input type="text" value="Tivi" data-ticket-field="device_type"></div>
+              <div class="field"><label data-field-label="brand">Hãng</label><input type="text" list="tv-brand-options" autocomplete="off" placeholder="Samsung, LG, Sony..." data-ticket-field="brand"></div>
+              <div class="field"><label data-field-label="model">Model</label><input type="text" autocomplete="off" placeholder="Ví dụ: UA55..." data-ticket-field="model"></div>
+              <div class="field"><label data-field-label="size">Kích thước</label><input type="text" autocomplete="off" placeholder="Ví dụ: 55 inch" data-ticket-field="size"><p class="form-hint tv-size-hint" data-size-assist-hint hidden></p></div>
+              <div class="field"><label data-field-label="serial_number">Serial</label><input type="text" placeholder="Số serial nếu có" data-ticket-field="serial_number"></div>
+            </div>
+          </section>
+          <section class="form-section">
+            <h2 class="section-title">Lỗi khách báo / tình trạng nhận máy</h2>
+            <div class="field-grid">
+              <div class="field full"><label data-field-label="condition_text">Tình trạng máy</label><textarea placeholder="Ghi lỗi khách báo, hiện tượng, tình trạng khi nhận" data-ticket-field="condition_text"></textarea><div class="condition-picker" data-condition-picker="machine"></div></div>
+              <div class="field full"><label data-field-label="external_condition">Tình trạng ngoại quan</label><textarea placeholder="Trầy xước, vỡ màn, mất chân đế, phụ kiện đi kèm..." data-ticket-field="external_condition"></textarea><div class="condition-picker" data-condition-picker="appearance"></div></div>
+            </div>
+          </section>
+          <section class="form-section">
+            <h2 class="section-title">Báo giá / cọc / trạng thái</h2>
+            <div class="field-grid">
+              <div class="field"><label data-field-label="received_date">Ngày nhận</label><input type="date" required data-ticket-field="received_date"></div>
+              <div class="field"><label data-field-label="status">Trạng thái</label><select data-ticket-field="status"></select></div>
+              <div class="field"><label data-field-label="deposit_amount">Tiền cọc</label><input type="text" inputmode="numeric" autocomplete="off" data-money-input data-ticket-field="deposit_amount" placeholder="0"></div>
+              <div class="field"><label data-field-label="estimated_price">Giá dự kiến</label><input type="text" inputmode="numeric" autocomplete="off" data-money-input data-ticket-field="estimated_price" placeholder="Ví dụ: 1.800.000"></div>
+              <div class="field"><label data-field-label="final_price">Giá cuối cùng</label><input type="text" inputmode="numeric" autocomplete="off" data-money-input data-ticket-field="final_price" placeholder="Ví dụ: 1.800.000"></div>
+            </div>
+          </section>
+          <section class="form-section">
+            <h2 class="section-title">Ghi chú nội bộ</h2>
+            <div class="field-grid">
+              <div class="field full"><label data-field-label="internal_note">Ghi chú nội bộ</label><textarea placeholder="Ghi chú cho kỹ thuật/kế toán, không in lên tem" data-ticket-field="internal_note"></textarea></div>
+            </div>
+          </section>
+        </div>
+      </article>
+    </template>
+
+    <div id="batchLabelRendererHost" class="ticket-batch-renderer-host" hidden></div>
+    <div id="batchPrintSurface" class="ticket-batch-print-surface" aria-hidden="true"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
@@ -169,6 +376,7 @@
     <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
     <script src="js/tv-condition-options.js?v=20260728-admin-redesign"></script>
     <script src="js/new-ticket.js?v=20260728-admin-redesign"></script>
+    <script src="js/new-ticket-batch.js?v=20260728-admin-redesign"></script>
     <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>
