@@ -46,11 +46,15 @@
   let currentYear = "";
   let totalCount = 0;
   let totalPages = 1;
+  let presentationRowCount = 0;
+  let latestPresentationRows = [];
+  const expandedBatchIds = new Set();
   let isExporting = false;
   let editDeviceAssist = null;
   let editConditionAssists = [];
   let editModalOpener = null;
   let editModalCloseTimer = null;
+  let bulkController = null;
 
   const PAGE_SIZE = 10;
   const EXPORT_BATCH_SIZE = 500;
@@ -58,6 +62,7 @@
   const MAX_SUGGESTIONS = 5;
   const DIRECT_EDIT_STATUSES = ["mới nhận", "đang kiểm tra", "báo giá"];
   const DIRECT_CANCEL_STATUS = "huỷ";
+  const BULK_CAPABILITIES = Object.freeze({ completeRepair: true, returnFromRepair: true });
 
   const EDIT_FIELDS = [
     "customer_name",
@@ -543,7 +548,7 @@
 
     if (index >= 0) {
       latestResults[index] = ticket;
-      renderResults(latestResults);
+      renderResults(latestPresentationRows);
     }
 
     if (editForm.elements.id.value === ticket.id) {
@@ -647,15 +652,91 @@
     }
   }
 
-  function createTicketFact(label, value, className) {
-    const item = document.createElement("div");
-    item.className = `search-ticket-fact ${className || ""}`.trim();
-    const labelElement = document.createElement("span");
-    const valueElement = document.createElement("strong");
-    labelElement.textContent = label;
-    valueElement.textContent = valueOrBlank(value);
-    item.append(labelElement, valueElement);
-    return item;
+  function cleanPresentationText(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
+  function createSearchTableCell(className, label) {
+    const cell = document.createElement("div");
+    cell.className = `search-ticket-cell ${className || ""}`.trim();
+    cell.dataset.label = label;
+    cell.setAttribute("role", "cell");
+    return cell;
+  }
+
+  function appendPrimarySecondary(cell, primaryValue, secondaryValue) {
+    const primary = document.createElement("strong");
+    primary.textContent = valueOrBlank(primaryValue);
+    cell.appendChild(primary);
+
+    const secondaryText = cleanPresentationText(secondaryValue);
+    if (secondaryText) {
+      const secondary = document.createElement("small");
+      secondary.textContent = secondaryText;
+      cell.appendChild(secondary);
+    }
+  }
+
+  function ticketAddress(ticket) {
+    return cleanPresentationText(ticket && (ticket.customer_address || ticket.customer_master_address));
+  }
+
+  function ticketModelSummary(ticket) {
+    const model = cleanPresentationText(ticket && ticket.model);
+    const size = cleanPresentationText(ticket && ticket.size);
+    const brand = cleanPresentationText(ticket && ticket.brand);
+    const values = [];
+
+    [model, size].forEach((value) => {
+      if (value && !values.includes(value)) {
+        values.push(value);
+      }
+    });
+
+    return values.join(" · ") || brand || "—";
+  }
+
+  function batchModelSummary(tickets) {
+    const values = (tickets || []).map((ticket) => (
+      cleanPresentationText(ticket && ticket.size)
+      || cleanPresentationText(ticket && ticket.model)
+    )).filter(Boolean);
+
+    if (!values.length) {
+      return "—";
+    }
+
+    if (values.length <= 3) {
+      return values.join(" · ");
+    }
+
+    return `${values.slice(0, 2).join(" · ")} · +${values.length - 2}`;
+  }
+
+  function createSearchTableHeader() {
+    const header = document.createElement("div");
+    const labels = [
+      ["STT", "search-ticket-index"],
+      ["Thời gian nhận", "search-ticket-time"],
+      ["Mã phiếu", "search-ticket-code"],
+      ["Mã khách", "search-ticket-customer-code"],
+      ["Họ và tên", "search-ticket-name"],
+      ["Số điện thoại", "search-ticket-phone"],
+      ["Model", "search-ticket-model"],
+      ["Trạng thái", "search-ticket-status"],
+      ["Hành động", "search-ticket-actions"]
+    ];
+
+    header.className = "search-ticket-table-head";
+    header.setAttribute("role", "row");
+    labels.forEach(([label, className]) => {
+      const cell = document.createElement("span");
+      cell.className = `search-ticket-column-head ${className}`;
+      cell.setAttribute("role", "columnheader");
+      cell.textContent = label;
+      header.appendChild(cell);
+    });
+    return header;
   }
 
   function setResultsState(type, message) {
@@ -674,79 +755,300 @@
     }
   }
 
-  function renderResults(tickets) {
-    resultsList.replaceChildren();
+  function buildTicketPresentationRows(tickets) {
+    return window.AMMultiTicketPresentation.buildTicketPresentationRows(tickets);
+  }
 
-    tickets.forEach((ticket) => {
-      const row = document.createElement("article");
-      row.className = "search-ticket-row";
-
-      const identity = document.createElement("div");
-      identity.className = "search-ticket-identity";
-      const heading = document.createElement("div");
-      heading.className = "search-ticket-heading";
-      const code = document.createElement("strong");
-      code.className = "ticket-code";
-      code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
-      const status = document.createElement("span");
-      status.className = `status-pill ${statusClass(ticket.status)}`.trim();
-      status.textContent = statusLabel(ticket.status);
-      heading.append(code, status);
-
-      const customer = document.createElement("p");
-      customer.className = "search-ticket-customer";
-      customer.textContent = `${window.AMApi.formatCustomerCode(ticket.customer_code)} · ${ticket.customer_name || "—"} · ${ticket.customer_phone || "—"}`;
-
-      const device = document.createElement("p");
-      device.className = "search-ticket-device";
-      device.textContent = [ticket.device_type, ticket.brand, ticket.model, ticket.size]
-        .filter((value) => value !== null && value !== undefined && String(value).trim())
-        .join(" · ") || "Chưa có thông tin thiết bị";
-      identity.append(heading, customer, device);
-
-      const facts = document.createElement("div");
-      facts.className = "search-ticket-facts";
-      facts.append(
-        createTicketFact("Ngày nhận", formatDate(ticket.received_date)),
-        createTicketFact("Ngày giao/trả", formatDate(ticket.delivery_date)),
-        createTicketFact("Serial", ticket.serial_number)
-      );
-
-      const condition = document.createElement("div");
-      condition.className = "search-ticket-condition";
-      const conditionLabel = document.createElement("span");
-      const conditionText = document.createElement("p");
-      conditionLabel.textContent = "Tình trạng máy";
-      conditionText.textContent = valueOrBlank(ticket.condition_text);
-      conditionText.title = ticket.condition_text || "";
-      condition.append(conditionLabel, conditionText);
-
-      const actions = document.createElement("div");
-      actions.className = "search-ticket-actions";
-      const editButton = document.createElement("button");
-      editButton.className = "btn primary";
-      editButton.type = "button";
-      editButton.textContent = "Xem / sửa phiếu";
-      editButton.dataset.editId = ticket.id;
-      actions.append(editButton);
-      appendWorkflowActions(actions, ticket);
-
-      if (ticket.customer_id) {
-        const historyButton = document.createElement("button");
-        historyButton.className = "btn secondary";
-        historyButton.type = "button";
-        historyButton.textContent = "Lịch sử KH";
-        historyButton.dataset.historyCustomerId = ticket.customer_id;
-        actions.appendChild(historyButton);
-      }
-
-      row.append(identity, facts, condition, actions);
-      const timeline = createTicketTimeline(ticket);
-      if (timeline) {
-        row.appendChild(timeline);
-      }
-      resultsList.appendChild(row);
+  function createBulkTicketControl(ticket) {
+    const snapshot = window.AMTicketBulkOperations.buildSelectionTicket(ticket, {
+      capabilities: BULK_CAPABILITIES,
+      sourcePage: "search"
     });
+    return window.AMTicketBulkSelection.createSelectionControl({
+      id: ticket.id,
+      ariaLabel: `Chọn phiếu ${window.AMApi.formatTicketCode(ticket.ticket_code)}`,
+      disabled: !snapshot.selectable,
+      disabledReason: snapshot.disabledReason
+    });
+  }
+
+  function createBulkGroupControl(presentationRow) {
+    return window.AMTicketBulkSelection.createSelectionControl({
+      kind: "group",
+      id: presentationRow.batchId,
+      ariaLabel: `Chọn các phiếu khả dụng trong nhóm ${presentationRow.totalTicketCount} tivi`
+    });
+  }
+
+  function syncBulkRegistry(rows) {
+    if (!bulkController) return;
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    bulkController.syncRegistry({
+      tickets: sourceRows.flatMap((row) => row.tickets),
+      groups: sourceRows
+        .filter((row) => row.type === "batch")
+        .map((row) => ({ id: row.batchId, ticketIds: row.tickets.map((ticket) => ticket.id) }))
+    });
+  }
+
+  function clearBulkForDataChange(showNotice) {
+    if (bulkController) bulkController.clearForDataChange(showNotice);
+  }
+
+  function createTicketRow(ticket, options) {
+    const settings = options || {};
+    const row = document.createElement("article");
+    row.className = `search-ticket-row${settings.batchChild ? " is-batch-child" : ""}`;
+    row.dataset.ticketId = ticket.id || "";
+    row.dataset.bulkTicketId = ticket.id || "";
+    row.setAttribute("role", "row");
+
+    const indexCell = createSearchTableCell("search-ticket-index", "STT");
+    const indexText = document.createElement("span");
+    indexText.className = "ticket-bulk-index-text";
+    indexText.textContent = settings.batchChild
+      ? `TV${String(settings.childIndex || 1).padStart(2, "0")}`
+      : String(settings.presentationIndex || "—");
+    indexCell.append(createBulkTicketControl(ticket), indexText);
+
+    const timeCell = createSearchTableCell("search-ticket-time", "Thời gian nhận");
+    timeCell.textContent = formatDateTime(ticket.created_at || ticket.received_date);
+
+    const codeCell = createSearchTableCell("search-ticket-code", "Mã phiếu");
+    const code = document.createElement("strong");
+    code.className = "ticket-code";
+    code.textContent = window.AMApi.formatTicketCode(ticket.ticket_code);
+    codeCell.appendChild(code);
+
+    const customerCodeCell = createSearchTableCell("search-ticket-customer-code", "Mã khách");
+    customerCodeCell.textContent = window.AMApi.formatCustomerCode(ticket.customer_code);
+
+    const nameCell = createSearchTableCell("search-ticket-name", "Họ và tên");
+    appendPrimarySecondary(nameCell, ticket.customer_name, ticketAddress(ticket));
+
+    const phoneCell = createSearchTableCell("search-ticket-phone", "Số điện thoại");
+    phoneCell.textContent = valueOrBlank(ticket.customer_phone);
+
+    const modelCell = createSearchTableCell("search-ticket-model", "Model");
+    modelCell.textContent = ticketModelSummary(ticket);
+    modelCell.title = [ticket.brand, ticket.model, ticket.size].filter(Boolean).join(" · ");
+
+    const statusCell = createSearchTableCell("search-ticket-status", "Trạng thái");
+    const status = document.createElement("span");
+    status.className = `status-pill ${statusClass(ticket.status)}`.trim();
+    status.textContent = statusLabel(ticket.status);
+    statusCell.appendChild(status);
+
+    const actions = createSearchTableCell("search-ticket-actions", "Hành động");
+    const editButton = document.createElement("button");
+    editButton.className = "btn primary";
+    editButton.type = "button";
+    editButton.textContent = "Xem / sửa phiếu";
+    editButton.dataset.editId = ticket.id;
+    actions.append(editButton);
+    appendWorkflowActions(actions, ticket);
+
+    if (ticket.customer_id) {
+      const historyButton = document.createElement("button");
+      historyButton.className = "btn secondary";
+      historyButton.type = "button";
+      historyButton.textContent = "Lịch sử KH";
+      historyButton.dataset.historyCustomerId = ticket.customer_id;
+      actions.appendChild(historyButton);
+    }
+
+    row.append(
+      indexCell,
+      timeCell,
+      codeCell,
+      customerCodeCell,
+      nameCell,
+      phoneCell,
+      modelCell,
+      statusCell,
+      actions
+    );
+    const timeline = createTicketTimeline(ticket);
+    if (timeline) {
+      timeline.setAttribute("role", "cell");
+      row.appendChild(timeline);
+    }
+    return row;
+  }
+
+  function batchCodeSummary(tickets) {
+    const codes = (tickets || []).map((ticket) => window.AMApi.formatTicketCode(ticket.ticket_code));
+    if (codes.length <= 3) {
+      return codes.join(" · ");
+    }
+    return `${codes[0]} · ${codes[1]} · +${codes.length - 2} phiếu`;
+  }
+
+  function batchStatusSummary(tickets) {
+    const counts = new Map();
+    (tickets || []).forEach((ticket) => {
+      const label = statusLabel(ticket.status);
+      counts.set(label, (counts.get(label) || 0) + 1);
+    });
+    return Array.from(counts, ([label, count]) => `${count} ${label}`).join(" · ");
+  }
+
+  function createBatchRow(presentationRow, presentationIndex) {
+    const batchId = presentationRow.batchId;
+    const childId = `intake-batch-${batchId.replace(/[^a-z0-9_-]/gi, "")}`;
+    const firstTicket = presentationRow.tickets[0] || {};
+    const autoExpanded = Boolean(currentKeyword);
+    const isExpanded = autoExpanded || expandedBatchIds.has(batchId);
+    const group = document.createElement("article");
+    group.className = `search-ticket-batch${isExpanded ? " is-expanded" : ""}`;
+    group.dataset.intakeBatchId = batchId;
+    group.dataset.bulkGroupId = batchId;
+    group.setAttribute("role", "rowgroup");
+
+    const parentRow = document.createElement("div");
+    parentRow.className = "search-ticket-batch__row";
+    parentRow.dataset.batchRowToggle = batchId;
+    parentRow.tabIndex = 0;
+    parentRow.setAttribute("role", "row");
+    parentRow.setAttribute("aria-expanded", String(isExpanded));
+    parentRow.setAttribute("aria-controls", childId);
+    parentRow.setAttribute("aria-label", `${isExpanded ? "Thu gọn" : "Mở"} nhóm ${presentationRow.totalTicketCount} tivi`);
+
+    const indexCell = createSearchTableCell("search-ticket-index", "STT");
+    const indexText = document.createElement("span");
+    indexText.className = "ticket-bulk-index-text";
+    indexText.textContent = String(presentationIndex || "—");
+    indexCell.append(createBulkGroupControl(presentationRow), indexText);
+
+    const timeCell = createSearchTableCell("search-ticket-time", "Thời gian nhận");
+    timeCell.textContent = formatDateTime(firstTicket.created_at || firstTicket.received_date);
+
+    const codeCell = createSearchTableCell("search-ticket-code search-ticket-batch__codes", "Mã phiếu");
+    const badge = document.createElement("span");
+    badge.className = "search-ticket-batch__badge";
+    badge.textContent = `[${presentationRow.totalTicketCount} TV]`;
+    const codeSummary = document.createElement("strong");
+    codeSummary.textContent = batchCodeSummary(presentationRow.tickets);
+    codeCell.append(badge, codeSummary);
+
+    const customerCodeCell = createSearchTableCell("search-ticket-customer-code", "Mã khách");
+    customerCodeCell.textContent = window.AMApi.formatCustomerCode(firstTicket.customer_code);
+
+    const nameCell = createSearchTableCell("search-ticket-name", "Họ và tên");
+    appendPrimarySecondary(nameCell, firstTicket.customer_name, ticketAddress(firstTicket));
+
+    const phoneCell = createSearchTableCell("search-ticket-phone", "Số điện thoại");
+    phoneCell.textContent = valueOrBlank(firstTicket.customer_phone);
+
+    const modelCell = createSearchTableCell("search-ticket-model", "Model");
+    modelCell.textContent = batchModelSummary(presentationRow.tickets);
+
+    const statusCell = createSearchTableCell("search-ticket-status", "Trạng thái");
+    const status = document.createElement("span");
+    const normalizedStatuses = new Set(presentationRow.tickets.map((ticket) => (
+      String(ticket.status || "").trim().toLowerCase()
+    )));
+    status.className = `status-pill${normalizedStatuses.size === 1 ? ` ${statusClass(firstTicket.status)}` : ""}`;
+    status.textContent = batchStatusSummary(presentationRow.tickets);
+    status.title = status.textContent;
+    statusCell.appendChild(status);
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "search-ticket-batch__toggle";
+    toggle.dataset.batchToggle = batchId;
+    toggle.dataset.batchCount = String(presentationRow.totalTicketCount);
+    toggle.setAttribute("aria-expanded", String(isExpanded));
+    toggle.setAttribute("aria-controls", childId);
+    toggle.setAttribute("aria-label", `${isExpanded ? "Thu gọn" : "Mở"} nhóm ${presentationRow.totalTicketCount} tivi`);
+
+    const chevron = document.createElement("span");
+    chevron.className = "search-ticket-batch__chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    toggle.appendChild(chevron);
+
+    const actionCell = createSearchTableCell("search-ticket-actions search-ticket-batch__action", "Hành động");
+    actionCell.appendChild(toggle);
+    parentRow.append(
+      indexCell,
+      timeCell,
+      codeCell,
+      customerCodeCell,
+      nameCell,
+      phoneCell,
+      modelCell,
+      statusCell,
+      actionCell
+    );
+
+    const children = document.createElement("div");
+    children.id = childId;
+    children.className = "search-ticket-batch__children";
+    children.hidden = !isExpanded;
+    children.setAttribute("aria-hidden", String(!isExpanded));
+    children.setAttribute("role", "rowgroup");
+    presentationRow.tickets.forEach((ticket, childIndex) => children.appendChild(createTicketRow(ticket, {
+      batchChild: true,
+      childIndex: childIndex + 1
+    })));
+    group.append(parentRow, children);
+    return group;
+  }
+
+  function setBatchExpandedState(toggle, children, group, shouldExpand) {
+    const batchCount = toggle.dataset.batchCount;
+    const stateLabel = `${shouldExpand ? "Thu gọn" : "Mở"} nhóm${batchCount ? ` ${batchCount}` : ""} tivi`;
+    toggle.setAttribute("aria-expanded", String(shouldExpand));
+    toggle.setAttribute("aria-label", stateLabel);
+    if (group) {
+      group.classList.toggle("is-expanded", shouldExpand);
+      const parentRow = group.querySelector("[data-batch-row-toggle]");
+      if (parentRow) {
+        parentRow.setAttribute("aria-expanded", String(shouldExpand));
+        parentRow.setAttribute("aria-label", stateLabel);
+      }
+    }
+
+    if (!children) {
+      return;
+    }
+
+    children.classList.toggle("is-expanding", shouldExpand);
+    children.setAttribute("aria-hidden", String(!shouldExpand));
+    children.hidden = !shouldExpand;
+  }
+
+  function toggleMultiGroup(toggle) {
+    if (!toggle) {
+      return;
+    }
+
+    const batchId = toggle.dataset.batchToggle;
+    const childId = toggle.getAttribute("aria-controls");
+    const children = childId ? document.getElementById(childId) : null;
+    const group = toggle.closest(".search-ticket-batch");
+    const willExpand = toggle.getAttribute("aria-expanded") !== "true";
+    setBatchExpandedState(toggle, children, group, willExpand);
+
+    if (willExpand) {
+      expandedBatchIds.add(batchId);
+    } else {
+      expandedBatchIds.delete(batchId);
+    }
+  }
+
+  function renderResults(rows) {
+    const fragment = document.createDocumentFragment();
+    const presentationStart = (currentPage - 1) * PAGE_SIZE;
+    fragment.appendChild(createSearchTableHeader());
+    (rows || []).forEach((row, index) => {
+      const presentationIndex = presentationStart + index + 1;
+      fragment.appendChild(row.type === "batch"
+        ? createBatchRow(row, presentationIndex)
+        : createTicketRow(row.tickets[0], { presentationIndex }));
+    });
+    resultsList.replaceChildren(fragment);
+    syncBulkRegistry(rows);
   }
 
   function setSearchLoading(isLoading) {
@@ -841,6 +1143,13 @@
       return;
     }
 
+    if (presentationRowCount > 0) {
+      const startRow = (currentPage - 1) * PAGE_SIZE + 1;
+      const endRow = Math.min(startRow + latestPresentationRows.length - 1, presentationRowCount);
+      resultsSummary.textContent = `Đang hiển thị ${startRow}–${endRow} trên ${presentationRowCount.toLocaleString("vi-VN")} mục; trang này có ${latestResults.length} phiếu, tổng cộng ${totalCount.toLocaleString("vi-VN")} phiếu.`;
+      return;
+    }
+
     const start = (currentPage - 1) * PAGE_SIZE + 1;
     const end = Math.min(start + latestResults.length - 1, totalCount);
     resultsSummary.textContent = `Đang hiển thị ${start}–${end} trên tổng số ${totalCount.toLocaleString("vi-VN")} phiếu.`;
@@ -865,7 +1174,7 @@
     resultsSummary.textContent = hasRenderedData ? "Đang cập nhật dữ liệu phù hợp." : "Đang tải dữ liệu phù hợp.";
 
     try {
-      const result = await window.AMApi.getTicketsPage({
+      const result = await window.AMApi.getTicketsForGroupedPresentation({
         query: currentKeyword,
         year: currentYear,
         status: currentStatus,
@@ -878,7 +1187,18 @@
       }
 
       totalCount = result.totalCount;
-      totalPages = result.totalPages;
+      let rows;
+      if (result.presentationPagination) {
+        const allRows = buildTicketPresentationRows(result.records, result.batchSizes);
+        presentationRowCount = allRows.length;
+        totalPages = Math.max(1, Math.ceil(presentationRowCount / PAGE_SIZE));
+        const from = (currentPage - 1) * PAGE_SIZE;
+        rows = allRows.slice(from, from + PAGE_SIZE);
+      } else {
+        presentationRowCount = 0;
+        totalPages = result.totalPages;
+        rows = buildTicketPresentationRows(result.records, result.batchSizes);
+      }
 
       if (totalCount > 0 && currentPage > totalPages) {
         currentPage = totalPages;
@@ -886,7 +1206,8 @@
         return;
       }
 
-      latestResults = result.records;
+      latestPresentationRows = rows;
+      latestResults = rows.flatMap((row) => row.tickets);
       renderResultsSummary();
 
       if (latestResults.length === 0) {
@@ -894,8 +1215,9 @@
           ? "Không tìm thấy phiếu phù hợp."
           : "Không có phiếu tiếp nhận trong năm đã chọn.";
         setResultsState("empty", message);
+        syncBulkRegistry([]);
       } else {
-        renderResults(latestResults);
+        renderResults(latestPresentationRows);
         renderPagination();
         setResultsState("data", "");
       }
@@ -909,8 +1231,10 @@
       }
 
       latestResults = [];
+      latestPresentationRows = [];
       totalCount = 0;
       totalPages = 1;
+      presentationRowCount = 0;
       resultsSummary.textContent = "Danh sách phiếu chưa tải được.";
       setResultsState("error", "Không thể tải danh sách phiếu. Vui lòng thử lại.");
     } finally {
@@ -921,6 +1245,7 @@
   }
 
   function performSearch(query) {
+    clearBulkForDataChange();
     currentKeyword = String(query || "").trim();
     currentPage = 1;
     closeSuggestions();
@@ -1357,7 +1682,10 @@
       const data = collectEditData();
       const updated = await window.AMApi.updateTicket(data.id, data);
       latestResults = latestResults.map((ticket) => ticket.id === updated.id ? updated : ticket);
-      renderResults(latestResults);
+      latestPresentationRows = latestPresentationRows.map((row) => Object.assign({}, row, {
+        tickets: row.tickets.map((ticket) => ticket.id === updated.id ? updated : ticket)
+      }));
+      renderResults(latestPresentationRows);
       showNotice(editNotice, "success", `Đã lưu sửa phiếu ${window.AMApi.formatTicketCode(updated.ticket_code)}.`);
       if (window.AMUI && typeof window.AMUI.toast === "function") {
         window.AMUI.toast(`Đã lưu sửa phiếu ${window.AMApi.formatTicketCode(updated.ticket_code)}.`, { type: "success" });
@@ -1425,6 +1753,7 @@
     searchInput.addEventListener("keydown", handleSuggestionKeydown);
 
     searchClear.addEventListener("click", function () {
+      clearBulkForDataChange();
       searchInput.value = "";
       currentKeyword = "";
       currentPage = 1;
@@ -1435,6 +1764,7 @@
     });
 
     searchYearSelect.addEventListener("change", function () {
+      clearBulkForDataChange();
       currentYear = searchYearSelect.value || currentVietnamYear();
       currentPage = 1;
       closeSuggestions();
@@ -1442,6 +1772,7 @@
     });
 
     searchStatusSelect.addEventListener("change", function () {
+      clearBulkForDataChange();
       currentStatus = searchStatusSelect.value || "";
       currentPage = 1;
       closeSuggestions();
@@ -1464,6 +1795,7 @@
       }
 
       currentPage = nextPage;
+      clearBulkForDataChange();
       loadTickets({ scroll: true });
     });
 
@@ -1474,6 +1806,27 @@
     });
 
     resultsList.addEventListener("click", function (event) {
+      const batchToggle = event.target.closest("[data-batch-toggle]");
+      if (batchToggle) {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleMultiGroup(batchToggle);
+        return;
+      }
+
+      const batchRow = event.target.closest("[data-batch-row-toggle]");
+      if (batchRow) {
+        const interactiveTarget = event.target.closest(
+          "button, a, input, select, textarea, [role=\"button\"], [data-no-row-toggle]"
+        );
+        if (interactiveTarget && batchRow.contains(interactiveTarget)) {
+          return;
+        }
+
+        toggleMultiGroup(batchRow.querySelector("[data-batch-toggle]"));
+        return;
+      }
+
       const historyButton = event.target.closest("[data-history-customer-id]");
 
       if (historyButton) {
@@ -1492,6 +1845,16 @@
       if (ticket) {
         openEditModal(ticket);
       }
+    });
+
+    resultsList.addEventListener("keydown", function (event) {
+      const batchRow = event.target.closest("[data-batch-row-toggle]");
+      if (!batchRow || event.target !== batchRow || (event.key !== "Enter" && event.key !== " ")) {
+        return;
+      }
+
+      event.preventDefault();
+      toggleMultiGroup(batchRow.querySelector("[data-batch-toggle]"));
     });
 
     closeEditModal.addEventListener("click", closeModal);
@@ -1586,6 +1949,15 @@
       if (!access) {
         return;
       }
+
+      bulkController = window.AMTicketBulkOperations.mountPageController({
+        pageKey: "search",
+        section: resultsList.closest(".search-results"),
+        toolbar: document.querySelector(".search-bulk-actions"),
+        capabilities: BULK_CAPABILITIES,
+        readFreshTicket: (uuid) => window.AMApi.getTicketById(uuid),
+        refresh: () => loadTickets({ scroll: false })
+      });
 
       attachEvents();
 

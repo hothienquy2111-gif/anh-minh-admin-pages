@@ -53,7 +53,7 @@
             <span class="ticket-create-mode__copy">
               <span class="ticket-create-mode__badge">1 TIVI • 1 TEM</span>
               <strong>Tạo 1 phiếu</strong>
-              <small id="ticketCreateModeSingleDescription">Nhập một tivi và in một tem ngay.</small>
+              <small id="ticketCreateModeSingleDescription">Một tivi, một phiếu, in tem ngay.</small>
             </span>
             <span class="ticket-create-mode__check" aria-hidden="true">
               <svg viewBox="0 0 16 16" focusable="false">
@@ -72,7 +72,7 @@
             <span class="ticket-create-mode__copy">
               <span class="ticket-create-mode__badge">NHIỀU TIVI • NHIỀU TEM</span>
               <strong>Tạo nhiều phiếu</strong>
-              <small id="ticketCreateModeBatchDescription">Dùng chung khách hàng, tạo nhiều phiếu và in tem một lượt.</small>
+              <small id="ticketCreateModeBatchDescription">Dùng chung khách hàng, tạo và in tem một lượt.</small>
             </span>
             <span class="ticket-create-mode__check" aria-hidden="true">
               <svg viewBox="0 0 16 16" focusable="false">
@@ -280,6 +280,10 @@
           <div id="batchActionBar" class="ticket-batch-action-bar" hidden>
             <p id="batchActionSummary" aria-live="polite">1 tivi • 1 đã đủ thông tin</p>
             <div class="ticket-batch-action-bar__buttons">
+              <div class="ticket-batch-label-size-control">
+                <label for="batchLabelSizeSelect">Khổ tem</label>
+                <select id="batchLabelSizeSelect"></select>
+              </div>
               <button id="cancelBatchButton" class="btn secondary" type="button">Hủy</button>
               <button id="validateBatchButton" class="btn secondary" type="button">Kiểm tra lại</button>
               <button id="createBatchButton" class="btn primary" type="button">Tạo 1 phiếu &amp; in 1 tem</button>
@@ -300,7 +304,13 @@
             <ul id="batchResultList"></ul>
           </div>
           <div class="ticket-batch-result__actions">
-            <button id="reprintBatchButton" class="btn primary" type="button">In lại toàn bộ tem</button>
+            <div class="ticket-batch-result__print-group">
+              <div class="ticket-batch-label-size-control">
+                <label for="batchResultLabelSizeSelect">Khổ tem</label>
+                <select id="batchResultLabelSizeSelect"></select>
+              </div>
+              <button id="reprintBatchButton" class="btn primary" type="button">In lại toàn bộ tem</button>
+            </div>
             <a class="btn secondary" href="search.html">Xem Danh sách phiếu</a>
             <button id="newBatchButton" class="btn secondary" type="button">Tạo đợt mới</button>
             <button id="addForSameCustomerButton" class="btn secondary" type="button">
@@ -367,16 +377,16 @@
       </article>
     </template>
 
-    <div id="batchLabelRendererHost" class="ticket-batch-renderer-host" hidden></div>
     <div id="batchPrintSurface" class="ticket-batch-print-surface" aria-hidden="true"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
-    <script src="js/api.js?v=20260728-admin-redesign"></script>
+    <script src="js/api.js?v=multi-print-recovery-v1"></script>
+    <script src="js/ticket-presentation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
     <script src="js/tv-condition-options.js?v=20260728-admin-redesign"></script>
     <script src="js/new-ticket.js?v=20260728-admin-redesign"></script>
-    <script src="js/new-ticket-batch.js?v=20260728-admin-redesign"></script>
+    <script src="js/new-ticket-batch.js?v=multi-print-recovery-v1"></script>
     <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>

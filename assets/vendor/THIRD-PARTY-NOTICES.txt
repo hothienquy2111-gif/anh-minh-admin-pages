@@ -1,0 +1,7 @@
+docx 9.6.1
+License: MIT
+Repository: https://github.com/dolanmiu/docx
+Homepage: https://docx.js.org
+
+The browser IIFE bundle is vendored locally for offline DOCX generation in
+the Anh Minh Admin invoice module. No CDN or remote package loader is used.

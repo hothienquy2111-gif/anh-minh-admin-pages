@@ -630,7 +630,7 @@
     background: var(--color-border);
   }
 
-  .page-main {
+  .page-shell > .page-main {
     width: min(var(--content-max-width), calc(100% - (2 * var(--content-padding))));
     min-width: 0;
     margin-inline: auto;
@@ -2971,7 +2971,7 @@
     z-index: calc(var(--z-index-overlay) + 1);
   }
 
-  .page-main,
+  .page-shell > .page-main,
   .ticket-activity-page .page-main,
   .repairing-tickets-page .page-main,
   .employees-page .page-main {
@@ -3275,7 +3275,7 @@
     --content-padding: 14px;
   }
 
-  .page-main,
+  .page-shell > .page-main,
   .ticket-activity-page .page-main,
   .repairing-tickets-page .page-main,
   .employees-page .page-main {

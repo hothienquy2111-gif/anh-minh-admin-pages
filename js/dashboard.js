@@ -505,9 +505,11 @@
   }
 
   function buildRecentActivity(tickets) {
-    return (tickets || [])
+    const sortedTickets = (tickets || [])
       .slice()
-      .sort((a, b) => ticketTime(b) - ticketTime(a))
+      .sort((a, b) => ticketTime(b) - ticketTime(a));
+    return window.AMMultiTicketPresentation
+      .buildTicketPresentationRows(sortedTickets)
       .slice(0, MAX_ACTIVITY_ITEMS);
   }
 
@@ -527,27 +529,82 @@
     return "Phiếu mới được cập nhật";
   }
 
-  function renderRecentActivity(tickets) {
-    if (!tickets.length) {
+  function createRecentActivityItem(ticket, batchId) {
+      const item = document.createElement("article");
+      const body = document.createElement("div");
+      const title = document.createElement("strong");
+      const meta = document.createElement("span");
+
+      item.className = `ops-activity-item${batchId ? " ticket-presentation-child-card" : ""}`;
+      if (batchId) {
+        item.dataset.batchChildOf = batchId;
+      }
+      body.className = "ops-activity-body";
+      title.textContent = ticketTitle(ticket);
+      meta.textContent = `${activityReason(ticket)} · ${formatDate(ticket.last_activity_at || ticket.completed_at || ticket.repair_started_at || ticket.created_at)}`;
+      body.append(title, meta);
+      item.append(body, createBadge(ticket.status), createActionLink(ticket));
+      return item;
+  }
+
+  function recentBatchStatusSummary(tickets) {
+    const counts = new Map();
+    tickets.forEach((ticket) => {
+      const label = statusLabel(ticket.status);
+      counts.set(label, (counts.get(label) || 0) + 1);
+    });
+    return Array.from(counts, ([label, count]) => `${count} ${label}`).join(" · ");
+  }
+
+  function createRecentBatchItem(row) {
+    const firstTicket = row.tickets[0] || {};
+    const group = document.createElement("article");
+    const toggle = document.createElement("button");
+    const title = document.createElement("span");
+    const meta = document.createElement("small");
+    const badge = document.createElement("span");
+    const chevron = document.createElement("span");
+    const children = document.createElement("div");
+
+    group.className = "ticket-presentation-batch-card dashboard-ticket-batch";
+    toggle.type = "button";
+    toggle.className = "ticket-presentation-toggle dashboard-ticket-batch__toggle";
+    toggle.dataset.ticketBatchToggle = row.batchId;
+    toggle.setAttribute("aria-expanded", "false");
+    title.className = "ticket-presentation-toggle__title";
+    title.appendChild(document.createElement("strong"));
+    title.firstChild.textContent = firstTicket.customer_name || firstTicket.customer_master_name || "Khách hàng chưa xác định";
+    meta.textContent = [
+      window.AMApi.formatCustomerCode(firstTicket.customer_code),
+      recentBatchStatusSummary(row.tickets),
+      formatDate(firstTicket.created_at)
+    ].filter(Boolean).join(" · ");
+    title.appendChild(meta);
+    badge.className = "ticket-presentation-badge";
+    badge.textContent = `[${row.totalTicketCount} TIVI]`;
+    chevron.className = "ticket-presentation-chevron";
+    toggle.append(badge, title, chevron);
+
+    children.className = "ticket-presentation-children";
+    children.dataset.batchChildren = row.batchId;
+    children.hidden = true;
+    row.tickets.forEach((ticket) => children.appendChild(createRecentActivityItem(ticket, row.batchId)));
+    group.append(toggle, children);
+    return group;
+  }
+
+  function renderRecentActivity(rows) {
+    if (!rows.length) {
       setBlockState(activityState, activityList, "empty", "Chưa có hoạt động gần đây.");
       return;
     }
 
     const fragment = document.createDocumentFragment();
 
-    tickets.forEach((ticket) => {
-      const item = document.createElement("article");
-      const body = document.createElement("div");
-      const title = document.createElement("strong");
-      const meta = document.createElement("span");
-
-      item.className = "ops-activity-item";
-      body.className = "ops-activity-body";
-      title.textContent = ticketTitle(ticket);
-      meta.textContent = `${activityReason(ticket)} · ${formatDate(ticket.last_activity_at || ticket.completed_at || ticket.repair_started_at || ticket.created_at)}`;
-      body.append(title, meta);
-      item.append(body, createBadge(ticket.status), createActionLink(ticket));
-      fragment.appendChild(item);
+    rows.forEach((row) => {
+      fragment.appendChild(row.type === "batch"
+        ? createRecentBatchItem(row)
+        : createRecentActivityItem(row.tickets[0]));
     });
 
     activityList.replaceChildren(fragment);
@@ -643,6 +700,19 @@
   async function initDashboard() {
     attachLogout();
     setTodayText();
+    activityList.addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-ticket-batch-toggle]");
+      if (!toggle) {
+        return;
+      }
+      const batchId = toggle.dataset.ticketBatchToggle;
+      const expanded = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", String(expanded));
+      const children = activityList.querySelector(`[data-batch-children="${CSS.escape(batchId)}"]`);
+      if (children) {
+        children.hidden = !expanded;
+      }
+    });
 
     try {
       const access = await window.AMApi.requireInternalAccess();

@@ -142,19 +142,28 @@
     return link;
   }
 
-  function createHandoverLink(isCurrentPage) {
-    const link = document.createElement("a");
+  function ensurePrimaryHandoverLink(nav, isCurrentPage) {
+    const existing = nav.querySelector(`:scope > a[href="${HANDOVER_PAGE}"]`);
+    const link = existing || document.createElement("a");
 
-    link.className = "admin-more-menu-item";
     link.href = HANDOVER_PAGE;
-    link.setAttribute("role", "menuitem");
-    link.appendChild(createMenuCopy(
-      "Bàn giao tivi",
-      "Theo dõi tivi đã sửa xong và đang chờ giao hoặc khách đến nhận."
-    ));
+    link.textContent = "Bàn giao";
 
     if (isCurrentPage) {
       link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+
+    if (existing) {
+      return link;
+    }
+
+    const warrantyLink = nav.querySelector(':scope > a[href="warranty-search.html"]');
+    if (warrantyLink) {
+      nav.insertBefore(link, warrantyLink);
+    } else {
+      nav.insertBefore(link, nav.querySelector(":scope > [data-logout]") || null);
     }
 
     return link;
@@ -372,7 +381,6 @@
     const menuHeading = document.createElement("span");
     const divider = document.createElement("span");
     const appointmentLink = createAppointmentLink(isAppointmentPage);
-    const handoverLink = createHandoverLink(isHandoverPage);
     const employeesLink = createEmployeesLink(isEmployeesPage);
     const employeesAccessIcon = employeesLink.querySelector(".admin-more-menu-access-icon");
     let closeTimerId = null;
@@ -394,14 +402,15 @@
     divider.className = "admin-more-menu-divider";
     divider.setAttribute("aria-hidden", "true");
 
-    if (isAppointmentPage || isHandoverPage || isEmployeesPage) {
+    ensurePrimaryHandoverLink(nav, isHandoverPage);
+
+    if (isAppointmentPage || isEmployeesPage) {
       trigger.classList.add("active");
     }
 
     menu.append(
       menuHeading,
       appointmentLink,
-      handoverLink,
       employeesLink,
       divider,
       prepareLogoutButton(logoutButton)

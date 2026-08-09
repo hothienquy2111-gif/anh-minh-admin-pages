@@ -41,12 +41,25 @@
       "m20 20-4.4-4.4",
       "M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4z"
     ],
+    "handover-tickets.html": [
+      "M4 8l8-4 8 4-8 4z",
+      "M4 8v9l8 4 8-4V8",
+      "M12 12v9",
+      "m15.5 14 1.5 1.5 3-3"
+    ],
     "warranty-search.html": [
       "M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6z",
       "m9 12 2 2 4-4"
+    ],
+    "invoice.html": [
+      "M6 3h9l3 3v15H6z",
+      "M15 3v4h4",
+      "M9 12h6",
+      "M9 16h6"
     ]
   };
   const SIDEBAR_STORAGE_KEY = "am-admin-sidebar-pinned";
+  const PERSISTENCE_DISABLED = /(?:^|\/)invoice\.html$/.test(window.location.pathname);
   const DESKTOP_AUTO_QUERY = "(min-width: 901px) and (hover: hover) and (pointer: fine)";
   const MOBILE_QUERY = "(max-width: 900px)";
   const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
@@ -58,6 +71,9 @@
   const MIN_INTERRUPTED_MOTION_MS = 90;
 
   function readPinnedState() {
+    if (PERSISTENCE_DISABLED) {
+      return false;
+    }
     try {
       return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
     } catch (_error) {
@@ -66,6 +82,9 @@
   }
 
   function writePinnedState(isPinned) {
+    if (PERSISTENCE_DISABLED) {
+      return;
+    }
     try {
       window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(Boolean(isPinned)));
     } catch (_error) {
@@ -140,6 +159,35 @@
     return button;
   }
 
+  function ensureInvoiceNavigationLink(navigation) {
+    const existing = navigation.querySelector(':scope > a[href="invoice.html"]');
+    if (existing) {
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = "invoice.html";
+    link.textContent = "Báo giá";
+
+    if (pageNameFromHref(window.location.href) === "invoice.html") {
+      link.setAttribute("aria-current", "page");
+    }
+
+    const moreMenu = navigation.querySelector(":scope > .admin-more-nav");
+    if (moreMenu) {
+      navigation.insertBefore(link, moreMenu);
+      return;
+    }
+
+    const warrantyLink = navigation.querySelector(':scope > a[href="warranty-search.html"]');
+    if (warrantyLink) {
+      warrantyLink.insertAdjacentElement("afterend", link);
+      return;
+    }
+
+    navigation.appendChild(link);
+  }
+
   function enhancePrimaryNavigation() {
     const navigation = document.querySelector(".page-shell > .topbar .nav");
     if (!navigation || navigation.dataset.uiRedesignEnhanced === "true") {
@@ -147,6 +195,7 @@
     }
 
     navigation.dataset.uiRedesignEnhanced = "true";
+    ensureInvoiceNavigationLink(navigation);
     navigation.querySelectorAll(":scope > a[href]").forEach((link) => {
       const pageName = pageNameFromHref(link.getAttribute("href"));
       const iconPaths = NAV_ICONS[pageName];
@@ -199,6 +248,7 @@
     let sidebarRevealAnimation = null;
     let sidebarShadowAnimation = null;
     let workspaceAnimations = new Map();
+    let shellLayoutFrameId = null;
     const flipMotionSupported = Boolean(
       Element.prototype.animate
       && window.CSS
@@ -282,6 +332,28 @@
 
     function clearAnimationTimer() {
       clearMotionAnimations();
+    }
+
+    function syncShellLayout(options) {
+      const params = options || {};
+
+      if (params.reloadPinned) {
+        pinned = readPinnedState();
+      }
+      syncInteractionMode({ animate: false });
+    }
+
+    function scheduleShellLayoutSync(options) {
+      const params = options || {};
+
+      hideTooltip();
+      if (shellLayoutFrameId) {
+        window.cancelAnimationFrame(shellLayoutFrameId);
+      }
+      shellLayoutFrameId = window.requestAnimationFrame(() => {
+        shellLayoutFrameId = null;
+        syncShellLayout(params);
+      });
     }
 
     function hideTooltip() {
@@ -565,6 +637,9 @@
       clearTimer("open");
       clearTimer("close");
       if (current === expanded) {
+        if (params.animate === false) {
+          clearMotionAnimations();
+        }
         pinButton.setAttribute("aria-expanded", String(expanded));
         syncSidebarState();
         return;
@@ -845,12 +920,12 @@
       subtree: true
     });
 
-    const syncMedia = () => syncInteractionMode({ animate: false });
-    desktopAutoMedia.addEventListener("change", syncMedia);
-    mobileMedia.addEventListener("change", syncMedia);
-    reducedMotionMedia.addEventListener("change", syncMedia);
+    const scheduleViewportSync = () => scheduleShellLayoutSync();
+    desktopAutoMedia.addEventListener("change", scheduleViewportSync);
+    mobileMedia.addEventListener("change", scheduleViewportSync);
+    reducedMotionMedia.addEventListener("change", scheduleViewportSync);
 
-    window.addEventListener("resize", hideTooltip, { passive: true });
+    window.addEventListener("resize", scheduleViewportSync, { passive: true });
     window.addEventListener("scroll", hideTooltip, { passive: true });
     window.addEventListener("storage", function (event) {
       if (event.key !== SIDEBAR_STORAGE_KEY) {
@@ -862,20 +937,27 @@
       syncInteractionMode();
     });
     window.addEventListener("pageshow", function () {
-      pinned = readPinnedState();
-      syncPinButton();
-      syncInteractionMode({ animate: false });
+      scheduleShellLayoutSync({ reloadPinned: true });
     });
     window.addEventListener("pagehide", function () {
       clearTimer("open");
       clearTimer("close");
       clearAnimationTimer();
+      if (shellLayoutFrameId) {
+        window.cancelAnimationFrame(shellLayoutFrameId);
+        shellLayoutFrameId = null;
+      }
       hideTooltip();
     });
 
     decorateTooltipControls();
     syncMenuOpenState();
-    syncInteractionMode({ animate: false });
+    syncShellLayout();
+    if (document.readyState === "complete") {
+      scheduleShellLayoutSync();
+    } else {
+      window.addEventListener("load", scheduleViewportSync, { once: true });
+    }
   }
 
   function addSkipLink() {

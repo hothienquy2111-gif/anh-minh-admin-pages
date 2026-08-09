@@ -393,7 +393,7 @@
     }
 
     function syncConditionChips() {
-      buttons.forEach(setButtonState);
+      buttons.forEach((option, button) => setButtonState(button, option));
     }
 
     function renderChip(option) {

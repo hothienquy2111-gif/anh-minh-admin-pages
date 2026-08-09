@@ -211,6 +211,10 @@
     "completed_at",
     "last_activity_at"
   ].join(",");
+  const INTAKE_BATCH_FIELDS = "intake_batch_id,intake_batch_item_no";
+  const INTAKE_BATCH_TICKET_SELECT_FIELDS = [TICKET_SELECT_FIELDS, INTAKE_BATCH_FIELDS].join(",");
+  const INTAKE_BATCH_SEARCH_TICKET_SELECT_FIELDS = [SEARCH_TICKET_SELECT_FIELDS, INTAKE_BATCH_FIELDS].join(",");
+  let intakeBatchCapabilityPromise = null;
   const WARRANTY_TICKET_SELECT_FIELDS = [
     "id",
     "ticket_code",
@@ -644,6 +648,16 @@
       || code === "42703"
       || code === "42883"
       || code === "42p01";
+  }
+
+  function isIntakeBatchSchemaError(error) {
+    const code = String((error && error.code) || "").toLowerCase();
+    const message = String((error && (error.message || error.details || error.hint)) || "").toLowerCase();
+    return code === "42703"
+      || code === "pgrst202"
+      || message.includes("intake_batch_id")
+      || message.includes("intake_batch_item_no")
+      || message.includes("create_service_ticket_with_customer_batch");
   }
 
   function createWorkflowError(message, options) {
@@ -1285,6 +1299,22 @@
     }
 
     return normalized;
+  }
+
+  function resolveLabelWorkflowAction(ticket) {
+    if (!ticket || !ticket.workflow_available || ticket.status === "huỷ") {
+      return null;
+    }
+
+    if (
+      PRE_REPAIR_STATUSES.includes(ticket.status)
+      && !ticket.repair_started_at
+      && !ticket.completed_at
+    ) {
+      return "START_REPAIR";
+    }
+
+    return ticket.repair_started_at ? "REPRINT_LABEL" : null;
   }
 
   function normalizeRepairOutcome(action, outcome, options) {
@@ -2696,12 +2726,22 @@
       const payload = sanitizeTicketPayload(data);
       const requestOptions = options || {};
       const clientRequestId = requestOptions.clientRequestId;
+      const intakeBatchId = String(requestOptions.intakeBatchId || "").trim();
+      const intakeBatchItemNo = Number.parseInt(requestOptions.intakeBatchItemNo, 10);
+      const hasBatchMetadata = Boolean(intakeBatchId) || Number.isFinite(intakeBatchItemNo);
 
       if (!clientRequestId) {
         throw new Error("Thiếu client_request_id cho lần tạo phiếu.");
       }
 
-      const { data: result, error } = await client.rpc("create_service_ticket_with_customer", {
+      if (hasBatchMetadata && (!intakeBatchId || !Number.isInteger(intakeBatchItemNo) || intakeBatchItemNo < 1)) {
+        throw new Error("Metadata đợt tiếp nhận không hợp lệ.");
+      }
+
+      const rpcName = hasBatchMetadata
+        ? "create_service_ticket_with_customer_batch"
+        : "create_service_ticket_with_customer";
+      const rpcPayload = {
         p_client_request_id: clientRequestId,
         p_customer_mode: requestOptions.customerMode || "new",
         p_existing_customer_id: requestOptions.existingCustomerId || null,
@@ -2721,7 +2761,14 @@
         p_deposit_amount: payload.deposit_amount,
         p_estimated_price: payload.estimated_price,
         p_final_price: payload.final_price
-      });
+      };
+
+      if (hasBatchMetadata) {
+        rpcPayload.p_intake_batch_id = intakeBatchId;
+        rpcPayload.p_intake_batch_item_no = intakeBatchItemNo;
+      }
+
+      const { data: result, error } = await client.rpc(rpcName, rpcPayload);
 
       if (error) {
         throw error;
@@ -2741,11 +2788,44 @@
         customer_name: created.customer_name,
         customer_phone: created.customer_phone,
         created_at: created.created_at,
+        intake_batch_id: hasBatchMetadata ? intakeBatchId : null,
+        intake_batch_item_no: hasBatchMetadata ? intakeBatchItemNo : null,
         was_replayed: created.was_replayed === true
       };
     } catch (error) {
       throw friendlyError(error, "Không tạo được phiếu mới.");
     }
+  }
+
+  async function getIntakeBatchCapability(options) {
+    const settings = options || {};
+    if (settings.refresh === true) {
+      intakeBatchCapabilityPromise = null;
+    }
+
+    if (!intakeBatchCapabilityPromise) {
+      intakeBatchCapabilityPromise = (async () => {
+        const { error } = await getClient()
+          .from("service_tickets")
+          .select(INTAKE_BATCH_FIELDS)
+          .limit(1);
+
+        if (!error) {
+          return { available: true, reason: null };
+        }
+
+        if (isIntakeBatchSchemaError(error)) {
+          return { available: false, reason: "schema-unavailable" };
+        }
+
+        throw error;
+      })().catch((error) => {
+        intakeBatchCapabilityPromise = null;
+        throw friendlyError(error, "Không kiểm tra được khả năng nhóm lượt tiếp nhận.");
+      });
+    }
+
+    return intakeBatchCapabilityPromise;
   }
 
   async function countTicketsByStatus(status) {
@@ -2901,6 +2981,62 @@
     } catch (error) {
       throw friendlyError(error, "Không thể tải danh sách phiếu. Vui lòng thử lại.");
     }
+  }
+
+  async function getTicketsForGroupedPresentation(options) {
+    const params = options || {};
+    const chunkSize = 500;
+    const records = [];
+    let totalCount = 0;
+    let offset = 0;
+    let fieldsLimited = false;
+
+    while (offset === 0 || offset < totalCount) {
+      const result = await runTicketSearchRequest({
+        keyword: params.query,
+        year: params.year,
+        status: params.status,
+        from: offset,
+        to: offset + chunkSize - 1,
+        countExact: offset === 0,
+        customerLimit: 1000,
+        selectFields: SEARCH_TICKET_SELECT_FIELDS,
+        allowSchemaFallback: true
+      });
+
+      if (result.error) {
+        throw friendlyError(result.error, "Không thể tải danh sách phiếu.");
+      }
+      fieldsLimited = fieldsLimited || result.usedFallback === true;
+
+      if (offset === 0) {
+        totalCount = Number(result.count) || 0;
+      }
+
+      const chunk = mapTickets(result.data || []);
+      records.push(...chunk);
+
+      if (chunk.length < chunkSize || records.length >= totalCount) {
+        break;
+      }
+      offset += chunkSize;
+    }
+
+    const hydrated = fieldsLimited
+      ? await hydrateWorkflowTicketData(records)
+      : records.map((ticket) => Object.assign({}, ticket, {
+        workflow_available: true,
+        workflow_inactive_message: null
+      }));
+    return {
+      records: hydrated,
+      totalCount,
+      page: Math.max(Number(params.page) || 1, 1),
+      pageSize: Math.min(Math.max(Number(params.pageSize) || 10, 1), 100),
+      totalPages: 1,
+      batchGroupingAvailable: true,
+      presentationPagination: true
+    };
   }
 
   async function getTicketSearchSuggestions(options) {
@@ -4478,30 +4614,34 @@
     }
 
     const client = getClient();
-    const { data, error } = await client
-      .from("ticket_assignments")
-      .select(TICKET_ACTIVITY_ASSIGNMENT_SELECT_FIELDS)
-      .in("ticket_id", ids)
-      .in("status", ["active", "completed"])
-      .order("assigned_at", { ascending: false })
-      .order("id", { ascending: true });
+    const assignmentsByTicket = new Map();
 
-    if (error) {
-      throw error;
-    }
+    for (let index = 0; index < ids.length; index += 100) {
+      const { data, error } = await client
+        .from("ticket_assignments")
+        .select(TICKET_ACTIVITY_ASSIGNMENT_SELECT_FIELDS)
+        .in("ticket_id", ids.slice(index, index + 100))
+        .in("status", ["active", "completed"])
+        .order("assigned_at", { ascending: false })
+        .order("id", { ascending: true });
 
-    return (data || []).reduce((assignmentsByTicket, row) => {
-      const ticketId = String(row.ticket_id || "");
-      const current = assignmentsByTicket.get(ticketId);
-      const shouldReplace = !current
-        || (row.status === "active" && current.status !== "active");
-
-      if (ticketId && shouldReplace) {
-        assignmentsByTicket.set(ticketId, row);
+      if (error) {
+        throw error;
       }
 
-      return assignmentsByTicket;
-    }, new Map());
+      (data || []).forEach((row) => {
+        const ticketId = String(row.ticket_id || "");
+        const current = assignmentsByTicket.get(ticketId);
+        const shouldReplace = !current
+          || (row.status === "active" && current.status !== "active");
+
+        if (ticketId && shouldReplace) {
+          assignmentsByTicket.set(ticketId, row);
+        }
+      });
+    }
+
+    return assignmentsByTicket;
   }
 
   async function enrichTicketActivityAssignments(tickets) {
@@ -4555,7 +4695,10 @@
       const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
       const safePage = Math.min(page, totalPages);
       const from = (safePage - 1) * pageSize;
-      const pageTickets = filteredRecords.slice(from, from + pageSize);
+      const presentationMode = options.presentationMode === true;
+      const pageTickets = presentationMode
+        ? filteredRecords
+        : filteredRecords.slice(from, from + pageSize);
       const tickets = await enrichTicketActivityAssignments(pageTickets);
 
       return {
@@ -4564,7 +4707,8 @@
         totalCount,
         page: safePage,
         pageSize,
-        totalPages,
+        totalPages: presentationMode ? 1 : totalPages,
+        presentationPagination: presentationMode,
         filterCounts,
         message: ""
       };
@@ -6020,6 +6164,7 @@
     requireInternalAccess,
     signOut,
     createTicket,
+    getIntakeBatchCapability,
     findCustomersByPhone,
     searchCustomers,
     getTicketHistoryByCustomerId,
@@ -6050,6 +6195,7 @@
     getDashboardStats,
     searchTickets,
     getTicketsPage,
+    getTicketsForGroupedPresentation,
     getTicketSearchSuggestions,
     getTicketYears,
     getTicketsForExport,
@@ -6065,6 +6211,7 @@
     ensureWorkflowClientRequestId,
     clearWorkflowClientRequestId,
     shouldClearWorkflowClientRequestId,
+    resolveLabelWorkflowAction,
     recordTicketWorkflowAction,
     ensureEmployeeClientRequestId,
     clearEmployeeClientRequestId,

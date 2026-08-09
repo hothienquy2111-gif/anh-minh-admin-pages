@@ -35,6 +35,10 @@
   const FIT_STEP = 0.25;
   const FIT_TOLERANCE = 0.75;
   const FRESH_LABEL_DATA_ERROR = "Không thể tải dữ liệu phiếu mới nhất để in tem. Vui lòng thử lại.";
+  const labelParams = new URLSearchParams(window.location.search);
+  const embedMode = labelParams.get("embed") === "1";
+  const LABEL_RENDERER_PROTOCOL = "am-label-embed-v3";
+  const embedProtocolMatches = !embedMode || labelParams.get("protocol") === LABEL_RENDERER_PROTOCOL;
   let currentTicket = null;
   let currentWorkflowAction = null;
   let printRequestInFlight = false;
@@ -43,6 +47,12 @@
   let assignmentReadyAfterPrint = false;
   let assignmentLoading = false;
   let pendingFitFrame = null;
+  let embedSessionId = "";
+  let embedRendererState = embedMode && !embedProtocolMatches ? "failed" : (embedMode ? "booting" : "standalone");
+  let embedRendererError = embedMode && !embedProtocolMatches
+    ? "Bộ dựng tem đang dùng phiên bản không đồng bộ."
+    : "";
+  let embedRenderInFlight = false;
   let pendingFitTimer = null;
   let fitInProgress = false;
   let labelMeasureCanvas = null;
@@ -671,40 +681,112 @@
     }
   }
 
-  async function renderEmbeddedLabelRequest(event) {
-    if (
-      event.source !== window.parent
-      || event.origin !== window.location.origin
-      || !event.data
-      || event.data.type !== "am-label-embed-render"
-    ) {
+  function isTrustedParentMessage(event) {
+    return event.source === window.parent && event.origin === window.location.origin && event.data;
+  }
+
+  function postEmbedState() {
+    if (!embedSessionId) {
       return;
     }
 
-    const token = String(event.data.token || "");
-    const ticket = event.data.ticket;
-    let requestId = null;
+    if (embedRendererState === "ready") {
+      postEmbedMessage({
+        type: "am-label-embed-ready",
+        protocol: LABEL_RENDERER_PROTOCOL,
+        sessionId: embedSessionId
+      });
+    } else if (embedRendererState === "failed") {
+      postEmbedMessage({
+        type: "am-label-embed-boot-error",
+        protocol: LABEL_RENDERER_PROTOCOL,
+        sessionId: embedSessionId,
+        message: embedRendererError || "Bộ dựng tem không thể khởi tạo."
+      });
+    }
+  }
+
+  function createEmbedError(code, message) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+  }
+
+  function handleEmbeddedLabelMessage(event) {
+    if (!isTrustedParentMessage(event)) {
+      return;
+    }
+
+    if (event.data.type === "am-label-embed-init") {
+      const sessionId = String(event.data.sessionId || "");
+      if (!sessionId) {
+        return;
+      }
+      embedSessionId = sessionId;
+      if (event.data.protocol !== LABEL_RENDERER_PROTOCOL) {
+        embedRendererState = "failed";
+        embedRendererError = "Bộ dựng tem nhận protocol không tương thích.";
+      }
+      postEmbedState();
+      return;
+    }
+
+    if (event.data.type === "am-label-embed-render") {
+      renderEmbeddedLabelRequest(event);
+    }
+  }
+
+  async function renderEmbeddedLabelRequest(event) {
+    if (!isTrustedParentMessage(event) || event.data.type !== "am-label-embed-render") {
+      return;
+    }
+
+    const sessionId = String(event.data.sessionId || "");
+    const requestId = String(event.data.requestId || "");
+    const ticketId = String(event.data.ticketId || "");
+    const labelSize = String(event.data.labelSize || "");
+    const payload = event.data.payload;
+    let workflowRequestId = null;
     let workflowApplied = false;
+    let renderTicket = null;
 
     try {
-      if (!token || !ticket || !ticket.id) {
-        throw new Error("Thiếu dữ liệu phiếu để dựng tem.");
+      if (event.data.protocol !== LABEL_RENDERER_PROTOCOL) {
+        throw createEmbedError("PROTOCOL_MISMATCH", "Protocol dựng tem không tương thích.");
+      }
+      if (!sessionId || sessionId !== embedSessionId) {
+        throw createEmbedError("SESSION_MISMATCH", "Phiên dựng tem không còn hợp lệ.");
+      }
+      if (embedRendererState !== "ready") {
+        throw createEmbedError("RENDERER_NOT_READY", "Bộ dựng tem chưa sẵn sàng.");
+      }
+      if (embedRenderInFlight) {
+        throw createEmbedError("RENDERER_BUSY", "Bộ dựng tem đang xử lý một tem khác.");
+      }
+      if (!requestId || !ticketId || !payload || String(payload.id || "") !== ticketId) {
+        throw createEmbedError("INVALID_RENDER_PAYLOAD", "Thiếu hoặc sai dữ liệu phiếu để dựng tem.");
+      }
+      if (!LABEL_SIZES[labelSize]) {
+        throw createEmbedError("INVALID_LABEL_SIZE", "Khổ tem được chọn không hợp lệ.");
       }
 
-      currentTicket = Object.assign({}, ticket);
+      embedRenderInFlight = true;
+      renderTicket = Object.assign({}, payload);
+      applyLabelSize(labelSize);
 
       if (event.data.runWorkflow === true) {
-        const action = resolveWorkflowAction(currentTicket);
+        const action = resolveWorkflowAction(renderTicket);
         if (!action) {
-          throw new Error(`Phiếu ${window.AMApi.formatTicketCode(currentTicket.ticket_code)} không ở trạng thái có thể in tem.`);
+          throw new Error(`Phiếu ${window.AMApi.formatTicketCode(renderTicket.ticket_code)} không ở trạng thái có thể in tem.`);
         }
 
-        requestId = window.AMApi.ensureWorkflowClientRequestId(currentTicket.id, action);
-        const result = await window.AMApi.recordTicketWorkflowAction(currentTicket.id, action, requestId);
-        window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
-        currentTicket = Object.assign({}, currentTicket, {
+        workflowRequestId = window.AMApi.ensureWorkflowClientRequestId(renderTicket.id, action);
+        const result = await window.AMApi.recordTicketWorkflowAction(renderTicket.id, action, workflowRequestId);
+        window.AMApi.clearWorkflowClientRequestId(renderTicket.id, action);
+        renderTicket = Object.assign({}, renderTicket, {
           status: result.status,
           repair_started_at: result.repair_started_at,
+          ready_for_handover_at: result.ready_for_handover_at,
           completed_at: result.completed_at,
           last_activity_at: result.activity_created_at,
           workflow_available: true
@@ -712,30 +794,40 @@
         workflowApplied = true;
       }
 
-      renderLabel(currentTicket);
+      renderLabel(renderTicket);
       await prepareLabelForPrint();
       postEmbedMessage({
         type: "am-label-embed-rendered",
-        token,
-        ticketId: currentTicket.id,
+        protocol: LABEL_RENDERER_PROTOCOL,
+        sessionId,
+        requestId,
+        ticketId: renderTicket.id,
+        labelSize,
         workflowApplied
       });
     } catch (error) {
       if (
-        requestId
-        && currentTicket
+        workflowRequestId
+        && renderTicket
         && window.AMApi.shouldClearWorkflowClientRequestId(error)
       ) {
-        const action = resolveWorkflowAction(currentTicket);
+        const action = resolveWorkflowAction(renderTicket);
         if (action) {
-          window.AMApi.clearWorkflowClientRequestId(currentTicket.id, action);
+          window.AMApi.clearWorkflowClientRequestId(renderTicket.id, action);
         }
       }
       postEmbedMessage({
         type: "am-label-embed-error",
-        token,
+        protocol: LABEL_RENDERER_PROTOCOL,
+        sessionId,
+        requestId,
+        ticketId,
+        labelSize,
+        code: error.code || "RENDER_FAILED",
         message: error.message || "Không dựng được tem."
       });
+    } finally {
+      embedRenderInFlight = false;
     }
   }
 
@@ -753,30 +845,8 @@
     scheduleLabelFit();
   }
 
-  function canStartRepair(ticket) {
-    return ["mới nhận", "đang kiểm tra", "báo giá"].includes(ticket.status)
-      && !ticket.repair_started_at
-      && !ticket.completed_at;
-  }
-
-  function canReprintLabel(ticket) {
-    return Boolean(ticket.repair_started_at) && ticket.status !== "huỷ";
-  }
-
   function resolveWorkflowAction(ticket) {
-    if (!ticket || !ticket.workflow_available || ticket.status === "huỷ") {
-      return null;
-    }
-
-    if (canStartRepair(ticket)) {
-      return "START_REPAIR";
-    }
-
-    if (canReprintLabel(ticket)) {
-      return "REPRINT_LABEL";
-    }
-
-    return null;
+    return window.AMApi.resolveLabelWorkflowAction(ticket);
   }
 
   async function fetchLatestTicketForLabel(ticketId) {
@@ -1110,10 +1180,13 @@
   async function initPrintLabel() {
     attachLogout();
     attachPaperControls();
-    const params = new URLSearchParams(window.location.search);
-    const embedMode = params.get("embed") === "1";
 
-    if (!embedMode) {
+    if (embedMode) {
+      window.addEventListener("message", handleEmbeddedLabelMessage);
+      if (!embedProtocolMatches) {
+        return;
+      }
+    } else {
       printButton.addEventListener("click", runWorkflowAndPrint);
     }
     if (assignEmployeeButton) {
@@ -1127,18 +1200,23 @@
     try {
       const access = await window.AMApi.requireInternalAccess();
       if (!access) {
+        if (embedMode) {
+          embedRendererState = "failed";
+          embedRendererError = "Không thể xác minh quyền mở bộ dựng tem.";
+          postEmbedState();
+        }
         return;
       }
 
       if (embedMode) {
-        window.addEventListener("message", renderEmbeddedLabelRequest);
-        postEmbedMessage({ type: "am-label-embed-ready" });
+        embedRendererState = "ready";
+        postEmbedState();
         return;
       }
 
       const ticket = await window.AMApi.getTicketForLabel({
-        code: params.get("code"),
-        id: params.get("id")
+        code: labelParams.get("code"),
+        id: labelParams.get("id")
       });
 
       if (!ticket) {
@@ -1153,10 +1231,16 @@
       renderWorkflowControls(ticket);
       clearNotice();
       await loadAssignmentContext();
-      if (params.get("autoprint") === "1") {
+      if (labelParams.get("autoprint") === "1") {
         await runWorkflowAndPrint();
       }
     } catch (error) {
+      if (embedMode) {
+        embedRendererState = "failed";
+        embedRendererError = error.message || "Bộ dựng tem không thể khởi tạo.";
+        postEmbedState();
+        return;
+      }
       showNotice("error", error.message);
       printButton.disabled = true;
     }

@@ -535,12 +535,50 @@
     });
   }
 
+  async function executeRepairReturn(options) {
+    const config = options || {};
+    const ticket = config.ticket || {};
+    const ticketId = String(ticket.id || config.ticketId || "").trim();
+    const details = {
+      reason: String(config.reason || "").trim(),
+      detail: String(config.detail || "").trim()
+    };
+    const action = "READY_FOR_HANDOVER";
+    const repairOutcome = "returned_unrepaired";
+    const progress = repairReturnProgress.get(ticketId);
+    let updatedTicket = progress && progress.ticket ? progress.ticket : ticket;
+
+    if (!ticketId) {
+      throw new Error("Thiếu ID phiếu cho thao tác giao trả sửa chữa.");
+    }
+
+    try {
+      if (!progress || progress.details.reason !== details.reason || progress.details.detail !== details.detail) {
+        updatedTicket = await window.AMApi.saveRepairReturnReason(updatedTicket, details.reason, details.detail);
+        repairReturnProgress.set(ticketId, { ticket: updatedTicket, details });
+      }
+
+      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action, repairOutcome);
+      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId, {
+        repair_outcome: repairOutcome
+      });
+      window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
+      repairReturnProgress.delete(ticketId);
+
+      return { ok: true, result, ticket: updatedTicket, details };
+    } catch (error) {
+      if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
+        window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
+      }
+      throw error;
+    }
+  }
+
   async function returnRepairInPlace(options) {
     const config = options || {};
     const ticket = config.ticket || {};
     const ticketId = String(ticket.id || config.ticketId || "").trim();
     const action = "READY_FOR_HANDOVER";
-    const repairOutcome = "returned_unrepaired";
     const lockKey = `${ticketId}:${action}`;
     const button = config.button instanceof HTMLElement ? config.button : null;
     const progress = repairReturnProgress.get(ticketId);
@@ -568,17 +606,13 @@
     let outcome = null;
 
     try {
-      if (!progress || progress.details.reason !== details.reason || progress.details.detail !== details.detail) {
-        updatedTicket = await window.AMApi.saveRepairReturnReason(workingTicket, details.reason, details.detail);
-        repairReturnProgress.set(ticketId, { ticket: updatedTicket, details });
-      }
-
-      const requestId = window.AMApi.ensureWorkflowClientRequestId(ticketId, action, repairOutcome);
-      const result = await window.AMApi.recordTicketWorkflowAction(ticketId, action, requestId, {
-        repair_outcome: repairOutcome
+      const response = await executeRepairReturn({
+        ticket: workingTicket,
+        reason: details.reason,
+        detail: details.detail
       });
-      window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
-      repairReturnProgress.delete(ticketId);
+      const result = response.result;
+      updatedTicket = response.ticket;
 
       let refreshError = null;
 
@@ -603,10 +637,6 @@
       toast("Đã ghi nhận giao trả sửa chữa và chuyển phiếu sang Bàn giao tivi.", { type: "success" });
       outcome = { ok: true, result, refreshError };
     } catch (error) {
-      if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
-        window.AMApi.clearWorkflowClientRequestId(ticketId, action, repairOutcome);
-      }
-
       toast(error.message || "Không thể chuyển phiếu sang Bàn giao tivi.", {
         type: "error",
         duration: 6500
@@ -709,6 +739,7 @@
   window.AMUI = Object.freeze({
     completeRepairInPlace,
     dismissToast,
+    executeRepairReturn,
     prefersReducedMotion,
     setButtonBusy,
     setSectionState,

@@ -92,6 +92,17 @@
               <button id="handoverClearButton" class="btn secondary compact" type="button">Xóa</button>
             </form>
             <div id="handoverFilterChips" class="handover-filter-chips" aria-label="Lọc thời gian chờ bàn giao"></div>
+            <div class="ticket-bulk-selection-tools">
+              <button
+                id="handoverBulkSelectionLock"
+                class="btn secondary compact ticket-bulk-mode-button"
+                type="button"
+                title="Tạm khóa — đang tối ưu bàn giao và in biên nhận hàng loạt."
+                aria-describedby="handoverBulkSelectionLockHint"
+                disabled
+              >Chọn phiếu</button>
+              <span id="handoverBulkSelectionLockHint" class="sr-only">Tạm khóa — đang tối ưu bàn giao và in biên nhận hàng loạt.</span>
+            </div>
           </div>
 
           <div id="handoverState" class="list-state loading" role="status" aria-live="polite">

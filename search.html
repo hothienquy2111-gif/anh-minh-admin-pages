@@ -72,7 +72,10 @@
                 <span>Năm tiếp nhận</span>
                 <select id="searchYearSelect" aria-label="Lọc phiếu theo năm tiếp nhận"></select>
               </label>
-              <button id="exportExcelButton" class="btn secondary search-export-button" type="button">Xuất Excel</button>
+              <div class="search-action-cluster">
+                <div class="search-bulk-actions" role="group" aria-label="Thao tác chọn phiếu"></div>
+                <button id="exportExcelButton" class="btn secondary search-export-button" type="button">Xuất Excel</button>
+              </div>
             </div>
           </div>
 
@@ -86,7 +89,13 @@
           </div>
 
           <div id="resultsState" class="search-results-state" aria-live="polite"></div>
-          <section id="resultsList" class="results-list search-ticket-list" aria-live="polite"></section>
+          <section
+            id="resultsList"
+            class="results-list search-ticket-list"
+            role="table"
+            aria-labelledby="searchResultsTitle"
+            aria-live="polite"
+          ></section>
           <nav id="resultsPagination" class="pagination search-pagination" aria-label="Phân trang danh sách phiếu"></nav>
         </section>
       </main>
@@ -189,9 +198,12 @@
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
     <script src="js/api.js?v=20260728-admin-redesign"></script>
+    <script src="js/ticket-presentation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
+    <script src="js/ticket-bulk-selection.js?v=20260728-admin-redesign"></script>
+    <script src="js/ticket-bulk-operations.js?v=20260728-admin-redesign"></script>
     <script src="js/tv-condition-options.js?v=20260728-admin-redesign"></script>
-    <script src="js/search.js?v=20260728-admin-redesign"></script>
+    <script src="js/search.js?v=20260808-ticket-grouping-runtime"></script>
     <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>

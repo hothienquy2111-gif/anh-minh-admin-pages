@@ -97,14 +97,15 @@
               <table class="workflow-table ticket-activity-table">
                 <thead>
                   <tr>
-                    <th>Ưu tiên</th>
-                    <th>Phiếu &amp; khách hàng</th>
-                    <th>Thiết bị</th>
-                    <th>Nhân viên thực hiện</th>
-                    <th>Cập nhật gần nhất</th>
-                    <th>Thời gian chờ</th>
-                    <th>Trạng thái</th>
-                    <th>Hành động</th>
+                    <th class="ticket-activity-selection-heading" scope="col"><span class="sr-only">Chọn phiếu</span></th>
+                    <th class="ticket-activity-priority-heading" scope="col">Ưu tiên</th>
+                    <th class="ticket-activity-identity-heading" scope="col">Phiếu &amp; khách hàng</th>
+                    <th class="ticket-activity-device-heading" scope="col">Thiết bị</th>
+                    <th class="ticket-activity-employee-heading" scope="col">Nhân viên thực hiện</th>
+                    <th class="ticket-activity-update-heading" scope="col">Cập nhật gần nhất</th>
+                    <th class="ticket-activity-wait-heading" scope="col">Thời gian chờ</th>
+                    <th class="ticket-activity-status-heading" scope="col">Trạng thái</th>
+                    <th class="ticket-activity-action-heading" scope="col">Hành động</th>
                   </tr>
                 </thead>
                 <tbody id="workflowTableBody"></tbody>
@@ -122,7 +123,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
     <script src="js/api.js?v=20260728-admin-redesign"></script>
+    <script src="js/ticket-presentation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
+    <script src="js/ticket-bulk-selection.js?v=20260728-admin-redesign"></script>
+    <script src="js/ticket-bulk-operations.js?v=20260728-admin-redesign"></script>
     <script src="js/ticket-activity.js?v=20260728-admin-redesign"></script>
     <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>

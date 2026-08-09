@@ -21,7 +21,8 @@
     "new-ticket.html",
     "search.html",
     "print-delivery-receipt.html",
-    "print-label.html"
+    "print-label.html",
+    "invoice.html"
   ]);
 
   const FALLBACKS = {
@@ -37,7 +38,8 @@
     "new-ticket.html": "dashboard.html",
     "search.html": "dashboard.html",
     "print-delivery-receipt.html": "dashboard.html",
-    "print-label.html": "dashboard.html"
+    "print-label.html": "dashboard.html",
+    "invoice.html": "dashboard.html"
   };
 
   const UNSAVED_MESSAGE = "Thông tin chưa được lưu. Bạn có chắc muốn rời trang?";
@@ -193,6 +195,13 @@
 
     if (pageHeader && pageHeader.parentElement) {
       pageHeader.parentElement.insertBefore(actions, pageHeader);
+      return;
+    }
+
+    const pageMain = document.querySelector(".page-shell > .page-main");
+
+    if (pageMain) {
+      pageMain.insertBefore(actions, pageMain.firstElementChild);
       return;
     }
 

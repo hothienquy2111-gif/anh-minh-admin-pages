@@ -27,10 +27,13 @@
   let totalPages = 1;
   let searchTimer = null;
   let visibleTickets = [];
+  const expandedBatchIds = new Set();
   let actionMenu = null;
   let actionMenuTrigger = null;
   let actionMenuTriggerSerial = 0;
+  let bulkController = null;
   const ACTION_MENU_ID = "ticketActivityActionMenu";
+  const BULK_CAPABILITIES = Object.freeze({ completeRepair: true, returnFromRepair: true });
   const state = {
     page: 1,
     keyword: "",
@@ -73,6 +76,13 @@
   function parseTicketTime(value) {
     const time = Date.parse(String(value || ""));
     return Number.isFinite(time) ? time : 0;
+  }
+
+  function formatBatchTime(value) {
+    const time = parseTicketTime(value);
+    return time
+      ? new Date(time).toLocaleString("vi-VN", { hour12: false })
+      : "";
   }
 
   function elapsedParts(milliseconds) {
@@ -386,6 +396,42 @@
 
   function createStatusBadge(status) {
     return createElement("span", `status-pill ${statusClass(status)}`.trim(), statusLabel(status));
+  }
+
+  function createBulkTicketControl(ticket) {
+    const snapshot = window.AMTicketBulkOperations.buildSelectionTicket(ticket, {
+      capabilities: BULK_CAPABILITIES,
+      sourcePage: "activity"
+    });
+    return window.AMTicketBulkSelection.createSelectionControl({
+      id: ticket.id,
+      ariaLabel: `Chọn phiếu ${window.AMApi.formatTicketCode(ticket.ticket_code)}`,
+      disabled: !snapshot.selectable,
+      disabledReason: snapshot.disabledReason
+    });
+  }
+
+  function createBulkGroupControl(row) {
+    return window.AMTicketBulkSelection.createSelectionControl({
+      kind: "group",
+      id: row.batchId,
+      ariaLabel: `Chọn các phiếu khả dụng trong nhóm ${row.totalTicketCount} tivi`
+    });
+  }
+
+  function syncBulkRegistry(rows) {
+    if (!bulkController) return;
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    bulkController.syncRegistry({
+      tickets: sourceRows.flatMap((row) => row.tickets),
+      groups: sourceRows
+        .filter((row) => row.type === "batch")
+        .map((row) => ({ id: row.batchId, ticketIds: row.tickets.map((ticket) => ticket.id) }))
+    });
+  }
+
+  function clearBulkForDataChange(showNotice) {
+    if (bulkController) bulkController.clearForDataChange(showNotice);
   }
 
   function createPriorityBadge(ticket) {
@@ -746,20 +792,25 @@
     return cell;
   }
 
-  function renderWorkflowRows(tickets) {
-    const fragment = document.createDocumentFragment();
-
-    tickets.forEach((ticket) => {
+  function createWorkflowRow(ticket, batchId) {
       const row = document.createElement("tr");
-      const priorityCell = document.createElement("td");
+      const selectionCell = createElement("td", "ticket-activity-selection-cell");
+      const priorityCell = createElement("td", "ticket-activity-priority-cell");
       const statusCell = document.createElement("td");
       const actionCell = createElement("td", "ticket-activity-action-cell");
 
+      if (batchId) {
+        row.className = "ticket-presentation-child-row";
+        row.dataset.batchChildOf = batchId;
+      }
       row.dataset.ticketCode = ticket.ticket_code || "";
+      row.dataset.bulkTicketId = ticket.id || "";
+      selectionCell.appendChild(createBulkTicketControl(ticket));
       priorityCell.appendChild(createPriorityBadge(ticket));
       statusCell.appendChild(createStatusBadge(ticket.status));
       actionCell.appendChild(createWorkflowActions(ticket));
       row.append(
+        selectionCell,
         priorityCell,
         createTicketCustomerCell(ticket),
         createDeviceCell(ticket),
@@ -769,7 +820,75 @@
         statusCell,
         actionCell
       );
-      fragment.appendChild(row);
+      return row;
+  }
+
+  function batchStatusSummary(tickets) {
+    const counts = new Map();
+    tickets.forEach((ticket) => {
+      const label = statusLabel(ticket.status);
+      counts.set(label, (counts.get(label) || 0) + 1);
+    });
+    return Array.from(counts, ([label, count]) => `${count} ${label}`).join(" · ");
+  }
+
+  function batchExpanded(row) {
+    return Boolean(state.keyword) || expandedBatchIds.has(row.batchId);
+  }
+
+  function createBatchToggle(row, className) {
+    const firstTicket = row.tickets[0] || {};
+    const toggle = createElement("button", `ticket-presentation-toggle ${className || ""}`.trim());
+    const title = createElement("span", "ticket-presentation-toggle__title");
+    const customer = createElement(
+      "strong",
+      "",
+      textOrDash(firstTicket.customer_name || firstTicket.customer_master_name)
+    );
+    const meta = createElement("small", "", [
+      window.AMApi.formatCustomerCode(firstTicket.customer_code),
+      batchStatusSummary(row.tickets),
+      formatBatchTime(firstTicket.created_at)
+    ].filter(Boolean).join(" · "));
+    const badge = createElement("span", "ticket-presentation-badge", `[${row.totalTicketCount} TIVI]`);
+    const chevron = createElement("span", "ticket-presentation-chevron");
+    const expanded = batchExpanded(row);
+
+    toggle.type = "button";
+    toggle.dataset.ticketBatchToggle = row.batchId;
+    toggle.setAttribute("aria-expanded", String(expanded));
+    title.append(customer, meta);
+    toggle.append(badge, title, chevron);
+    return toggle;
+  }
+
+  function renderWorkflowRows(rows) {
+    const fragment = document.createDocumentFragment();
+
+    rows.forEach((presentationRow) => {
+      if (presentationRow.type !== "batch") {
+        fragment.appendChild(createWorkflowRow(presentationRow.tickets[0]));
+        return;
+      }
+
+      const expanded = batchExpanded(presentationRow);
+      const parent = createElement("tr", "ticket-presentation-batch-row");
+      const parentCell = document.createElement("td");
+      const parentContent = createElement("div", "ticket-bulk-group-header");
+      parent.dataset.bulkGroupId = presentationRow.batchId;
+      parentCell.colSpan = 9;
+      parentContent.append(
+        createBulkGroupControl(presentationRow),
+        createBatchToggle(presentationRow, "ticket-activity-batch-toggle")
+      );
+      parentCell.appendChild(parentContent);
+      parent.appendChild(parentCell);
+      fragment.appendChild(parent);
+      presentationRow.tickets.forEach((ticket) => {
+        const child = createWorkflowRow(ticket, presentationRow.batchId);
+        child.hidden = !expanded;
+        fragment.appendChild(child);
+      });
     });
 
     workflow.tableBody.replaceChildren(fragment);
@@ -790,10 +909,7 @@
     return item;
   }
 
-  function renderWorkflowCards(tickets) {
-    const fragment = document.createDocumentFragment();
-
-    tickets.forEach((ticket) => {
+  function createWorkflowCard(ticket, batchId) {
       const card = createElement("article", "workflow-card ticket-activity-mobile-card");
       const top = createElement("div", "workflow-card-top ticket-activity-mobile-top");
       const title = createElement("div", "workflow-card-title");
@@ -814,12 +930,17 @@
       const deviceName = model ? [brand, model].filter(Boolean).join(" ") : "Chưa cập nhật model";
       const size = formatDeviceSize(ticket.size);
 
+      if (batchId) {
+        card.classList.add("ticket-presentation-child-card");
+        card.dataset.batchChildOf = batchId;
+      }
       card.dataset.ticketCode = ticket.ticket_code || "";
+      card.dataset.bulkTicketId = ticket.id || "";
       code.dataset.ticketCode = ticket.ticket_code || "";
       customer.title = customer.textContent;
       title.append(code, customer, customerCode);
       badges.append(createPriorityBadge(ticket), createStatusBadge(ticket.status));
-      top.append(badges, title);
+      top.append(createBulkTicketControl(ticket), badges, title);
       device.textContent = size ? `${deviceName} · ${size}` : deviceName;
       device.title = device.textContent;
       meta.append(
@@ -830,7 +951,34 @@
       );
 
       card.append(top, meta, createWorkflowActions(ticket));
-      fragment.appendChild(card);
+      return card;
+  }
+
+  function renderWorkflowCards(rows) {
+    const fragment = document.createDocumentFragment();
+
+    rows.forEach((presentationRow) => {
+      if (presentationRow.type !== "batch") {
+        fragment.appendChild(createWorkflowCard(presentationRow.tickets[0]));
+        return;
+      }
+
+      const expanded = batchExpanded(presentationRow);
+      const group = createElement("article", "ticket-presentation-batch-card ticket-activity-batch-card");
+      const groupHeader = createElement("div", "ticket-bulk-group-header");
+      const children = createElement("div", "ticket-presentation-children");
+      group.dataset.bulkGroupId = presentationRow.batchId;
+      children.dataset.batchChildren = presentationRow.batchId;
+      children.hidden = !expanded;
+      presentationRow.tickets.forEach((ticket) => {
+        children.appendChild(createWorkflowCard(ticket, presentationRow.batchId));
+      });
+      groupHeader.append(
+        createBulkGroupControl(presentationRow),
+        createBatchToggle(presentationRow, "ticket-activity-batch-toggle")
+      );
+      group.append(groupHeader, children);
+      fragment.appendChild(group);
     });
 
     workflow.cards.replaceChildren(fragment);
@@ -913,15 +1061,14 @@
     return "Không có phiếu phù hợp.";
   }
 
-  function renderSummary(tickets) {
+  function renderSummary(rows) {
     if (totalCount === 0) {
       workflow.listSummary.textContent = emptyMessage();
       return;
     }
 
-    const start = (state.page - 1) * PAGE_SIZE + 1;
-    const end = Math.min(start + tickets.length - 1, totalCount);
-    workflow.listSummary.textContent = `Hiển thị ${start}–${end} trên tổng số ${totalCount} phiếu.`;
+    const visibleTicketCount = rows.reduce((count, row) => count + row.tickets.length, 0);
+    workflow.listSummary.textContent = `Đang hiển thị ${visibleTicketCount} phiếu trong ${rows.length} mục · Tổng số ${totalCount} phiếu.`;
   }
 
   function renderFilterCounts(filterCounts) {
@@ -994,22 +1141,24 @@
     }
   }
 
-  function renderWorkflow(tickets, filterCounts) {
+  function renderWorkflow(rows, filterCounts) {
     closeActionMenu();
-    visibleTickets = tickets.slice();
+    visibleTickets = rows.flatMap((row) => row.tickets);
     renderFilterCounts(filterCounts);
-    renderSummary(tickets);
+    renderSummary(rows);
 
     if (totalCount === 0) {
       workflow.tableBody.replaceChildren();
       workflow.cards.replaceChildren();
+      syncBulkRegistry([]);
       renderPagination();
       setWorkflowState("empty", emptyMessage());
       return;
     }
 
-    renderWorkflowRows(tickets);
-    renderWorkflowCards(tickets);
+    renderWorkflowRows(rows);
+    renderWorkflowCards(rows);
+    syncBulkRegistry(rows);
     renderPagination();
     showWorkflowContent();
     highlightRequestedTicket();
@@ -1032,6 +1181,7 @@
     }
 
     state.page = nextPage;
+    clearBulkForDataChange();
     loadWorkflowTickets({ refresh: true });
   }
 
@@ -1062,7 +1212,8 @@
         pageSize: PAGE_SIZE,
         keyword: state.keyword,
         filter: state.filter,
-        forceRefresh: config.forceRefresh === true
+        forceRefresh: config.forceRefresh === true,
+        presentationMode: true
       });
 
       if (requestId !== workflowRequestId) {
@@ -1075,9 +1226,11 @@
       }
 
       totalCount = Number(result.totalCount || 0);
-      totalPages = Math.max(1, Number(result.totalPages || 1));
-      state.page = Math.min(Math.max(Number(result.page) || 1, 1), totalPages);
-      renderWorkflow(result.tickets || [], result.filterCounts || {});
+      const allRows = window.AMMultiTicketPresentation.buildTicketPresentationRows(result.tickets || []);
+      const pageResult = window.AMMultiTicketPresentation.paginateRows(allRows, state.page, PAGE_SIZE);
+      totalPages = pageResult.totalPages;
+      state.page = pageResult.page;
+      renderWorkflow(pageResult.rows, result.filterCounts || {});
     } catch (error) {
       if (requestId !== workflowRequestId) {
         return;
@@ -1105,6 +1258,7 @@
 
     state.keyword = keyword;
     state.page = 1;
+    clearBulkForDataChange();
     loadWorkflowTickets({ refresh: true });
   }
 
@@ -1129,6 +1283,7 @@
     workflow.searchInput.value = "";
     state.keyword = "";
     state.page = 1;
+    clearBulkForDataChange();
     loadWorkflowTickets({ refresh: true });
   }
 
@@ -1139,6 +1294,7 @@
 
     state.filter = nextFilter;
     state.page = 1;
+    clearBulkForDataChange();
     syncFilterButtons();
     loadWorkflowTickets({ refresh: true });
   }
@@ -1181,6 +1337,30 @@
   }
 
   function handleWorkflowInteraction(event) {
+    const batchToggle = event.target.closest("[data-ticket-batch-toggle]");
+    if (batchToggle && workflow.section.contains(batchToggle)) {
+      event.preventDefault();
+      const batchId = batchToggle.dataset.ticketBatchToggle;
+      const shouldExpand = batchToggle.getAttribute("aria-expanded") !== "true";
+      if (shouldExpand) {
+        expandedBatchIds.add(batchId);
+      } else {
+        expandedBatchIds.delete(batchId);
+      }
+      workflow.section.querySelectorAll("[data-ticket-batch-toggle]").forEach((toggle) => {
+        if (toggle.dataset.ticketBatchToggle === batchId) {
+          toggle.setAttribute("aria-expanded", String(shouldExpand));
+        }
+      });
+      workflow.section.querySelectorAll("[data-batch-child-of], [data-batch-children]").forEach((element) => {
+        const owner = element.dataset.batchChildOf || element.dataset.batchChildren;
+        if (owner === batchId) {
+          element.hidden = !shouldExpand;
+        }
+      });
+      return;
+    }
+
     const menuTrigger = event.target.closest("[data-action-menu-trigger]");
     if (menuTrigger && workflow.section.contains(menuTrigger)) {
       event.preventDefault();
@@ -1285,6 +1465,14 @@
     try {
       const access = await window.AMApi.requireInternalAccess();
       if (access) {
+        bulkController = window.AMTicketBulkOperations.mountPageController({
+          pageKey: "activity",
+          section: workflow.section,
+          toolbar: document.querySelector(".ticket-activity-toolbar"),
+          capabilities: BULK_CAPABILITIES,
+          readFreshTicket: (uuid) => window.AMApi.getTicketById(uuid),
+          refresh: () => loadWorkflowTickets({ refresh: true, forceRefresh: true })
+        });
         await loadWorkflowTickets();
       }
     } catch (error) {

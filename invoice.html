@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="js/ui-shell-bootstrap.js?v=20260728-admin-redesign"></script>
+    <title>Báo giá &amp; Công nợ - Anh Minh Admin</title>
+    <link rel="icon" href="assets/logo-am.jpeg" type="image/jpeg">
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-vietnamese-400.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-vietnamese-500.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-latin-500.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-vietnamese-600.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-latin-600.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-vietnamese-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/be-vietnam-pro-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="css/admin.css?v=20260728-admin-redesign">
+    <link rel="stylesheet" href="css/admin-redesign.css?v=20260728-admin-redesign" media="screen">
+    <link rel="stylesheet" href="css/invoice.css?v=20260728-admin-redesign">
+  </head>
+  <body class="invoice-page">
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="dashboard.html">
+          <img class="brand-logo" src="assets/logo-am.jpeg" alt="Logo Anh Minh Store">
+          <span class="brand-copy">
+            <strong>Anh Minh Admin</strong>
+            <span>Quản lý phiếu sửa chữa</span>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Menu chính">
+          <a href="ticket-activity.html">Hoạt động phiếu</a>
+          <a href="user-guide.html">Hướng dẫn sử dụng</a>
+          <a href="dashboard.html">Trang chủ</a>
+          <a href="overview.html">Tổng quan</a>
+          <a href="ticket-history.html">Lịch sử nhận phiếu</a>
+          <a href="new-ticket.html">Tạo phiếu</a>
+          <a href="search.html">Danh sách phiếu</a>
+          <a href="warranty-search.html">Tra cứu bảo hành</a>
+          <a href="invoice.html" aria-current="page">Báo giá</a>
+          <button type="button" data-logout>Đăng xuất</button>
+        </nav>
+      </header>
+
+      <main class="page-main invoice-main" id="invoiceMainContent">
+        <header class="page-header invoice-page-header">
+          <div>
+            <span class="invoice-eyebrow">Công cụ báo giá &amp; đối chiếu</span>
+            <h1 class="page-title">Báo giá &amp; Công nợ</h1>
+            <p class="page-subtitle">Soạn báo giá chuyên nghiệp và lập đối chiếu công nợ trực tiếp trên trình duyệt.</p>
+          </div>
+          <div class="invoice-header-actions">
+            <a class="btn secondary" href="dashboard.html">Trang chủ</a>
+          </div>
+        </header>
+
+        <div class="invoice-mode-switch" role="tablist" aria-label="Chọn loại chứng từ">
+          <button type="button" role="tab" aria-selected="true" tabindex="0" data-document-mode="invoice">
+            <span class="invoice-mode-switch__title">Báo giá</span>
+            <span class="invoice-mode-switch__description">Soạn báo giá hàng hóa, dịch vụ và sửa chữa</span>
+          </button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-document-mode="debt">
+            <span class="invoice-mode-switch__title">Công nợ</span>
+            <span class="invoice-mode-switch__description">Đối chiếu số phát sinh và còn phải thu</span>
+          </button>
+        </div>
+
+        <div class="invoice-workspace">
+          <section class="invoice-editor" aria-label="Nhập nội dung chứng từ">
+            <form id="invoiceForm" autocomplete="off" novalidate>
+              <div class="invoice-form-toolbar">
+                <div>
+                  <strong>Soạn báo giá / công nợ</strong>
+                  <span>Thông tin chỉ tồn tại trong tab này cho đến khi bạn rời trang.</span>
+                </div>
+                <span id="invoiceDraftState" class="invoice-draft-state">Chưa có thay đổi</span>
+              </div>
+
+              <fieldset class="invoice-form-section">
+                <legend>Thông tin đơn vị</legend>
+                <div class="invoice-form-grid invoice-form-grid--three">
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Tên đơn vị</span>
+                    <input name="unit_name" data-field="unitName" value="ĐIỆN TỬ ANH MINH" autocomplete="organization">
+                  </label>
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Địa chỉ</span>
+                    <input name="unit_address" data-field="unitAddress" value="100 Tiểu La, Đà Nẵng" autocomplete="street-address">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Điện thoại</span>
+                    <input name="unit_phone" data-field="unitPhone" value="0905111223 - 0774111223" inputmode="tel" autocomplete="tel">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Email</span>
+                    <input name="unit_email" data-field="unitEmail" type="email" autocomplete="email">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Mã số thuế</span>
+                    <input name="unit_tax_code" data-field="unitTaxCode" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Người liên hệ</span>
+                    <input name="unit_contact" data-field="unitContact" autocomplete="name">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Tài khoản ngân hàng</span>
+                    <input name="unit_bank_account" data-field="unitBankAccount" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Ngân hàng / chi nhánh</span>
+                    <input name="unit_bank_branch" data-field="unitBankBranch" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Website</span>
+                    <input name="unit_website" data-field="unitWebsite" autocomplete="url">
+                  </label>
+                </div>
+                <label class="invoice-field">
+                  <span>Ghi chú đầu chứng từ</span>
+                  <textarea name="unit_note" data-field="unitNote" rows="2" placeholder="Thông tin thêm nếu cần"></textarea>
+                </label>
+              </fieldset>
+
+              <fieldset class="invoice-form-section">
+                <legend>Thông tin khách hàng</legend>
+                <div class="invoice-form-grid invoice-form-grid--two">
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Tên khách hàng</span>
+                    <input name="customer_name" data-field="customerName" autocomplete="name">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Số điện thoại</span>
+                    <input name="customer_phone" data-field="customerPhone" inputmode="tel" autocomplete="tel">
+                  </label>
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Địa chỉ</span>
+                    <input name="customer_address" data-field="customerAddress" autocomplete="street-address">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Email</span>
+                    <input name="customer_email" data-field="customerEmail" type="email" autocomplete="email">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Mã số thuế</span>
+                    <input name="customer_tax_code" data-field="customerTaxCode" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Mã khách hàng</span>
+                    <input name="customer_code" data-field="customerCode" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Người đại diện</span>
+                    <input name="customer_representative" data-field="customerRepresentative" autocomplete="name">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Chức vụ</span>
+                    <input name="customer_position" data-field="customerPosition" autocomplete="organization-title">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Mã tham chiếu</span>
+                    <input name="customer_reference" data-field="customerReference" autocomplete="off">
+                  </label>
+                </div>
+                <label class="invoice-field">
+                  <span>Ghi chú khách hàng</span>
+                  <textarea name="customer_note" data-field="customerNote" rows="2" placeholder="Ghi chú hiển thị trên chứng từ nếu cần"></textarea>
+                </label>
+              </fieldset>
+
+              <fieldset class="invoice-form-section">
+                <legend>Thông tin chứng từ</legend>
+                <div class="invoice-form-grid invoice-form-grid--four">
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Mẫu báo giá</span>
+                    <select name="document_title" data-field="documentTitle">
+                      <option>BÁO GIÁ</option>
+                      <option>BÁO GIÁ DỊCH VỤ</option>
+                      <option>BÁO GIÁ HÀNG HÓA</option>
+                      <option>BÁO GIÁ SỬA CHỮA</option>
+                    </select>
+                  </label>
+                  <label class="invoice-field">
+                    <span>Số báo giá</span>
+                    <input name="document_number" data-field="documentNumber" placeholder="Nhập thủ công" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Ngày lập</span>
+                    <input name="document_date" data-field="documentDate" type="date">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Hạn thanh toán</span>
+                    <input name="due_date" data-field="dueDate" type="date">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Hiệu lực đến</span>
+                    <input name="valid_until" data-field="validUntil" type="date">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Địa điểm lập</span>
+                    <input name="document_place" data-field="documentPlace" placeholder="Ví dụ: Đà Nẵng" autocomplete="address-level2">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Người lập</span>
+                    <input name="document_preparer" data-field="documentPreparer" autocomplete="name">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Phương thức thanh toán</span>
+                    <select name="payment_method" data-field="paymentMethod">
+                      <option>Tiền mặt</option>
+                      <option>Chuyển khoản</option>
+                      <option>Tiền mặt và chuyển khoản</option>
+                      <option>Chưa xác định</option>
+                    </select>
+                  </label>
+                  <label class="invoice-field">
+                    <span>Đơn vị tiền</span>
+                    <input value="VND - Việt Nam đồng" readonly aria-readonly="true">
+                  </label>
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Tiêu đề phụ</span>
+                    <input name="document_subtitle" data-field="documentSubtitle" placeholder="Ví dụ: Báo giá sửa chữa tivi" autocomplete="off">
+                  </label>
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Điều khoản thanh toán</span>
+                    <input name="payment_terms" data-field="paymentTerms" placeholder="Ví dụ: Thanh toán trong 7 ngày" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Thời gian giao hàng</span>
+                    <input name="delivery_time" data-field="deliveryTime" placeholder="Ví dụ: 3 ngày làm việc" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Thời hạn bảo hành</span>
+                    <input name="warranty_period" data-field="warrantyPeriod" placeholder="Ví dụ: 3 tháng" autocomplete="off">
+                  </label>
+                </div>
+              </fieldset>
+
+              <section class="invoice-mode-panel" data-invoice-mode-panel="invoice" aria-label="Chi tiết báo giá">
+                <label class="invoice-field invoice-introduction-field">
+                  <span>Lời mở đầu</span>
+                  <textarea name="quotation_introduction" data-field="quotationIntroduction" rows="3"></textarea>
+                </label>
+                <div class="invoice-section-heading">
+                  <div>
+                    <h2>Danh sách hàng hóa / dịch vụ</h2>
+                    <p>Đơn giá và thành tiền dùng VND nguyên số; thuế mặc định bằng 0.</p>
+                  </div>
+                  <button id="addInvoiceItemButton" class="btn secondary" type="button">Thêm dòng</button>
+                </div>
+                <div class="invoice-table-scroll">
+                  <table class="invoice-input-table" aria-label="Danh sách hàng hóa và dịch vụ">
+                    <thead>
+                      <tr>
+                        <th scope="col">STT</th>
+                        <th scope="col">Model / mã</th>
+                        <th scope="col">Nội dung</th>
+                        <th scope="col">ĐVT</th>
+                        <th scope="col">SL</th>
+                        <th scope="col">Đơn giá</th>
+                        <th scope="col">Giảm trừ</th>
+                        <th scope="col">Thành tiền</th>
+                        <th scope="col" aria-label="Thao tác"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="invoiceItemsBody"></tbody>
+                  </table>
+                </div>
+                <div class="invoice-totals-editor">
+                  <label class="invoice-field">
+                    <span>Cách nhập chiết khấu chung</span>
+                    <select name="invoice_discount_mode" data-field="invoiceDiscountMode">
+                      <option value="percent">Theo phần trăm</option>
+                      <option value="fixed">Theo số tiền</option>
+                    </select>
+                  </label>
+                  <label class="invoice-field">
+                    <span>Chiết khấu chung (%)</span>
+                    <input name="invoice_discount_rate" data-field="invoiceDiscountRate" inputmode="decimal" value="0">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Chiết khấu chung (VND)</span>
+                    <input name="invoice_discount_amount" data-field="invoiceDiscountAmount" inputmode="numeric" value="0">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Phí giao hàng</span>
+                    <input name="invoice_shipping" data-field="invoiceShipping" inputmode="numeric" value="0">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Phụ phí</span>
+                    <input name="invoice_surcharge" data-field="invoiceSurcharge" inputmode="numeric" value="0">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Thuế VAT (%)</span>
+                    <input name="invoice_tax_rate" data-field="invoiceTaxRate" inputmode="decimal" value="0">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Đã thanh toán</span>
+                    <input name="invoice_paid" data-field="invoicePaid" inputmode="numeric" value="0">
+                  </label>
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Ghi chú thanh toán</span>
+                    <input name="invoice_payment_note" data-field="invoicePaymentNote" autocomplete="off">
+                  </label>
+                </div>
+                <div id="invoiceTotalsSummary" class="invoice-totals-summary" aria-live="polite"></div>
+                <label class="invoice-field">
+                  <span>Điều khoản / ghi chú cuối chứng từ</span>
+                  <textarea name="invoice_note" data-field="invoiceNote" rows="3" placeholder="Ví dụ: Báo giá có hiệu lực trong ..."></textarea>
+                </label>
+              </section>
+
+              <section class="invoice-mode-panel" data-invoice-mode-panel="debt" aria-label="Chi tiết công nợ" hidden>
+                <label class="invoice-field invoice-introduction-field">
+                  <span>Lời mở đầu</span>
+                  <textarea name="debt_introduction" data-field="debtIntroduction" rows="3"></textarea>
+                </label>
+                <div class="invoice-section-heading">
+                  <div>
+                    <h2>Chi tiết công nợ</h2>
+                    <p>Nhập các khoản phát sinh và thanh toán để đối chiếu số dư.</p>
+                  </div>
+                  <button id="addDebtItemButton" class="btn secondary" type="button">Thêm khoản</button>
+                </div>
+                <div class="invoice-form-grid invoice-form-grid--three invoice-debt-baseline">
+                  <label class="invoice-field">
+                    <span>Số dư đầu kỳ</span>
+                    <input name="debt_opening_balance" data-field="debtOpeningBalance" inputmode="numeric" value="0">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Đã thanh toán ngoài bảng</span>
+                    <input name="debt_paid_amount" data-field="debtPaidAmount" inputmode="numeric" value="0">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Kỳ đối chiếu</span>
+                    <input name="debt_period" data-field="debtPeriod" placeholder="Ví dụ: 01/07/2026 - 31/07/2026" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Từ ngày</span>
+                    <input name="debt_period_start" data-field="debtPeriodStart" type="date">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Đến ngày</span>
+                    <input name="debt_period_end" data-field="debtPeriodEnd" type="date">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Hạn thanh toán công nợ</span>
+                    <input name="debt_payment_due_date" data-field="debtPaymentDueDate" type="date">
+                  </label>
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Nhắc thanh toán</span>
+                    <input name="debt_payment_terms" data-field="debtPaymentTerms" placeholder="Ví dụ: Thanh toán trước ngày 15 hàng tháng" autocomplete="off">
+                  </label>
+                  <label class="invoice-field invoice-field--wide">
+                    <span>Loại xác nhận</span>
+                    <select name="debt_title" data-field="debtTitle">
+                      <option>XÁC NHẬN CÔNG NỢ</option>
+                      <option>BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ</option>
+                      <option>THÔNG BÁO CÔNG NỢ</option>
+                    </select>
+                  </label>
+                  <label class="invoice-field">
+                    <span>Số chứng từ</span>
+                    <input name="debt_number" data-field="debtNumber" autocomplete="off">
+                  </label>
+                  <label class="invoice-field">
+                    <span>Ngày lập</span>
+                    <input name="debt_date" data-field="debtDate" type="date">
+                  </label>
+                </div>
+                <div class="invoice-table-scroll">
+                  <table class="invoice-input-table invoice-input-table--debt" aria-label="Bảng chi tiết công nợ">
+                    <thead>
+                      <tr>
+                        <th scope="col">STT</th>
+                        <th scope="col">Ngày</th>
+                        <th scope="col">Diễn giải</th>
+                        <th scope="col">Số chứng từ / tham chiếu</th>
+                        <th scope="col">Hạn</th>
+                        <th scope="col">Phát sinh</th>
+                        <th scope="col">Đã trả</th>
+                        <th scope="col">Còn lại</th>
+                        <th scope="col">Ghi chú</th>
+                        <th scope="col" aria-label="Thao tác"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="debtItemsBody"></tbody>
+                  </table>
+                </div>
+                <div id="debtTotalsSummary" class="invoice-totals-summary" aria-live="polite"></div>
+                <label class="invoice-field">
+                  <span>Ghi chú đối chiếu</span>
+                  <textarea name="debt_note" data-field="debtNote" rows="3" placeholder="Ghi chú về kỳ đối chiếu hoặc phương án thanh toán"></textarea>
+                </label>
+              </section>
+
+              <div class="invoice-editor-actions">
+                <button id="invoiceResetButton" class="btn ghost" type="button">Làm lại</button>
+                <span class="invoice-shortcut-hint">Ctrl + Enter: thêm dòng · Ctrl + Shift + Enter: nhân bản dòng</span>
+              </div>
+            </form>
+          </section>
+
+          <section class="invoice-preview-panel" aria-label="Xem trước chứng từ">
+            <div class="invoice-preview-toolbar">
+              <div>
+                <strong>Xem trước A4</strong>
+                <span id="invoicePreviewStatus" role="status" aria-live="polite">Đang chuẩn bị bản xem trước...</span>
+              </div>
+              <div class="invoice-preview-actions">
+                <div class="invoice-zoom-switch" role="group" aria-label="Độ phóng đại bản xem trước">
+                  <button type="button" data-preview-zoom="75">75%</button>
+                  <button type="button" class="is-active" data-preview-zoom="100">100%</button>
+                  <button type="button" data-preview-zoom="fit">Vừa khung</button>
+                </div>
+                <div class="invoice-export-actions" aria-label="Xuất báo giá hoặc công nợ">
+                  <button id="invoicePrintButton" class="btn secondary" type="button">In chứng từ</button>
+                  <button id="invoicePdfButton" class="btn secondary" type="button">Xuất PDF</button>
+                  <button id="invoiceWordButton" class="btn primary" type="button">Xuất Word</button>
+                </div>
+              </div>
+            </div>
+            <div class="invoice-preview-scroll" id="invoicePreviewScroll">
+              <div id="invoicePreviewStage" class="invoice-preview-stage"></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <noscript>
+      <p class="invoice-noscript">Cần bật JavaScript để nhập và xem trước chứng từ.</p>
+    </noscript>
+
+    <script src="assets/vendor/docx.iife.js?v=20260728-admin-redesign"></script>
+    <script src="js/invoice.js?v=20260728-admin-redesign"></script>
+    <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
+    <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>
+  </body>
+</html>

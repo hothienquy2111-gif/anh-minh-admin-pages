@@ -46,6 +46,8 @@
   let activeSuggestionIndex = -1;
   let isLoading = false;
   let lastResult = null;
+  const expandedWarrantyIds = new Set();
+  let warrantyFallbackId = 0;
 
   function showNotice(type, message) {
     if (!notice) {
@@ -585,6 +587,108 @@
     return link;
   }
 
+  function createChevronIcon() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    svg.classList.add("warranty-summary-chevron");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("width", "16");
+    svg.setAttribute("height", "16");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    path.setAttribute("d", "m3.5 6 4.5 4 4.5-4");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "currentColor");
+    path.setAttribute("stroke-width", "1.8");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function warrantyIdentity(ticket) {
+    const stableId = String(ticket.id || ticket.ticket_code || "").trim();
+    if (stableId) {
+      return stableId;
+    }
+
+    warrantyFallbackId += 1;
+    return `warranty-card-${warrantyFallbackId}`;
+  }
+
+  function warrantyDetailsId(identity) {
+    const safeIdentity = String(identity).replace(/[^A-Za-z0-9_-]/g, "-");
+    return `warranty-details-${safeIdentity}`;
+  }
+
+  function warrantySummaryText(ticket, status) {
+    const mode = String(ticket.warranty_mode || "").toUpperCase();
+    if (mode === "NONE") {
+      return "Không bảo hành · Phiếu không áp dụng bảo hành";
+    }
+
+    const period = ticket.warranty_months
+      ? `${ticket.warranty_months} tháng`
+      : warrantyModeLabel(ticket.warranty_mode);
+    const dateRange = `${formatDate(ticket.warranty_start_date)} → ${formatDate(ticket.warranty_end_date)}`;
+    return joinVisibleParts(period, dateRange, status.category === "no-info" ? status.detail : "");
+  }
+
+  function createWarrantyDisclosure(ticket, status) {
+    const identity = warrantyIdentity(ticket);
+    const detailsId = warrantyDetailsId(identity);
+    const expanded = expandedWarrantyIds.has(identity);
+    const section = createEl("section", expanded ? "warranty-disclosure is-expanded" : "warranty-disclosure");
+    const toggle = createEl("button", "warranty-summary-toggle");
+    const copy = createEl("span", "warranty-summary-copy");
+    const eyebrow = createEl("span", "warranty-summary-label", "Bảo hành");
+    const summaryText = createEl("span", "warranty-summary-text", warrantySummaryText(ticket, status));
+    const controls = createEl("span", `warranty-summary-controls ${status.className}`);
+    const badge = createEl("span", "warranty-summary-status", status.label);
+    const chevron = createChevronIcon();
+    const region = createEl("div", "warranty-detail-region");
+    const regionInner = createEl("div", "warranty-detail-region__inner");
+    const detailGrid = createEl("div", "warranty-detail-block");
+
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.setAttribute("aria-controls", detailsId);
+    toggle.setAttribute("aria-label", `${expanded ? "Thu gọn" : "Mở chi tiết"} bảo hành ${window.AMApi.formatTicketCode(ticket.ticket_code)}`);
+    region.id = detailsId;
+    region.setAttribute("aria-hidden", String(!expanded));
+
+    detailGrid.append(
+      createMeta("Kiểu bảo hành", warrantyModeLabel(ticket.warranty_mode)),
+      createMeta("Số tháng", ticket.warranty_months ? `${ticket.warranty_months} tháng` : ""),
+      createMeta("Bắt đầu", formatDate(ticket.warranty_start_date)),
+      createMeta("Kết thúc", formatDate(ticket.warranty_end_date)),
+      createMeta("Trạng thái bảo hành", status.detail),
+      createMeta("Nội dung", ticket.warranty_note)
+    );
+
+    copy.append(eyebrow, summaryText);
+    controls.append(badge, chevron);
+    toggle.append(copy, controls);
+    regionInner.appendChild(detailGrid);
+    region.appendChild(regionInner);
+    section.append(toggle, region);
+
+    toggle.addEventListener("click", () => {
+      const nextExpanded = toggle.getAttribute("aria-expanded") !== "true";
+      if (nextExpanded) {
+        expandedWarrantyIds.add(identity);
+      } else {
+        expandedWarrantyIds.delete(identity);
+      }
+      section.classList.toggle("is-expanded", nextExpanded);
+      toggle.setAttribute("aria-expanded", String(nextExpanded));
+      toggle.setAttribute("aria-label", `${nextExpanded ? "Thu gọn" : "Mở chi tiết"} bảo hành ${window.AMApi.formatTicketCode(ticket.ticket_code)}`);
+      region.setAttribute("aria-hidden", String(!nextExpanded));
+    });
+
+    return section;
+  }
+
   function createWarrantyCard(ticket) {
     const card = createEl("article", "warranty-card");
     const top = createEl("div", "warranty-card-top");
@@ -592,17 +696,16 @@
     const code = createEl("strong", "", window.AMApi.formatTicketCode(ticket.ticket_code));
     const customer = createEl("span", "", `${customerCode(ticket)} · ${textOrDash(customerName(ticket))}`);
     const status = warrantyStatus(ticket);
-    const warrantyBadge = createBadge(status.label, `warranty-status-badge ${status.className}`);
     const ticketStatus = createBadge(statusLabel(ticket.status), `status-pill ${statusClass(ticket.status)}`.trim());
     const meta = createEl("div", "warranty-meta-grid");
-    const warrantyBlock = createEl("div", "warranty-detail-block");
+    const warrantyDisclosure = createWarrantyDisclosure(ticket, status);
     const actions = createEl("div", "warranty-actions");
     const query = ticket.ticket_code
       ? `code=${encodeURIComponent(ticket.ticket_code)}`
       : `id=${encodeURIComponent(ticket.id || "")}`;
 
     title.append(code, customer);
-    top.append(title, warrantyBadge);
+    top.append(title);
 
     meta.append(
       createMeta("Số điện thoại", maskPhone(customerPhone(ticket))),
@@ -619,22 +722,13 @@
       statusItem.lastElementChild.replaceChildren(ticketStatus);
     }
 
-    warrantyBlock.append(
-      createMeta("Kiểu bảo hành", warrantyModeLabel(ticket.warranty_mode)),
-      createMeta("Số tháng", ticket.warranty_months ? `${ticket.warranty_months} tháng` : ""),
-      createMeta("Bắt đầu", formatDate(ticket.warranty_start_date)),
-      createMeta("Kết thúc", formatDate(ticket.warranty_end_date)),
-      createMeta("Trạng thái bảo hành", status.detail),
-      createMeta("Nội dung", ticket.warranty_note)
-    );
-
     actions.appendChild(createActionLink("Xem phiếu", `search.html?${query}`, false));
 
     if (ticket.status === "đã trả" && ticket.completed_at) {
       actions.appendChild(createActionLink("In lại biên nhận", `print-delivery-receipt.html?${query}`, true));
     }
 
-    card.append(top, meta, warrantyBlock, actions);
+    card.append(top, meta, warrantyDisclosure, actions);
     return card;
   }
 
@@ -1030,6 +1124,8 @@
     WARRANTY_EXPIRING_DAYS,
     dateOrdinal,
     warrantyStatus,
+    warrantySummaryText,
+    createWarrantyCard,
     visiblePageNumbers
   };
 
