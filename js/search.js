@@ -15,6 +15,10 @@
   const resultsPagination = document.getElementById("resultsPagination");
   const resultsList = document.getElementById("resultsList");
   const searchNotice = document.getElementById("searchNotice");
+  const searchToolbar = document.querySelector(".search-toolbar");
+  const historySelectedViewContext = document.getElementById("historySelectedViewContext");
+  const historySelectedViewText = document.getElementById("historySelectedViewText");
+  const historySelectedViewExit = document.getElementById("historySelectedViewExit");
   const editModal = document.getElementById("editModal");
   const editForm = document.getElementById("editForm");
   const editNotice = document.getElementById("editNotice");
@@ -55,11 +59,17 @@
   let editModalOpener = null;
   let editModalCloseTimer = null;
   let bulkController = null;
+  let historySelectedView = null;
 
   const PAGE_SIZE = 10;
   const EXPORT_BATCH_SIZE = 500;
   const SUGGESTION_DELAY = 280;
   const MAX_SUGGESTIONS = 5;
+  const HISTORY_SELECTED_VIEW_STORAGE_KEY = "anhminh.ticketHistorySelectedView.v1";
+  const HISTORY_SELECTED_VIEW_VERSION = 1;
+  const HISTORY_SELECTED_VIEW_TTL = 10 * 60 * 1000;
+  const HISTORY_SELECTED_VIEW_MAX_TICKETS = 100;
+  const SERVICE_TICKET_UUID_PATTERN = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const DIRECT_EDIT_STATUSES = ["mới nhận", "đang kiểm tra", "báo giá"];
   const DIRECT_CANCEL_STATUS = "huỷ";
   const BULK_CAPABILITIES = Object.freeze({ completeRepair: true, returnFromRepair: true });
@@ -91,6 +101,105 @@
   function clearNotice(target) {
     target.className = "notice";
     target.textContent = "";
+  }
+
+  function normalizeHistorySelectedTicketIds(values) {
+    return Array.from(new Set((Array.isArray(values) ? values : [])
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter((ticketId) => SERVICE_TICKET_UUID_PATTERN.test(ticketId))))
+      .slice(0, HISTORY_SELECTED_VIEW_MAX_TICKETS);
+  }
+
+  function parseHistorySelectedViewPayload(rawValue, nowValue) {
+    try {
+      const parsed = JSON.parse(String(rawValue || ""));
+      const now = Number.isFinite(Number(nowValue)) ? Number(nowValue) : Date.now();
+      const createdAt = Number(parsed && parsed.createdAt);
+      const ticketIds = normalizeHistorySelectedTicketIds(parsed && parsed.ticketIds);
+      const age = now - createdAt;
+
+      if (!parsed
+        || parsed.version !== HISTORY_SELECTED_VIEW_VERSION
+        || parsed.source !== "ticket-history"
+        || !Number.isFinite(createdAt)
+        || age < -60000
+        || age > HISTORY_SELECTED_VIEW_TTL
+        || ticketIds.length === 0) {
+        return null;
+      }
+
+      return Object.freeze({
+        version: HISTORY_SELECTED_VIEW_VERSION,
+        source: "ticket-history",
+        createdAt,
+        ticketIds: Object.freeze(ticketIds)
+      });
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function readHistorySelectedViewPayload() {
+    try {
+      const rawValue = window.sessionStorage.getItem(HISTORY_SELECTED_VIEW_STORAGE_KEY);
+      if (!rawValue) {
+        return null;
+      }
+      const payload = parseHistorySelectedViewPayload(rawValue);
+      if (!payload) {
+        window.sessionStorage.removeItem(HISTORY_SELECTED_VIEW_STORAGE_KEY);
+      }
+      return payload;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function setHistorySelectedViewUi(payload) {
+    const active = Boolean(payload);
+    if (historySelectedViewContext) {
+      historySelectedViewContext.hidden = !active;
+    }
+    if (historySelectedViewText && active) {
+      historySelectedViewText.textContent = `${payload.ticketIds.length} phiếu được chọn từ Lịch sử nhận phiếu`;
+    }
+    if (searchToolbar) {
+      searchToolbar.hidden = active;
+    }
+    if (exportStatus) {
+      exportStatus.hidden = active;
+    }
+  }
+
+  function normalizeHistorySelectedPresentationRows(rows) {
+    return (Array.isArray(rows) ? rows : []).flatMap((row, rowIndex) => {
+      if (!row || row.type !== "batch") {
+        return row ? [row] : [];
+      }
+      const tickets = Array.isArray(row.tickets) ? row.tickets : [];
+      if (tickets.length < 2) {
+        return tickets.map((ticket, ticketIndex) => ({
+          type: "ticket",
+          key: `ticket:${ticket && ticket.id || `${rowIndex}-${ticketIndex}`}`,
+          tickets: [ticket],
+          sourceIndex: Number.isFinite(row.sourceIndex) ? row.sourceIndex : rowIndex
+        }));
+      }
+      return [Object.assign({}, row, {
+        totalTicketCount: tickets.length,
+        ticketIds: tickets.map((ticket) => ticket.id),
+        ticketCodes: tickets.map((ticket) => ticket.ticket_code)
+      })];
+    });
+  }
+
+  function exitHistorySelectedView() {
+    try {
+      window.sessionStorage.removeItem(HISTORY_SELECTED_VIEW_STORAGE_KEY);
+    } catch (_error) {
+      // Navigation still exits the mode when storage is unavailable.
+    }
+    window.location.assign("search.html");
   }
 
   function attachLogout() {
@@ -1164,7 +1273,72 @@
     }
   }
 
+  async function loadHistorySelectedTickets(options) {
+    const config = options || {};
+    const requestId = ++listRequestId;
+    const requestedIds = historySelectedView ? historySelectedView.ticketIds : [];
+    const hasRenderedData = !resultsList.hidden && resultsList.childElementCount > 0;
+    setSearchLoading(true);
+    clearNotice(searchNotice);
+    setResultsState(hasRenderedData ? "refreshing" : "loading", "Đang tải các phiếu đã chọn…");
+    resultsSummary.textContent = hasRenderedData ? "Đang cập nhật các phiếu đã chọn." : "Đang tải các phiếu đã chọn.";
+
+    try {
+      const records = await window.AMApi.getTicketsByIds(requestedIds);
+      if (requestId !== listRequestId) {
+        return;
+      }
+
+      const foundIds = new Set(records.map((ticket) => String(ticket && ticket.id || "").toLowerCase()));
+      const missingCount = requestedIds.filter((ticketId) => !foundIds.has(ticketId)).length;
+      const rows = normalizeHistorySelectedPresentationRows(buildTicketPresentationRows(records));
+      latestPresentationRows = rows;
+      latestResults = rows.flatMap((row) => row.tickets);
+      totalCount = records.length;
+      presentationRowCount = rows.length;
+      totalPages = 1;
+      currentPage = 1;
+      resultsPagination.hidden = true;
+      resultsSummary.textContent = `${records.length} phiếu được chọn đang hiển thị.`;
+
+      if (missingCount > 0) {
+        showNotice(searchNotice, "info", `${missingCount} phiếu không còn khả dụng.`);
+      }
+
+      if (latestResults.length === 0) {
+        setResultsState("empty", "Các phiếu đã chọn không còn khả dụng.");
+        syncBulkRegistry([]);
+      } else {
+        renderResults(latestPresentationRows);
+        resultsPagination.hidden = true;
+        setResultsState("data", "");
+      }
+
+      if (config.scroll === true) {
+        scrollToResults();
+      }
+    } catch (error) {
+      if (requestId !== listRequestId) {
+        return;
+      }
+      latestResults = [];
+      latestPresentationRows = [];
+      totalCount = 0;
+      totalPages = 1;
+      presentationRowCount = 0;
+      resultsSummary.textContent = "Các phiếu đã chọn chưa tải được.";
+      setResultsState("error", "Không thể tải các phiếu đã chọn. Vui lòng thử lại.");
+    } finally {
+      if (requestId === listRequestId) {
+        setSearchLoading(false);
+      }
+    }
+  }
+
   async function loadTickets(options) {
+    if (historySelectedView) {
+      return loadHistorySelectedTickets(options);
+    }
     const config = options || {};
     const requestId = ++listRequestId;
     const hasRenderedData = !resultsList.hidden && resultsList.childElementCount > 0;
@@ -1781,6 +1955,10 @@
 
     exportExcelButton.addEventListener("click", handleExport);
 
+    if (historySelectedViewExit) {
+      historySelectedViewExit.addEventListener("click", exitHistorySelectedView);
+    }
+
     resultsPagination.addEventListener("click", function (event) {
       const button = event.target.closest("button[data-page]");
 
@@ -1952,6 +2130,7 @@
 
       bulkController = window.AMTicketBulkOperations.mountPageController({
         pageKey: "search",
+        captureRepairResult: true,
         section: resultsList.closest(".search-results"),
         toolbar: document.querySelector(".search-bulk-actions"),
         capabilities: BULK_CAPABILITIES,
@@ -1975,13 +2154,18 @@
       const code = params.get("code");
       const customerId = params.get("customer_id");
       const requestedStatus = params.get("status");
+      const requestedHistorySelectedView = params.get("view") === "history-selection";
+      historySelectedView = requestedHistorySelectedView ? readHistorySelectedViewPayload() : null;
+      setHistorySelectedViewUi(historySelectedView);
 
       if (window.AMApi.TICKET_STATUSES.includes(requestedStatus)) {
         currentStatus = requestedStatus;
         searchStatusSelect.value = currentStatus;
       }
 
-      if (customerId) {
+      if (historySelectedView) {
+        await loadTickets({ scroll: false });
+      } else if (customerId) {
         currentStatus = "";
         searchStatusSelect.value = "";
         currentYear = "all";
@@ -2002,6 +2186,14 @@
       showNotice(searchNotice, "error", error.message);
     }
   }
+
+  window.AMSearchHistorySelectedView = Object.freeze({
+    HISTORY_SELECTED_VIEW_STORAGE_KEY,
+    HISTORY_SELECTED_VIEW_TTL,
+    normalizeHistorySelectedPresentationRows,
+    normalizeHistorySelectedTicketIds,
+    parseHistorySelectedViewPayload
+  });
 
   document.addEventListener("DOMContentLoaded", initSearch);
 })();

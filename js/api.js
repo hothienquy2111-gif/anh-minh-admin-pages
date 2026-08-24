@@ -3022,6 +3022,65 @@
       offset += chunkSize;
     }
 
+    let intakeBatchMetadataAvailable = params.includeIntakeBatchMetadata === true;
+    if (intakeBatchMetadataAvailable && records.length > 0) {
+      const metadataByTicketId = new Map();
+      const ticketIds = records.map((ticket) => ticket && ticket.id).filter(Boolean);
+
+      for (let ticketOffset = 0; ticketOffset < ticketIds.length; ticketOffset += 100) {
+        const ticketIdChunk = ticketIds.slice(ticketOffset, ticketOffset + 100);
+        const { data, error } = await getClient()
+          .from("service_tickets")
+          .select(["id", INTAKE_BATCH_FIELDS].join(","))
+          .in("id", ticketIdChunk);
+
+        if (error) {
+          intakeBatchMetadataAvailable = false;
+          break;
+        }
+        (data || []).forEach((ticket) => {
+          if (ticket && ticket.id) {
+            metadataByTicketId.set(ticket.id, ticket);
+          }
+        });
+      }
+
+      if (intakeBatchMetadataAvailable) {
+        records.forEach((ticket) => {
+          const metadata = metadataByTicketId.get(ticket && ticket.id);
+          if (metadata) {
+            ticket.intake_batch_id = metadata.intake_batch_id || null;
+            ticket.intake_batch_item_no = metadata.intake_batch_item_no || null;
+          }
+        });
+      }
+    }
+
+    if (intakeBatchMetadataAvailable && String(params.query || "").trim()) {
+      const batchIds = Array.from(new Set(records
+        .map((ticket) => String(ticket && ticket.intake_batch_id || "").trim())
+        .filter(Boolean)));
+      const siblingRecords = [];
+
+      for (let batchOffset = 0; batchOffset < batchIds.length; batchOffset += 100) {
+        const batchIdChunk = batchIds.slice(batchOffset, batchOffset + 100);
+        const { data, error } = await getClient()
+          .from("service_tickets")
+          .select(INTAKE_BATCH_SEARCH_TICKET_SELECT_FIELDS)
+          .in("intake_batch_id", batchIdChunk);
+
+        if (error) {
+          intakeBatchMetadataAvailable = false;
+          break;
+        }
+        siblingRecords.push(...mapTickets(data || []));
+      }
+
+      if (intakeBatchMetadataAvailable && siblingRecords.length) {
+        records.splice(0, records.length, ...mergeById([records, siblingRecords]));
+      }
+    }
+
     const hydrated = fieldsLimited
       ? await hydrateWorkflowTicketData(records)
       : records.map((ticket) => Object.assign({}, ticket, {
@@ -3030,7 +3089,7 @@
       }));
     return {
       records: hydrated,
-      totalCount,
+      totalCount: params.includeIntakeBatchMetadata === true ? hydrated.length : totalCount,
       page: Math.max(Number(params.page) || 1, 1),
       pageSize: Math.min(Math.max(Number(params.pageSize) || 10, 1), 100),
       totalPages: 1,
@@ -3173,6 +3232,67 @@
       return hydrated[0] || null;
     } catch (error) {
       throw friendlyError(error, "Không tải được phiếu theo ID.");
+    }
+  }
+
+  async function getTicketsByIds(values) {
+    try {
+      const ticketIds = Array.from(new Set((Array.isArray(values) ? values : [])
+        .map((value) => normalizeId(value).toLowerCase())
+        .filter(Boolean)))
+        .slice(0, 100);
+
+      if (ticketIds.length === 0) {
+        return [];
+      }
+
+      const client = getClient();
+      let result = await client
+        .from("service_tickets")
+        .select(SEARCH_TICKET_SELECT_FIELDS)
+        .in("id", ticketIds);
+      let fieldsLimited = false;
+
+      if (result.error && isWorkflowSchemaError(result.error)) {
+        result = await client
+          .from("service_tickets")
+          .select(TICKET_SELECT_FIELDS)
+          .in("id", ticketIds);
+        fieldsLimited = true;
+      }
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      const mapped = mapTickets(result.data || []);
+      const records = fieldsLimited
+        ? await hydrateWorkflowTicketData(mapped)
+        : mapped.map((ticket) => Object.assign({}, ticket, {
+          workflow_available: true,
+          workflow_inactive_message: null
+        }));
+
+      const metadataResult = await client
+        .from("service_tickets")
+        .select(["id", INTAKE_BATCH_FIELDS].join(","))
+        .in("id", ticketIds);
+
+      if (!metadataResult.error) {
+        const metadataById = new Map((metadataResult.data || []).map((ticket) => [ticket.id, ticket]));
+        records.forEach((ticket) => {
+          const metadata = metadataById.get(ticket.id);
+          if (metadata) {
+            ticket.intake_batch_id = metadata.intake_batch_id || null;
+            ticket.intake_batch_item_no = metadata.intake_batch_item_no || null;
+          }
+        });
+      }
+
+      const recordsById = new Map(records.map((ticket) => [String(ticket.id || "").toLowerCase(), ticket]));
+      return ticketIds.map((ticketId) => recordsById.get(ticketId)).filter(Boolean);
+    } catch (error) {
+      throw friendlyError(error, "Không tải được các phiếu đã chọn.");
     }
   }
 
@@ -3718,6 +3838,54 @@
     const noteLine = `[Kết quả sửa chữa: Giao trả] ${reason}${detail ? ` — ${detail}` : ""}`;
     const currentNote = String(source.internal_note || "").trim();
 
+    if (currentNote.split(/\r?\n/).some((line) => line.trim() === noteLine)) {
+      return source;
+    }
+
+    return updateTicket(source.id, {
+      customer_name: source.customer_name || source.customer_master_name,
+      customer_phone: source.customer_phone || source.customer_master_phone,
+      customer_address: source.customer_address || source.customer_master_address,
+      device_type: source.device_type,
+      brand: source.brand,
+      model: source.model,
+      size: source.size,
+      serial_number: source.serial_number,
+      condition_text: source.condition_text,
+      external_condition: source.external_condition,
+      internal_note: currentNote ? `${currentNote}\n${noteLine}` : noteLine,
+      received_date: source.received_date,
+      deposit_amount: source.deposit_amount,
+      estimated_price: source.estimated_price,
+      final_price: source.final_price,
+      _expected_updated_at: source.updated_at
+    });
+  }
+
+  async function saveRepairCompletionResult(ticketId, resultValue) {
+    const id = String(ticketId || "").trim();
+    const repairResult = String(resultValue || "").trim();
+
+    if (!id) {
+      throw new Error("Thiếu ID phiếu cần lưu kết quả sửa chữa.");
+    }
+    if (!repairResult) {
+      throw new Error("Vui lòng nhập kết quả sửa chữa.");
+    }
+    if (repairResult.length > 500) {
+      throw new Error("Kết quả sửa chữa không được vượt quá 500 ký tự.");
+    }
+
+    const source = await getFreshTicketForPrint(id);
+    if (!source || String(source.id || "").trim() !== id) {
+      throw new Error("Không tìm thấy đúng phiếu để lưu kết quả sửa chữa.");
+    }
+    if (source.status !== "chờ bàn giao" || !source.ready_for_handover_at) {
+      throw new Error("Phiếu chưa hoàn thành workflow sửa chữa; kết quả chưa được lưu.");
+    }
+
+    const noteLine = `[Kết quả sửa chữa: Hoàn thành] ${repairResult}`;
+    const currentNote = String(source.internal_note || "").trim();
     if (currentNote.split(/\r?\n/).some((line) => line.trim() === noteLine)) {
       return source;
     }
@@ -5354,6 +5522,109 @@
     );
   }
 
+  function friendlyTicketDeletionError(error, fallbackMessage) {
+    const source = error || {};
+    const code = String(source.code || "").toUpperCase();
+    const status = Number(source.status || source.statusCode || 0);
+    const rawMessage = [source.message, source.details, source.hint]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase("vi-VN");
+    let type = "unknown";
+    let message = fallbackMessage || "Không thể xử lý yêu cầu xóa phiếu.";
+
+    if (code === "PGRST202" || rawMessage.includes("could not find the function")) {
+      type = "unavailable";
+      message = "Chức năng xóa phiếu an toàn chưa được kích hoạt trên hệ thống.";
+    } else if (code === "42501" || status === 401 || status === 403 || rawMessage.includes("permission") || rawMessage.includes("admin access required") || rawMessage.includes("employee management permission is not configured") || rawMessage.includes("employee module access denied")) {
+      type = "permission";
+      message = "Bạn không có quyền xóa phiếu.";
+    } else if (code === "42883") {
+      type = "server";
+      message = fallbackMessage || "Hệ thống xóa phiếu đang gặp lỗi. Vui lòng thử lại.";
+    } else if (code === "PGRST100" || code === "PGRST102" || code === "PGRST203" || rawMessage.includes("invalid request body")) {
+      type = "request";
+      message = "Yêu cầu kiểm tra điều kiện xóa không hợp lệ. Vui lòng tải lại trang và thử lại.";
+    } else if (code === "PGRST000" || code === "PGRST001" || code === "PGRST002" || code === "PGRST003" || code.startsWith("08") || status >= 500 || rawMessage.includes("failed to fetch") || rawMessage.includes("networkerror") || rawMessage.includes("network request failed")) {
+      type = "network";
+      message = fallbackMessage || "Không thể kết nối hệ thống xóa phiếu. Vui lòng thử lại.";
+    } else if (rawMessage.includes("ticket_not_found") || rawMessage.includes("ticket no longer exists")) {
+      type = "not-found";
+      message = "Một hoặc nhiều phiếu không còn tồn tại. Vui lòng tải lại danh sách.";
+    } else if (rawMessage.includes("ticket_identity_mismatch")) {
+      type = "identity";
+      message = "Mã phiếu không còn khớp với dữ liệu đã chọn. Yêu cầu xóa đã bị chặn.";
+    } else if (rawMessage.includes("ticket_delete_blocked")) {
+      type = "blocked";
+      message = "Phiếu đã phát sinh dữ liệu nghiệp vụ liên quan và không thể xóa.";
+    }
+
+    const wrapped = new Error(message);
+    wrapped.ticketDeletionErrorType = type;
+    wrapped.ticketDeletionUnavailable = type === "unavailable";
+    wrapped.ticketDeletionPermissionDenied = type === "permission";
+    wrapped.originalError = source;
+    return wrapped;
+  }
+
+  function normalizeTicketDeletionTargets(values) {
+    const seen = new Set();
+    return (Array.isArray(values) ? values : []).reduce((targets, value) => {
+      const source = value || {};
+      const uuid = normalizeId(source.uuid || source.id || source.ticket_id);
+      const code = String(source.code || source.ticket_code || "").trim().toUpperCase();
+      if (!uuid || seen.has(uuid)) {
+        return targets;
+      }
+      seen.add(uuid);
+      targets.push(Object.freeze({ uuid, code }));
+      return targets;
+    }, []);
+  }
+
+  async function preflightTicketDeletion(targets) {
+    const normalized = normalizeTicketDeletionTargets(targets);
+    if (!normalized.length) {
+      return [];
+    }
+
+    try {
+      const { data, error } = await getClient().rpc("preflight_service_ticket_deletion", {
+        p_ticket_ids: normalized.map((item) => item.uuid)
+      });
+      if (error) {
+        throw error;
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      throw friendlyTicketDeletionError(error, "Không thể kiểm tra điều kiện xóa. Vui lòng thử lại.");
+    }
+  }
+
+  async function deleteTicketsSafely(targets, clientRequestId) {
+    const normalized = normalizeTicketDeletionTargets(targets);
+    const requestId = normalizeId(clientRequestId);
+    if (!normalized.length || normalized.some((item) => !item.code)) {
+      throw new Error("Kế hoạch xóa phiếu không hợp lệ.");
+    }
+    if (!requestId) {
+      throw new Error("Thiếu mã chống gửi trùng cho thao tác xóa phiếu.");
+    }
+
+    try {
+      const { data, error } = await getClient().rpc("delete_service_tickets_permanently", {
+        p_ticket_ids: normalized.map((item) => item.uuid),
+        p_expected_ticket_codes: normalized.map((item) => item.code),
+        p_client_request_id: requestId
+      });
+      if (error) {
+        throw error;
+      }
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      throw friendlyTicketDeletionError(error, "Không thể xóa phiếu. Vui lòng thử lại.");
+    }
+  }
   async function listAssignableEmployees(search, limit) {
     return await executeEmployeeRpc(
       "list_assignable_employees",
@@ -6201,10 +6472,12 @@
     getTicketsForExport,
     getTicketByCode,
     getTicketById,
+    getTicketsByIds,
     getFreshTicketForPrint,
     getTicketForDeliveryReceipt,
     getTicketForLabel,
     updateTicket,
+    saveRepairCompletionResult,
     saveRepairReturnReason,
     sortTicketActivityRecords,
     ticketActivitySearchScore,
@@ -6221,6 +6494,8 @@
     revokeEmployeeModuleUnlock,
     setEmployeeModulePin,
     getEmployeeModuleAccess,
+    preflightTicketDeletion,
+    deleteTicketsSafely,
     listAssignableEmployees,
     listLinkableInternalUsers,
     getEmployeeTeamOverview,

@@ -336,6 +336,150 @@ body.ticket-bulk-modal-open {
   text-align: end;
 }
 
+.ticket-bulk-repair-fields {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d4e0e8;
+  background: #f8fafc;
+}
+
+.ticket-bulk-repair-fields[hidden] {
+  display: none;
+}
+
+.ticket-bulk-repair-common {
+  display: grid;
+  gap: 7px;
+}
+
+.ticket-bulk-repair-label {
+  color: #29475f;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.ticket-bulk-repair-common input,
+.ticket-bulk-repair-editor input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid #b8c9d6;
+  border-radius: 6px;
+  background: #fff;
+  color: #102b49;
+  font: inherit;
+  font-weight: 650;
+}
+
+.ticket-bulk-repair-common input:focus,
+.ticket-bulk-repair-editor input:focus {
+  border-color: #24659a;
+  outline: 3px solid rgba(36, 101, 154, 0.16);
+}
+
+.ticket-bulk-repair-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ticket-bulk-repair-preset {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #c4d3de;
+  border-radius: 6px;
+  background: #fff;
+  color: #244d6d;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.ticket-bulk-repair-preset:hover,
+.ticket-bulk-repair-preset:focus-visible {
+  border-color: #24659a;
+  background: #edf5fa;
+  color: #123b5d;
+}
+
+.ticket-bulk-repair-validation {
+  margin: 0;
+  color: #a62d35;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.ticket-bulk-repair-validation[hidden] {
+  display: none;
+}
+
+.ticket-bulk-dialog-list li.ticket-bulk-repair-row {
+  display: grid;
+  gap: 7px;
+}
+
+.ticket-bulk-repair-row-heading,
+.ticket-bulk-repair-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ticket-bulk-dialog-list .ticket-bulk-repair-status {
+  color: #6b7f8e;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ticket-bulk-dialog-list .ticket-bulk-repair-result {
+  min-width: 0;
+  color: #183d5a;
+  font-size: 0.9rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.ticket-bulk-dialog-list .ticket-bulk-repair-result.is-empty {
+  color: #a62d35;
+  font-weight: 650;
+}
+
+.ticket-bulk-repair-row-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.ticket-bulk-use-common {
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #24659a;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.ticket-bulk-use-common:hover,
+.ticket-bulk-use-common:focus-visible {
+  color: #123b5d;
+  text-decoration: underline;
+}
+
+.ticket-bulk-repair-editor {
+  display: grid;
+  gap: 7px;
+}
+
 .ticket-bulk-dialog-list li.is-success {
   border-inline-start-color: #2f855a;
 }
@@ -382,6 +526,39 @@ body.ticket-bulk-modal-open {
   padding-top: 4px;
 }
 
+.ticket-bulk-discard-confirmation {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.ticket-bulk-discard-confirmation[hidden] {
+  display: none;
+}
+
+.ticket-bulk-dialog.is-discard-confirming > :not(.ticket-bulk-discard-confirmation) {
+  display: none;
+}
+
+.ticket-bulk-discard-title {
+  margin: 0;
+  color: #123b5d;
+  font-size: 1.08rem;
+}
+
+.ticket-bulk-discard-message {
+  margin: 0;
+  color: #526b7d;
+  line-height: 1.5;
+}
+
+.ticket-bulk-discard-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
 @media (max-width: 900px) {
   .ticket-bulk-selection-tools {
     width: 100%;
@@ -401,7 +578,8 @@ body.ticket-bulk-modal-open {
 @media (max-width: 540px) {
   .ticket-bulk-selection-tools,
   .ticket-bulk-command-actions,
-  .ticket-bulk-dialog-actions {
+  .ticket-bulk-dialog-actions,
+  .ticket-bulk-discard-actions {
     align-items: stretch;
     flex-direction: column;
   }
@@ -409,7 +587,8 @@ body.ticket-bulk-modal-open {
   .ticket-bulk-select-all,
   .ticket-bulk-selection-tools .btn,
   .ticket-bulk-command-actions .btn,
-  .ticket-bulk-dialog-actions .btn {
+  .ticket-bulk-dialog-actions .btn,
+  .ticket-bulk-discard-actions .btn {
     width: 100%;
     justify-content: center;
   }
@@ -426,6 +605,18 @@ body.ticket-bulk-modal-open {
   .ticket-bulk-dialog-backdrop {
     align-items: end;
     padding: 10px;
+  }
+
+  .ticket-bulk-repair-row-heading,
+  .ticket-bulk-repair-result-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ticket-bulk-repair-row-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .ticket-bulk-dialog {
@@ -8882,6 +9073,35 @@ button {
     color: var(--red);
   }
 
+  .search-page .search-history-selected-context {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid #bfd8f2;
+    border-radius: 8px;
+    background: #f5f9fd;
+    color: var(--navy);
+  }
+
+  .search-page .search-history-selected-context[hidden] {
+    display: none;
+  }
+
+  .search-page .search-history-selected-context strong {
+    font-size: 0.94rem;
+    font-weight: 900;
+  }
+
+  .search-page .search-history-selected-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
   .search-page .search-results-heading {
     display: flex;
     align-items: end;
@@ -9474,6 +9694,19 @@ button {
 }
 
 @media screen and (max-width: 680px) {
+  .search-page .search-history-selected-context {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-page .search-history-selected-actions {
+    justify-content: stretch;
+  }
+
+  .search-page .search-history-selected-actions .btn {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
   .search-page .page-main {
     width: min(100% - 20px, 1320px);
   }
@@ -20434,5 +20667,189 @@ body.workflow-modal-open {
     min-height: var(--print-label-height, 30mm) !important;
     margin: 0 !important;
     transform: none !important;
+  }
+}
+
+/* Ticket History selection, review and safe-delete controls. */
+.ticket-history-page .ticket-history-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket-history-page .ticket-history-selection-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticket-history-page .ticket-history-select-mode {
+  border-color: #24659a;
+  background: #24659a;
+  color: #fff;
+}
+
+.ticket-history-page .ticket-history-select-mode:hover {
+  border-color: #1f5785;
+  background: #1f5785;
+}
+
+.ticket-history-page .ticket-history-selection-cell {
+  width: 52px;
+  min-width: 52px;
+  padding-inline: 12px;
+  text-align: center;
+}
+
+.ticket-history-page .ticket-history-selection-cell .ticket-bulk-checkbox {
+  justify-content: center;
+}
+
+.ticket-history-page .ticket-history-selection-cell input,
+.ticket-history-page .ticket-bulk-select-all input {
+  width: 18px;
+  height: 18px;
+  accent-color: #24659a;
+}
+
+.ticket-history-page .ticket-history-table tr.is-ticket-selected > td,
+.ticket-history-page .ticket-history-table tr.is-ticket-selected:hover > td {
+  border-bottom-color: #8eafc9;
+  background: #eef5fb;
+}
+
+.ticket-history-page .ticket-history-delete-button:not(:disabled) {
+  border-color: #b42318;
+  background: #b42318;
+  color: #fff;
+}
+
+.ticket-history-page .ticket-history-delete-button:not(:disabled):hover,
+.ticket-history-page .ticket-history-delete-button:not(:disabled):focus-visible {
+  border-color: #8f1c13;
+  background: #8f1c13;
+}
+
+.ticket-history-dialog {
+  width: min(680px, 100%);
+}
+
+.ticket-history-dialog #ticketHistoryDialogContent {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ticket-history-review-list li > span {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+  color: #526b7d;
+  text-align: start;
+}
+
+.ticket-history-review-list li > span > strong {
+  color: #123b5d;
+}
+
+.ticket-history-review-list li > span > span,
+.ticket-history-review-list li > span > small {
+  color: #526b7d;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.ticket-history-review-list.is-blocked li {
+  border-inline-start-color: #b42318;
+  background: #fff5f4;
+}
+
+.ticket-history-dialog-section-title {
+  margin: 0 0 8px;
+  color: #123b5d;
+  font-size: 0.98rem;
+}
+
+.ticket-history-dialog-empty,
+.ticket-history-dialog-error {
+  margin: 0;
+  color: #526b7d;
+}
+
+.ticket-history-dialog-error {
+  padding: 10px 12px;
+  border: 1px solid #f1b7b2;
+  background: #fff5f4;
+  color: #8f1c13;
+}
+
+.ticket-history-delete-confirm-field {
+  display: grid;
+  gap: 7px;
+  color: #29475f;
+  font-weight: 800;
+}
+
+.ticket-history-delete-confirm-field input {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid #b8c7d3;
+  border-radius: 6px;
+  color: #152f43;
+  font: inherit;
+  text-transform: uppercase;
+}
+
+.ticket-history-delete-confirm-field input:focus-visible {
+  border-color: #24659a;
+  outline: 3px solid rgba(36, 101, 154, 0.18);
+}
+
+@media (max-width: 767px) {
+  .ticket-history-page .ticket-history-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ticket-history-page .ticket-history-search-box,
+  .ticket-history-page .ticket-history-selection-tools,
+  .ticket-history-page .ticket-history-selection-tools .btn {
+    width: 100%;
+  }
+
+  .ticket-history-page .ticket-history-selection-tools {
+    justify-content: stretch;
+  }
+
+  .ticket-history-page .ticket-history-selection-tools .ticket-bulk-select-all {
+    flex: 1 1 auto;
+  }
+
+  .ticket-history-dialog-backdrop {
+    padding: 10px;
+  }
+
+  .ticket-history-dialog {
+    max-height: calc(100dvh - 20px);
+    padding: 16px;
+  }
+
+  .ticket-history-review-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ticket-history-review-list li .btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket-history-page .ticket-history-select-mode,
+  .ticket-history-page .ticket-history-delete-button {
+    transition-duration: 0.01ms;
   }
 }

@@ -75,6 +75,27 @@
                 &times;
               </button>
             </div>
+            <div class="ticket-history-selection-tools">
+              <label id="ticketHistorySelectAllWrap" class="ticket-bulk-select-all" hidden>
+                <input id="ticketHistorySelectAll" type="checkbox">
+                <span>Chọn tất cả trên trang</span>
+              </label>
+              <button id="ticketHistorySelectMode" class="btn primary compact ticket-history-select-mode" type="button">
+                Chọn phiếu
+              </button>
+            </div>
+          </div>
+
+          <div id="ticketHistoryCommandBar" class="ticket-bulk-command-bar ticket-history-command-bar" hidden>
+            <div class="ticket-bulk-command-summary">
+              <strong id="ticketHistorySelectedCount">Đã chọn 0 phiếu</strong>
+              <span id="ticketHistorySelectedCodes" class="ticket-bulk-code-preview">Chọn phiếu trên trang để thao tác.</span>
+            </div>
+            <div class="ticket-bulk-command-actions">
+              <button id="ticketHistoryViewSelected" class="btn secondary compact" type="button" disabled>Xem phiếu</button>
+              <button id="ticketHistoryDeleteSelected" class="btn compact ticket-history-delete-button" type="button" hidden disabled>Xóa phiếu</button>
+              <button id="ticketHistoryExitSelection" class="btn secondary compact" type="button">Thoát chọn</button>
+            </div>
           </div>
 
           <div id="ticketHistoryState" class="list-state loading" role="status" aria-live="polite">
@@ -88,6 +109,7 @@
               <table class="ticket-history-table">
                 <thead>
                   <tr>
+                    <th id="ticketHistorySelectionHeading" class="ticket-history-selection-cell" hidden>Chọn</th>
                     <th>STT</th>
                     <th>Thời gian nhận</th>
                     <th>Mã phiếu</th>
@@ -109,12 +131,30 @@
       </main>
     </div>
 
+    <div id="ticketHistoryDialogBackdrop" class="ticket-bulk-dialog-backdrop ticket-history-dialog-backdrop" hidden>
+      <section
+        id="ticketHistoryDialog"
+        class="ticket-bulk-dialog ticket-history-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ticketHistoryDialogTitle"
+        tabindex="-1"
+      >
+        <h2 id="ticketHistoryDialogTitle" class="ticket-bulk-dialog-title"></h2>
+        <p id="ticketHistoryDialogMessage" class="ticket-bulk-dialog-message"></p>
+        <div id="ticketHistoryDialogContent"></div>
+        <p id="ticketHistoryDialogError" class="ticket-history-dialog-error" role="alert" hidden></p>
+        <div id="ticketHistoryDialogActions" class="ticket-bulk-dialog-actions"></div>
+      </section>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
-    <script src="js/api.js?v=20260728-admin-redesign"></script>
-    <script src="js/ticket-presentation.js?v=20260728-admin-redesign"></script>
+    <script src="js/api.js?v=20260824-history-load-hotfix"></script>
+    <script src="js/ticket-presentation.js?v=20260824-history-multi-metadata"></script>
+    <script src="js/ticket-bulk-selection.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
-    <script src="js/ticket-history.js?v=20260808-ticket-grouping-runtime"></script>
+    <script src="js/ticket-history.js?v=20260824-history-selected-view"></script>
     <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>

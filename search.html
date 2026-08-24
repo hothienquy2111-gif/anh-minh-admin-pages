@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="js/ui-shell-bootstrap.js?v=20260728-admin-redesign"></script>
     <title>Danh sách phiếu - Anh Minh Admin</title>
-    <link rel="stylesheet" href="css/admin.css?v=20260728-admin-redesign">
+    <link rel="stylesheet" href="css/admin.css?v=20260824-history-selected-view">
     <link rel="stylesheet" href="css/admin-redesign.css?v=20260728-admin-redesign" media="screen">
   </head>
   <body class="search-page">
@@ -76,6 +76,14 @@
                 <div class="search-bulk-actions" role="group" aria-label="Thao tác chọn phiếu"></div>
                 <button id="exportExcelButton" class="btn secondary search-export-button" type="button">Xuất Excel</button>
               </div>
+            </div>
+          </div>
+
+          <div id="historySelectedViewContext" class="search-history-selected-context" hidden>
+            <strong id="historySelectedViewText">Các phiếu được chọn từ Lịch sử nhận phiếu</strong>
+            <div class="search-history-selected-actions">
+              <a class="btn secondary compact" href="ticket-history.html">Quay lại Lịch sử nhận phiếu</a>
+              <button id="historySelectedViewExit" class="btn secondary compact" type="button">Xem toàn bộ danh sách</button>
             </div>
           </div>
 
@@ -197,13 +205,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="js/supabase-config.js?v=20260728-admin-redesign"></script>
-    <script src="js/api.js?v=20260728-admin-redesign"></script>
+    <script src="js/api.js?v=20260824-history-selected-view"></script>
     <script src="js/ticket-presentation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
     <script src="js/ticket-bulk-selection.js?v=20260728-admin-redesign"></script>
     <script src="js/ticket-bulk-operations.js?v=20260728-admin-redesign"></script>
     <script src="js/tv-condition-options.js?v=20260728-admin-redesign"></script>
-    <script src="js/search.js?v=20260808-ticket-grouping-runtime"></script>
+    <script src="js/search.js?v=20260824-history-selected-view"></script>
     <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>

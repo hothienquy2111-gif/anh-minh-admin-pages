@@ -137,6 +137,52 @@
     return nextGroup;
   }
 
+  function reconcileGroupsAfterTicketDeletion(groups, ticketIds) {
+    const deletedIds = new Set((Array.isArray(ticketIds) ? ticketIds : []).map(cleanText).filter(Boolean));
+    const removedGroupIds = [];
+    const updatedGroupIds = [];
+    const nextGroups = [];
+
+    (Array.isArray(groups) ? groups : []).forEach((value) => {
+      const group = normalizeGroup(value);
+      if (!group) {
+        return;
+      }
+      const refs = group.ticketIds.reduce((items, ticketId, index) => {
+        if (!deletedIds.has(ticketId)) {
+          items.push({ ticketId, ticketCode: group.ticketCodes[index] });
+        }
+        return items;
+      }, []);
+
+      if (refs.length === group.ticketIds.length) {
+        nextGroups.push(group);
+      } else if (refs.length >= 2) {
+        updatedGroupIds.push(group.groupId);
+        nextGroups.push(normalizeGroup({
+          groupId: group.groupId,
+          createdAt: group.createdAt,
+          ticketIds: refs.map((ref) => ref.ticketId),
+          ticketCodes: refs.map((ref) => ref.ticketCode)
+        }));
+      } else {
+        removedGroupIds.push(group.groupId);
+      }
+    });
+
+    return Object.freeze({
+      groups: Object.freeze(nextGroups),
+      removedGroupIds: Object.freeze(removedGroupIds),
+      updatedGroupIds: Object.freeze(updatedGroupIds)
+    });
+  }
+
+  function removeTicketsFromRegistry(ticketIds) {
+    const result = reconcileGroupsAfterTicketDeletion(readRegistry(), ticketIds);
+    return Object.freeze(Object.assign({}, result, {
+      written: writeRegistry(result.groups)
+    }));
+  }
   function importRecoveryState() {
     try {
       const recovery = JSON.parse(window.sessionStorage.getItem(RECOVERY_STORAGE_KEY) || "null");
@@ -177,16 +223,60 @@
     return { groups, byTicketId };
   }
 
+  function metadataRegistryIndex(tickets) {
+    const candidates = new Map();
+
+    (Array.isArray(tickets) ? tickets : []).forEach((ticket, sourceIndex) => {
+      const groupId = cleanText(ticket && ticket.intake_batch_id);
+      const ticketId = cleanText(ticket && ticket.id);
+      const ticketCode = cleanText(ticket && ticket.ticket_code).toUpperCase();
+      const itemNo = Number.parseInt(ticket && ticket.intake_batch_item_no, 10);
+
+      if (!groupId || !ticketId || !ticketCode || !Number.isInteger(itemNo) || itemNo < 1) {
+        return;
+      }
+
+      if (!candidates.has(groupId)) {
+        candidates.set(groupId, []);
+      }
+      candidates.get(groupId).push({ ticket, ticketId, ticketCode, itemNo, sourceIndex });
+    });
+
+    const byTicketId = new Map();
+    candidates.forEach((entries, groupId) => {
+      const ticketIds = new Set(entries.map((entry) => entry.ticketId));
+      const itemNumbers = new Set(entries.map((entry) => entry.itemNo));
+      if (entries.length < 2 || ticketIds.size !== entries.length || itemNumbers.size !== entries.length) {
+        return;
+      }
+
+      entries.sort((left, right) => left.itemNo - right.itemNo || left.sourceIndex - right.sourceIndex);
+      const group = {
+        groupId,
+        createdAt: cleanText(entries[0].ticket && entries[0].ticket.created_at),
+        ticketIds: entries.map((entry) => entry.ticketId),
+        ticketCodes: entries.map((entry) => entry.ticketCode)
+      };
+
+      entries.forEach((entry, itemIndex) => {
+        byTicketId.set(entry.ticketId, { group, ticketCode: entry.ticketCode, itemIndex });
+      });
+    });
+
+    return byTicketId;
+  }
+
   function buildTicketPresentationRows(tickets) {
     const source = Array.isArray(tickets) ? tickets : [];
-    const { byTicketId } = registryIndex();
+    const { byTicketId: localRegistryByTicketId } = registryIndex();
+    const metadataByTicketId = metadataRegistryIndex(source);
     const rows = [];
     const rowsByGroupId = new Map();
 
     source.forEach((ticket, sourceIndex) => {
       const ticketId = cleanText(ticket && ticket.id);
       const ticketCode = cleanText(ticket && ticket.ticket_code).toUpperCase();
-      const membership = byTicketId.get(ticketId);
+      const membership = metadataByTicketId.get(ticketId) || localRegistryByTicketId.get(ticketId);
 
       if (!membership || membership.ticketCode !== ticketCode) {
         rows.push({
@@ -251,6 +341,8 @@
     getRegistry: readRegistry,
     importRecoveryState,
     paginateRows,
+    reconcileGroupsAfterTicketDeletion,
+    removeTicketsFromRegistry,
     registerGroup
   });
 

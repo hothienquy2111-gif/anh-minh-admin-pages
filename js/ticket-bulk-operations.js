@@ -21,6 +21,11 @@
     EXECUTING: "executing",
     RESULT: "result"
   });
+  const DISMISSAL_DECISIONS = Object.freeze({
+    BLOCK: "block",
+    CLOSE: "close",
+    CONFIRM_DISCARD: "confirm-discard"
+  });
   const REPAIR_RETURN_REASONS = Object.freeze([
     "Không sửa được",
     "Không có linh kiện",
@@ -28,6 +33,15 @@
     "Khách yêu cầu lấy lại máy",
     "Không phát hiện lỗi",
     "Lỗi không ổn định",
+    "Khác"
+  ]);
+  const REPAIR_RESULT_MAX_LENGTH = 500;
+  const REPAIR_RESULT_PRESETS = Object.freeze([
+    "Thay màn OK",
+    "Sửa bo OK",
+    "Thay LED nền OK",
+    "Sửa nguồn OK",
+    "Sửa main OK",
     "Khác"
   ]);
 
@@ -70,6 +84,83 @@
 
   function ticketCode(ticket) {
     return clean(ticket && (ticket.code || ticket.ticket_code)).toUpperCase();
+  }
+
+  function validateRepairResult(value) {
+    const result = clean(value);
+    if (!result) {
+      return Object.freeze({ valid: false, value: "", message: "Vui lòng nhập kết quả sửa chữa." });
+    }
+    if (result.length > REPAIR_RESULT_MAX_LENGTH) {
+      return Object.freeze({
+        valid: false,
+        value: result,
+        message: `Kết quả sửa chữa không được vượt quá ${REPAIR_RESULT_MAX_LENGTH} ký tự.`
+      });
+    }
+    return Object.freeze({ valid: true, value: result, message: "" });
+  }
+
+  function repairResultOverride(overrides, uuid) {
+    if (overrides instanceof Map) {
+      return { has: overrides.has(uuid), value: overrides.get(uuid) };
+    }
+    if (overrides && Object.prototype.hasOwnProperty.call(overrides, uuid)) {
+      return { has: true, value: overrides[uuid] };
+    }
+    return { has: false, value: "" };
+  }
+
+  function buildRepairResultExecutionPlan(plan, commonResult, overrides) {
+    const source = Array.isArray(plan) ? plan : [];
+    const issues = [];
+    const seen = new Set();
+    const items = source.map((item) => {
+      const uuid = ticketUuid(item);
+      const code = ticketCode(item);
+      const override = repairResultOverride(overrides, uuid);
+      const validation = validateRepairResult(override.has ? override.value : commonResult);
+
+      if (!uuid) {
+        issues.push(Object.freeze({ uuid: "", code, message: "Phiếu thiếu UUID hợp lệ." }));
+      } else if (seen.has(uuid)) {
+        issues.push(Object.freeze({ uuid, code, message: "Phiếu bị lặp UUID trong kế hoạch thực thi." }));
+      } else {
+        seen.add(uuid);
+      }
+      if (!validation.valid) {
+        issues.push(Object.freeze({ uuid, code, message: validation.message }));
+      }
+
+      return Object.freeze(Object.assign({}, item, {
+        uuid,
+        code,
+        repairResult: validation.value
+      }));
+    });
+
+    return Object.freeze({
+      valid: source.length > 0 && issues.length === 0,
+      issues: Object.freeze(issues),
+      plan: Object.freeze(items)
+    });
+  }
+
+  function repairModalDismissalDecision(options) {
+    const settings = options || {};
+    if (settings.state === STATES.EXECUTING) {
+      return DISMISSAL_DECISIONS.BLOCK;
+    }
+    if (!settings.protectedModal) {
+      return DISMISSAL_DECISIONS.CLOSE;
+    }
+    if (settings.source === "backdrop") {
+      return DISMISSAL_DECISIONS.BLOCK;
+    }
+    if (settings.dirty && (settings.source === "cancel" || settings.source === "escape")) {
+      return DISMISSAL_DECISIONS.CONFIRM_DISCARD;
+    }
+    return DISMISSAL_DECISIONS.CLOSE;
   }
 
   function isActionEligible(ticket, actionKey) {
@@ -309,12 +400,21 @@
     const store = selectionApi.createSelectionStore();
     const guard = createExecutionGuard();
     const pageKey = clean(config.pageKey) || "tickets";
+    const capturesRepairResult = pageKey === "search" && config.captureRepairResult === true;
     let operationState = STATES.IDLE;
     let preserveSelectionOnNextRegistry = false;
     let lastFailedIds = [];
+    let lastFailedPlan = [];
     let pendingPlan = null;
     let pendingActionKey = "";
     let pendingActionDetails = null;
+    let repairResultCommon = "";
+    let editingRepairResultUuid = "";
+    let editingRepairResultDraft = "";
+    let repairDraftDirty = false;
+    let discardReturnFocus = null;
+    const repairResultOverrides = new Map();
+    const repairResultDrafts = new Map();
     let returnFocus = null;
     let destroyed = false;
 
@@ -352,6 +452,12 @@
     const dialogPanel = createElement("section", "ticket-bulk-dialog");
     const dialogTitle = createElement("h2", "ticket-bulk-dialog-title");
     const dialogMessage = createElement("p", "ticket-bulk-dialog-message");
+    const repairFields = createElement("div", "ticket-bulk-repair-fields");
+    const repairResultField = createElement("label", "ticket-bulk-repair-common");
+    const repairResultLabel = createElement("span", "ticket-bulk-repair-label", "Kết quả áp dụng chung");
+    const repairResultInput = document.createElement("input");
+    const repairPresetList = createElement("div", "ticket-bulk-repair-presets");
+    const repairValidation = createElement("p", "ticket-bulk-repair-validation");
     const dialogList = createElement("ul", "ticket-bulk-dialog-list");
     const returnFields = createElement("div", "ticket-bulk-return-fields");
     const returnReasonField = createElement("label", "workflow-return-field");
@@ -368,12 +474,42 @@
     const dialogActions = createElement("div", "ticket-bulk-dialog-actions");
     const cancelButton = createElement("button", "btn secondary", "Hủy");
     const confirmButton = createElement("button", "btn primary", "Xác nhận");
+    const discardConfirmation = createElement("div", "ticket-bulk-discard-confirmation");
+    const discardTitle = createElement("h3", "ticket-bulk-discard-title", "Bỏ nội dung đã nhập?");
+    const discardMessage = createElement(
+      "p",
+      "ticket-bulk-discard-message",
+      "Kết quả sửa chữa bạn vừa nhập sẽ không được lưu."
+    );
+    const discardActions = createElement("div", "ticket-bulk-discard-actions");
+    const continueEditingButton = createElement("button", "btn secondary", "Tiếp tục nhập");
+    const discardDraftButton = createElement("button", "btn danger", "Bỏ nội dung");
     const dialogTitleId = `ticketBulkDialogTitle-${pageKey}`;
     dialog.hidden = true;
     dialog.setAttribute("role", "dialog");
     dialog.setAttribute("aria-modal", "true");
     dialog.setAttribute("aria-labelledby", dialogTitleId);
     dialogTitle.id = dialogTitleId;
+    repairFields.hidden = true;
+    repairResultInput.type = "text";
+    repairResultInput.maxLength = REPAIR_RESULT_MAX_LENGTH;
+    repairResultInput.autocomplete = "off";
+    repairResultInput.placeholder = "Nhập kết quả sửa chữa...";
+    repairValidation.hidden = true;
+    REPAIR_RESULT_PRESETS.forEach((preset) => {
+      const button = createElement("button", "ticket-bulk-repair-preset", preset);
+      button.type = "button";
+      button.dataset.repairResultPreset = preset;
+      repairPresetList.appendChild(button);
+    });
+    repairResultField.append(repairResultLabel, repairResultInput);
+    repairFields.append(repairResultField, repairPresetList, repairValidation);
+    discardConfirmation.hidden = true;
+    discardConfirmation.setAttribute("aria-live", "assertive");
+    continueEditingButton.type = "button";
+    discardDraftButton.type = "button";
+    discardActions.append(continueEditingButton, discardDraftButton);
+    discardConfirmation.append(discardTitle, discardMessage, discardActions);
     returnFields.hidden = true;
     returnDetail.rows = 3;
     returnDetail.maxLength = 1000;
@@ -394,7 +530,16 @@
     cancelButton.type = "button";
     confirmButton.type = "button";
     dialogActions.append(cancelButton, confirmButton);
-    dialogPanel.append(dialogTitle, dialogMessage, dialogList, returnFields, progress, dialogActions);
+    dialogPanel.append(
+      dialogTitle,
+      dialogMessage,
+      repairFields,
+      dialogList,
+      returnFields,
+      progress,
+      dialogActions,
+      discardConfirmation
+    );
     dialog.appendChild(dialogPanel);
     document.body.appendChild(dialog);
 
@@ -415,9 +560,55 @@
       return true;
     }
 
+    function isProtectedRepairModal() {
+      return capturesRepairResult && pendingActionKey === "completeRepair";
+    }
+
+    function hideDiscardConfirmation(optionsValue) {
+      if (discardConfirmation.hidden) return;
+      const settings = optionsValue || {};
+      discardConfirmation.hidden = true;
+      dialogPanel.classList.remove("is-discard-confirming");
+      if (settings.restoreFocus !== false && discardReturnFocus && document.contains(discardReturnFocus)) {
+        discardReturnFocus.focus({ preventScroll: true });
+      }
+      discardReturnFocus = null;
+    }
+
+    function showDiscardConfirmation() {
+      if (!discardConfirmation.hidden || operationState === STATES.EXECUTING) return;
+      discardReturnFocus = dialogPanel.contains(document.activeElement)
+        ? document.activeElement
+        : repairResultInput;
+      discardConfirmation.hidden = false;
+      dialogPanel.classList.add("is-discard-confirming");
+      continueEditingButton.focus({ preventScroll: true });
+    }
+
+    function requestDialogClose(source) {
+      if (!discardConfirmation.hidden) {
+        if (source === "escape") hideDiscardConfirmation();
+        return;
+      }
+      const decision = repairModalDismissalDecision({
+        protectedModal: isProtectedRepairModal(),
+        source,
+        state: operationState,
+        dirty: repairDraftDirty
+      });
+      if (decision === DISMISSAL_DECISIONS.CONFIRM_DISCARD) {
+        showDiscardConfirmation();
+        return;
+      }
+      if (decision === DISMISSAL_DECISIONS.CLOSE) {
+        closeDialog();
+      }
+    }
+
     function closeDialog(optionsValue) {
       if (operationState === STATES.EXECUTING) return;
       const settings = optionsValue || {};
+      hideDiscardConfirmation({ restoreFocus: false });
       dialog.hidden = true;
       document.body.classList.remove("ticket-bulk-modal-open");
       document.removeEventListener("keydown", handleDialogKeydown);
@@ -429,13 +620,16 @@
     }
 
     function handleDialogKeydown(event) {
-      if (event.key === "Escape" && operationState !== STATES.EXECUTING) {
+      if (event.key === "Escape") {
         event.preventDefault();
-        closeDialog();
+        if (operationState === STATES.EXECUTING) return;
+        requestDialogClose("escape");
         return;
       }
       if (event.key !== "Tab") return;
-      const focusable = Array.from(dialogPanel.querySelectorAll("button:not([disabled])"));
+      const focusable = Array.from(dialogPanel.querySelectorAll(
+        "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])"
+      )).filter((element) => !element.hidden && element.offsetParent !== null);
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -451,9 +645,13 @@
     function openDialog(title, message) {
       returnFocus = document.activeElement;
       delete confirmButton.dataset.bulkRetry;
+      hideDiscardConfirmation({ restoreFocus: false });
       dialogTitle.textContent = title;
       dialogMessage.textContent = message;
       dialogList.replaceChildren();
+      repairFields.hidden = true;
+      repairValidation.hidden = true;
+      repairValidation.textContent = "";
       returnFields.hidden = true;
       returnError.hidden = true;
       returnError.textContent = "";
@@ -497,6 +695,123 @@
       returnError.hidden = true;
       returnError.textContent = "";
       return { reason, detail };
+    }
+
+    function resetRepairResultState() {
+      repairResultCommon = "";
+      editingRepairResultUuid = "";
+      editingRepairResultDraft = "";
+      repairDraftDirty = false;
+      repairResultOverrides.clear();
+      repairResultDrafts.clear();
+      repairResultInput.value = "";
+      repairValidation.hidden = true;
+      repairValidation.textContent = "";
+      repairFields.hidden = true;
+    }
+
+    function effectiveRepairResult(uuid) {
+      return clean(repairResultOverrides.has(uuid) ? repairResultOverrides.get(uuid) : repairResultCommon);
+    }
+
+    function renderRepairResultItems(plan) {
+      dialogList.replaceChildren();
+      const list = Array.isArray(plan) ? plan : [];
+      const isSingle = list.length === 1;
+
+      list.forEach((item) => {
+        const uuid = ticketUuid(item);
+        const row = createElement("li", "ticket-bulk-repair-row");
+        const heading = createElement("div", "ticket-bulk-repair-row-heading");
+        const code = createElement("strong", "", item.code || "Không rõ mã");
+        const status = createElement("span", "ticket-bulk-repair-status", formatStatusLabel(item.status));
+        heading.append(code, status);
+        row.appendChild(heading);
+
+        if (!isSingle) {
+          if (editingRepairResultUuid === uuid) {
+            const editor = createElement("div", "ticket-bulk-repair-editor");
+            const input = document.createElement("input");
+            const actions = createElement("div", "ticket-bulk-repair-row-actions");
+            const applyButton = createElement("button", "btn primary compact", "Áp dụng");
+            const cancelEditButton = createElement("button", "btn secondary compact", "Hủy");
+            input.type = "text";
+            input.maxLength = REPAIR_RESULT_MAX_LENGTH;
+            input.value = editingRepairResultDraft;
+            input.dataset.repairResultOverrideInput = uuid;
+            input.setAttribute("aria-label", `Kết quả sửa chữa cho ${item.code || "phiếu"}`);
+            applyButton.type = "button";
+            applyButton.dataset.repairResultApply = uuid;
+            applyButton.disabled = !validateRepairResult(editingRepairResultDraft).valid;
+            cancelEditButton.type = "button";
+            cancelEditButton.dataset.repairResultCancel = uuid;
+            actions.append(applyButton, cancelEditButton);
+            editor.append(input, actions);
+            row.appendChild(editor);
+          } else {
+            const resultRow = createElement("div", "ticket-bulk-repair-result-row");
+            const result = createElement(
+              "span",
+              `ticket-bulk-repair-result${effectiveRepairResult(uuid) ? "" : " is-empty"}`,
+              effectiveRepairResult(uuid) || "Chưa có kết quả sửa chữa"
+            );
+            const actions = createElement("div", "ticket-bulk-repair-row-actions");
+            const editButton = createElement("button", "btn secondary compact", "Chỉnh");
+            editButton.type = "button";
+            editButton.dataset.repairResultEdit = uuid;
+            actions.appendChild(editButton);
+            if (repairResultOverrides.has(uuid)) {
+              const useCommonButton = createElement("button", "ticket-bulk-use-common", "Dùng kết quả chung");
+              useCommonButton.type = "button";
+              useCommonButton.dataset.repairResultUseCommon = uuid;
+              actions.appendChild(useCommonButton);
+            }
+            resultRow.append(result, actions);
+            row.appendChild(resultRow);
+          }
+        }
+
+        dialogList.appendChild(row);
+      });
+    }
+
+    function syncRepairResultValidation(showMessage) {
+      if (pendingActionKey !== "completeRepair" || !pendingPlan) return null;
+      const result = buildRepairResultExecutionPlan(pendingPlan, repairResultCommon, repairResultOverrides);
+      const valid = result.valid && !editingRepairResultUuid;
+      confirmButton.disabled = !valid;
+      repairValidation.textContent = editingRepairResultUuid
+        ? "Hãy áp dụng hoặc hủy phần kết quả đang chỉnh."
+        : "Vui lòng nhập kết quả sửa chữa cho tất cả phiếu.";
+      repairValidation.hidden = valid || showMessage === false;
+      return result;
+    }
+
+    function showRepairResultFields(plan, draftValues) {
+      const list = Array.isArray(plan) ? plan : [];
+      const drafts = draftValues instanceof Map ? draftValues : new Map();
+      const values = list.map((item) => clean(drafts.get(ticketUuid(item))));
+      const nonEmptyValues = values.filter(Boolean);
+      const sharedValue = nonEmptyValues.length === list.length
+        && nonEmptyValues.every((value) => value === nonEmptyValues[0])
+        ? nonEmptyValues[0]
+        : "";
+
+      repairResultCommon = sharedValue;
+      repairDraftDirty = values.some(Boolean);
+      repairResultOverrides.clear();
+      if (!sharedValue) {
+        list.forEach((item, index) => {
+          if (values[index]) repairResultOverrides.set(ticketUuid(item), values[index]);
+        });
+      }
+      editingRepairResultUuid = "";
+      editingRepairResultDraft = "";
+      repairResultLabel.textContent = list.length === 1 ? "Kết quả sửa chữa" : "Kết quả áp dụng chung";
+      repairResultInput.value = repairResultCommon;
+      repairFields.hidden = false;
+      renderRepairResultItems(list);
+      syncRepairResultValidation(true);
     }
 
     function renderDialogItems(items, className) {
@@ -599,16 +914,42 @@
     async function executeCompleteRepair(item) {
       const action = "READY_FOR_HANDOVER";
       const outcome = "repaired_successfully";
+      if (capturesRepairResult && (!window.AMApi || typeof window.AMApi.saveRepairCompletionResult !== "function")) {
+        throw new Error("Chức năng lưu kết quả sửa chữa chưa sẵn sàng.");
+      }
       const requestId = window.AMApi.ensureWorkflowClientRequestId(item.uuid, action, outcome);
       try {
-        const result = await window.AMApi.recordTicketWorkflowAction(item.uuid, action, requestId, {
-          repair_outcome: outcome
-        });
-        validateWorkflowResponse(item, result, BULK_ACTIONS.completeRepair.resultStatus);
+        let result = null;
+        if (item.workflowCompleted === true) {
+          result = {
+            ticket_id: item.uuid,
+            ticket_code: item.code,
+            status: BULK_ACTIONS.completeRepair.resultStatus,
+            was_replayed: true
+          };
+        } else {
+          result = await window.AMApi.recordTicketWorkflowAction(item.uuid, action, requestId, {
+            repair_outcome: outcome
+          });
+          validateWorkflowResponse(item, result, BULK_ACTIONS.completeRepair.resultStatus);
+        }
+
+        if (capturesRepairResult) {
+          try {
+            await window.AMApi.saveRepairCompletionResult(item.uuid, item.repairResult);
+          } catch (storageError) {
+            const error = storageError instanceof Error
+              ? storageError
+              : new Error("Không lưu được kết quả sửa chữa.");
+            error.repairResultStoragePending = true;
+            throw error;
+          }
+        }
+
         window.AMApi.clearWorkflowClientRequestId(item.uuid, action, outcome);
         return { ok: true, result };
       } catch (error) {
-        if (window.AMApi.shouldClearWorkflowClientRequestId(error)) {
+        if (!error.repairResultStoragePending && window.AMApi.shouldClearWorkflowClientRequestId(error)) {
           window.AMApi.clearWorkflowClientRequestId(item.uuid, action, outcome);
         }
         throw error;
@@ -675,6 +1016,8 @@
       pendingPlan = null;
       pendingActionDetails = settings.details || null;
       lastFailedIds = [];
+      lastFailedPlan = [];
+      if (actionKey === "completeRepair" && capturesRepairResult) resetRepairResultState();
       setOperationState(STATES.PREFLIGHTING);
       openDialog(`Kiểm tra ${action.label}`, "Đang tải trạng thái mới nhất của tất cả phiếu trước khi thực hiện...");
       confirmButton.hidden = true;
@@ -704,14 +1047,20 @@
       dialogMessage.textContent = actionKey === "returnFromRepair"
         ? `Bạn sắp kết thúc sửa chữa và chuyển ${pendingPlan.length} phiếu sang bước bàn giao/trả máy.`
         : `Bạn sắp xác nhận sửa chữa hoàn tất và chuyển ${pendingPlan.length} phiếu sang khu Bàn giao tivi.`;
-      renderDialogItems(pendingPlan);
+      if (actionKey === "completeRepair" && capturesRepairResult) {
+        showRepairResultFields(pendingPlan, repairResultDrafts);
+      } else {
+        renderDialogItems(pendingPlan);
+      }
       if (action.requiresReason) {
         showReturnFields(pendingActionDetails);
       }
 
       confirmButton.hidden = false;
-      confirmButton.disabled = false;
-      confirmButton.textContent = `Xác nhận ${pendingPlan.length} phiếu`;
+      confirmButton.disabled = actionKey === "completeRepair" && capturesRepairResult;
+      confirmButton.textContent = pendingPlan.length === 1 && actionKey === "completeRepair" && capturesRepairResult
+        ? "Xác nhận hoàn thành"
+        : `Xác nhận ${pendingPlan.length} phiếu`;
       cancelButton.disabled = false;
       cancelButton.textContent = "Hủy";
       cancelButton.focus({ preventScroll: true });
@@ -722,6 +1071,11 @@
       if (pendingActionKey === "returnFromRepair") {
         pendingActionDetails = collectReturnActionDetails();
         if (!pendingActionDetails) return;
+      } else if (pendingActionKey === "completeRepair" && capturesRepairResult) {
+        const repairPlan = syncRepairResultValidation(true);
+        if (!repairPlan || !repairPlan.valid || editingRepairResultUuid) return;
+        pendingPlan = repairPlan.plan;
+        pendingPlan.forEach((item) => repairResultDrafts.set(item.uuid, item.repairResult));
       }
       await guard.run(async () => {
         setOperationState(STATES.EXECUTING);
@@ -729,6 +1083,7 @@
         dialogMessage.textContent = "Không đóng trang cho đến khi hệ thống xử lý xong từng phiếu.";
         confirmButton.hidden = true;
         cancelButton.disabled = true;
+        repairFields.hidden = true;
         returnFields.hidden = true;
         renderDialogItems(pendingPlan);
         updateProgress(0, pendingPlan.length);
@@ -745,8 +1100,19 @@
 
         const successIds = result.success.map((item) => item.uuid);
         lastFailedIds = result.failed.map((item) => item.uuid);
+        const planByUuid = new Map(pendingPlan.map((item) => [item.uuid, item]));
+        lastFailedPlan = result.failed.map((failed) => {
+          const source = planByUuid.get(failed.uuid) || failed;
+          return Object.freeze(Object.assign({}, source, {
+            workflowCompleted: source.workflowCompleted === true
+              || Boolean(failed.error && failed.error.repairResultStoragePending)
+          }));
+        });
+        successIds.forEach((uuid) => repairResultDrafts.delete(uuid));
+        lastFailedPlan.forEach((item) => repairResultDrafts.set(item.uuid, item.repairResult));
         store.removeMany(successIds, "operation-success");
         await refreshAfterOperation();
+        repairDraftDirty = false;
         setOperationState(STATES.RESULT);
         dialogTitle.textContent = result.failed.length ? "Đã xử lý một phần" : "Đã hoàn tất";
         dialogMessage.textContent = `Yêu cầu ${result.requestedCount} · Thành công ${result.success.length} · Lỗi ${result.failed.length}.`;
@@ -771,6 +1137,62 @@
         }
         cancelButton.focus({ preventScroll: true });
       });
+    }
+
+    async function prepareCompleteRepairRetry() {
+      const retrySource = lastFailedPlan.slice();
+      if (!retrySource.length || guard.isActive()) return;
+
+      delete confirmButton.dataset.bulkRetry;
+      setOperationState(STATES.PREFLIGHTING);
+      dialogTitle.textContent = "Kiểm tra lại phiếu lỗi";
+      dialogMessage.textContent = "Đang xác minh trạng thái mới nhất trước khi thử lại.";
+      repairFields.hidden = true;
+      confirmButton.hidden = true;
+      cancelButton.disabled = true;
+      updateProgress(0, retrySource.length);
+
+      const workflowPending = retrySource.filter((item) => item.workflowCompleted !== true);
+      let freshPlan = [];
+      if (workflowPending.length) {
+        const preflight = await preflightTickets({
+          tickets: workflowPending,
+          actionKey: "completeRepair",
+          readFreshTicket: config.readFreshTicket || ((uuid) => window.AMApi.getTicketById(uuid)),
+          concurrency: 4
+        });
+        if (destroyed) return;
+        if (!preflight.safeToExecute) {
+          progress.hidden = true;
+          showPreflightIssues(preflight);
+          await refreshAfterPreflightIssue();
+          return;
+        }
+        freshPlan = preflight.plan;
+      }
+
+      const freshByUuid = new Map(freshPlan.map((item) => [item.uuid, item]));
+      pendingPlan = Object.freeze(retrySource.map((item) => {
+        if (item.workflowCompleted === true) return item;
+        const fresh = freshByUuid.get(item.uuid);
+        return Object.freeze(Object.assign({}, fresh, {
+          repairResult: item.repairResult,
+          workflowCompleted: false
+        }));
+      }));
+      pendingActionKey = "completeRepair";
+      setOperationState(STATES.CONFIRMING);
+      progress.hidden = true;
+      dialogTitle.textContent = "Xác nhận thử lại phiếu lỗi";
+      dialogMessage.textContent = `Chỉ ${pendingPlan.length} phiếu chưa hoàn tất sẽ được xử lý lại.`;
+      showRepairResultFields(pendingPlan, repairResultDrafts);
+      confirmButton.hidden = false;
+      confirmButton.textContent = pendingPlan.length === 1
+        ? "Xác nhận hoàn thành"
+        : `Xác nhận ${pendingPlan.length} phiếu`;
+      cancelButton.disabled = false;
+      cancelButton.textContent = "Hủy";
+      cancelButton.focus({ preventScroll: true });
     }
 
     function syncRegistry(registry, optionsValue) {
@@ -862,14 +1284,98 @@
     }
 
     function handleDialogClick(event) {
-      if (event.target === dialog && operationState !== STATES.EXECUTING) {
-        closeDialog();
+      const presetButton = event.target.closest("[data-repair-result-preset]");
+      if (presetButton && repairFields.contains(presetButton)) {
+        const preset = clean(presetButton.dataset.repairResultPreset);
+        repairDraftDirty = true;
+        repairResultCommon = preset === "Khác" ? "" : preset;
+        repairResultInput.value = repairResultCommon;
+        renderRepairResultItems(pendingPlan);
+        syncRepairResultValidation(true);
+        repairResultInput.focus({ preventScroll: true });
+        return;
+      }
+
+      const editButton = event.target.closest("[data-repair-result-edit]");
+      if (editButton && dialogList.contains(editButton)) {
+        const uuid = clean(editButton.dataset.repairResultEdit);
+        if (!pendingPlan.some((item) => item.uuid === uuid)) return;
+        editingRepairResultUuid = uuid;
+        editingRepairResultDraft = effectiveRepairResult(uuid);
+        renderRepairResultItems(pendingPlan);
+        syncRepairResultValidation(true);
+        const input = dialogList.querySelector("[data-repair-result-override-input]");
+        if (input) input.focus({ preventScroll: true });
+        return;
+      }
+
+      const applyButton = event.target.closest("[data-repair-result-apply]");
+      if (applyButton && dialogList.contains(applyButton)) {
+        const uuid = clean(applyButton.dataset.repairResultApply);
+        const validation = validateRepairResult(editingRepairResultDraft);
+        if (uuid !== editingRepairResultUuid || !validation.valid) {
+          syncRepairResultValidation(true);
+          return;
+        }
+        repairDraftDirty = true;
+        repairResultOverrides.set(uuid, validation.value);
+        editingRepairResultUuid = "";
+        editingRepairResultDraft = "";
+        renderRepairResultItems(pendingPlan);
+        syncRepairResultValidation(true);
+        return;
+      }
+
+      const cancelEditButton = event.target.closest("[data-repair-result-cancel]");
+      if (cancelEditButton && dialogList.contains(cancelEditButton)) {
+        editingRepairResultUuid = "";
+        editingRepairResultDraft = "";
+        renderRepairResultItems(pendingPlan);
+        syncRepairResultValidation(true);
+        return;
+      }
+
+      const useCommonButton = event.target.closest("[data-repair-result-use-common]");
+      if (useCommonButton && dialogList.contains(useCommonButton)) {
+        repairDraftDirty = true;
+        repairResultOverrides.delete(clean(useCommonButton.dataset.repairResultUseCommon));
+        renderRepairResultItems(pendingPlan);
+        syncRepairResultValidation(true);
+        return;
+      }
+
+      if (event.target === dialog) {
+        event.preventDefault();
+        requestDialogClose("backdrop");
+      }
+    }
+
+    function handleDialogInput(event) {
+      if (event.target === repairResultInput) {
+        repairDraftDirty = true;
+        repairResultCommon = event.target.value;
+        renderRepairResultItems(pendingPlan);
+        syncRepairResultValidation(true);
+        return;
+      }
+
+      if (event.target.matches("[data-repair-result-override-input]")) {
+        repairDraftDirty = true;
+        editingRepairResultDraft = event.target.value;
+        const row = event.target.closest(".ticket-bulk-repair-row");
+        const applyButton = row && row.querySelector("[data-repair-result-apply]");
+        if (applyButton) applyButton.disabled = !validateRepairResult(editingRepairResultDraft).valid;
+        syncRepairResultValidation(true);
       }
     }
 
     async function handleConfirmClick() {
       if (confirmButton.dataset.bulkRetry === "true") {
         delete confirmButton.dataset.bulkRetry;
+        if (pendingActionKey === "completeRepair" && capturesRepairResult) {
+          await prepareCompleteRepairRetry();
+          return;
+        }
         const retryIds = lastFailedIds.slice();
         const retryDetails = pendingActionDetails;
         store.replaceSelection(retryIds, "retry-failed");
@@ -880,14 +1386,31 @@
       await confirmExecution();
     }
 
+    function handleCancelClick() {
+      requestDialogClose("cancel");
+    }
+
+    function handleContinueEditingClick() {
+      hideDiscardConfirmation();
+    }
+
+    function handleDiscardDraftClick() {
+      resetRepairResultState();
+      hideDiscardConfirmation({ restoreFocus: false });
+      closeDialog();
+    }
+
     const unsubscribe = store.subscribe(syncSelectionDom);
     section.addEventListener("click", guardTicketSurfaceActions, true);
     modeButton.addEventListener("click", handleClick);
     commandBar.addEventListener("click", handleClick);
     section.addEventListener("change", handleChange);
-    cancelButton.addEventListener("click", closeDialog);
+    cancelButton.addEventListener("click", handleCancelClick);
     confirmButton.addEventListener("click", handleConfirmClick);
+    continueEditingButton.addEventListener("click", handleContinueEditingClick);
+    discardDraftButton.addEventListener("click", handleDiscardDraftClick);
     dialog.addEventListener("click", handleDialogClick);
+    dialog.addEventListener("input", handleDialogInput);
     window.addEventListener("pagehide", destroy, { once: true });
     syncSelectionDom(store.getSnapshot());
 
@@ -899,9 +1422,12 @@
       modeButton.removeEventListener("click", handleClick);
       commandBar.removeEventListener("click", handleClick);
       section.removeEventListener("change", handleChange);
-      cancelButton.removeEventListener("click", closeDialog);
+      cancelButton.removeEventListener("click", handleCancelClick);
       confirmButton.removeEventListener("click", handleConfirmClick);
+      continueEditingButton.removeEventListener("click", handleContinueEditingClick);
+      discardDraftButton.removeEventListener("click", handleDiscardDraftClick);
       dialog.removeEventListener("click", handleDialogClick);
+      dialog.removeEventListener("input", handleDialogInput);
       window.removeEventListener("pagehide", destroy);
       unsubscribe();
       store.destroy();
@@ -922,8 +1448,12 @@
 
   return Object.freeze({
     BULK_ACTIONS,
+    DISMISSAL_DECISIONS,
+    REPAIR_RESULT_MAX_LENGTH,
+    REPAIR_RESULT_PRESETS,
     REPAIR_RETURN_REASONS,
     STATES,
+    buildRepairResultExecutionPlan,
     buildSelectionTicket,
     createControlledPool,
     createExecutionGuard,
@@ -931,6 +1461,8 @@
     isActionEligible,
     mountPageController,
     preflightTickets,
+    repairModalDismissalDecision,
+    validateRepairResult,
     validateWorkflowResponse
   });
 });
