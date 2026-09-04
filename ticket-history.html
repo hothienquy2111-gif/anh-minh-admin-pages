@@ -8,6 +8,25 @@
     <title>Lịch sử nhận phiếu - Anh Minh Admin</title>
     <link rel="stylesheet" href="css/admin.css?v=20260728-admin-redesign">
     <link rel="stylesheet" href="css/admin-redesign.css?v=20260728-admin-redesign" media="screen">
+    <style id="history-status-colors-hotfix">
+      .ticket-history-page .ticket-history-table .status-pill.ticket-history-status--in-progress {
+        border-color: #bfd3ef;
+        background: #eef5ff;
+        color: #245ea8;
+      }
+
+      .ticket-history-page .ticket-history-table .status-pill.ticket-history-status--handover {
+        border-color: #f0d1a3;
+        background: #fff6e8;
+        color: #a85f0d;
+      }
+
+      .ticket-history-page .ticket-history-table .status-pill.ticket-history-status--completed {
+        border-color: #b9e3c8;
+        background: #edf9f1;
+        color: #1f7a45;
+      }
+    </style>
   </head>
   <body class="ticket-history-page">
     <div class="page-shell">
@@ -155,6 +174,67 @@
     <script src="js/ticket-bulk-selection.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-feedback.js?v=20260728-admin-redesign"></script>
     <script src="js/ticket-history.js?v=20260824-history-selected-view"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        const tableBody = document.getElementById("ticketHistoryTableBody");
+        if (!tableBody) {
+          return;
+        }
+
+        const toneClasses = [
+          "ticket-history-status--in-progress",
+          "ticket-history-status--handover",
+          "ticket-history-status--completed"
+        ];
+
+        function normalizeStatus(value) {
+          return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+        }
+
+        function toneForBadge(badge) {
+          const label = normalizeStatus(badge.textContent);
+
+          if (badge.classList.contains("status-repairing") || label === "đang sửa") {
+            return "ticket-history-status--in-progress";
+          }
+
+          if (
+            badge.classList.contains("status-handover") ||
+            ["chờ bàn giao", "bàn giao tivi", "bàn giao tv", "giao trả sửa chữa"].includes(label)
+          ) {
+            return "ticket-history-status--handover";
+          }
+
+          if (
+            badge.classList.contains("status-returned") ||
+            ["đã trả", "đã bàn giao"].includes(label)
+          ) {
+            return "ticket-history-status--completed";
+          }
+
+          return "";
+        }
+
+        function applyHistoryStatusColors() {
+          tableBody.querySelectorAll(".status-pill").forEach((badge) => {
+            toneClasses.forEach((className) => badge.classList.remove(className));
+            const tone = toneForBadge(badge);
+            if (tone) {
+              badge.classList.add(tone);
+            }
+          });
+        }
+
+        applyHistoryStatusColors();
+        new MutationObserver(applyHistoryStatusColors).observe(tableBody, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+      })();
+    </script>
     <script src="js/admin-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/back-navigation.js?v=20260728-admin-redesign"></script>
     <script src="js/ui-redesign.js?v=20260728-admin-redesign"></script>
