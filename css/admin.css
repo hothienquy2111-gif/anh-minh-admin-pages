@@ -20720,6 +20720,24 @@ body.workflow-modal-open {
   background: #eef5fb;
 }
 
+.ticket-history-page .ticket-history-table .status-pill.ticket-history-status--in-progress {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #fff;
+}
+
+.ticket-history-page .ticket-history-table .status-pill.ticket-history-status--handover {
+  border-color: #ea7a14;
+  background: #ea7a14;
+  color: #fff;
+}
+
+.ticket-history-page .ticket-history-table .status-pill.ticket-history-status--completed {
+  border-color: #198754;
+  background: #198754;
+  color: #fff;
+}
+
 .ticket-history-page .ticket-history-delete-button:not(:disabled) {
   border-color: #b42318;
   background: #b42318;

@@ -77,20 +77,46 @@
     return text || "—";
   }
 
+  function normalizeStatus(status) {
+    return String(status || "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function historyStatusToneClass(status) {
+    const normalized = normalizeStatus(status);
+    const tones = {
+      "đang sửa": "ticket-history-status--in-progress",
+      "đang sửa chữa": "ticket-history-status--in-progress",
+      "chờ bàn giao": "ticket-history-status--handover",
+      "bàn giao tivi": "ticket-history-status--handover",
+      "bàn giao tv": "ticket-history-status--handover",
+      "đang bàn giao": "ticket-history-status--handover",
+      "giao trả": "ticket-history-status--handover",
+      "giao trả sửa chữa": "ticket-history-status--handover",
+      "đã trả": "ticket-history-status--completed",
+      "đã bàn giao": "ticket-history-status--completed",
+      "hoàn tất bàn giao": "ticket-history-status--completed"
+    };
+
+    return tones[normalized] || "";
+  }
+
   function statusClass(status) {
-    const normalized = String(status || "").toLowerCase();
+    const normalized = normalizeStatus(status);
     const classes = {
       "mới nhận": "status-new",
       "đang kiểm tra": "status-checking",
       "báo giá": "status-quote",
       "đang sửa": "status-repairing",
       "chờ bàn giao": "status-handover",
+      "bàn giao tivi": "status-handover",
+      "giao trả sửa chữa": "status-handover",
       "đã xong": "status-done",
       "đã trả": "status-returned",
+      "đã bàn giao": "status-returned",
       "huỷ": "status-cancelled"
     };
 
-    return classes[normalized] || "";
+    return [classes[normalized], historyStatusToneClass(normalized)].filter(Boolean).join(" ");
   }
 
   function statusLabel(status) {
@@ -897,6 +923,15 @@
     return Array.from(counts, ([label, count]) => `${count} ${label}`).join(" · ");
   }
 
+  function historyBatchStatusToneClass(tickets) {
+    const tones = tickets.map((ticket) => historyStatusToneClass(ticket.status));
+    if (!tones.length || tones.some((tone) => !tone)) {
+      return "";
+    }
+
+    return new Set(tones).size === 1 ? tones[0] : "";
+  }
+
   function renderTicketHistoryRows(rows, startIndex) {
     ticketHistory.tableBody.innerHTML = "";
 
@@ -940,7 +975,11 @@
       codeCell.className = "ticket-history-code ticket-history-batch-codes";
       codeCell.append(badge, codes);
 
-      status.className = "status-pill ticket-history-batch-status";
+      status.className = [
+        "status-pill",
+        "ticket-history-batch-status",
+        historyBatchStatusToneClass(presentationRow.tickets)
+      ].filter(Boolean).join(" ");
       status.textContent = historyBatchStatusSummary(presentationRow.tickets);
       status.title = status.textContent;
       statusCell.appendChild(status);
