@@ -152,6 +152,12 @@
 }
 
 @media print {
+  html.receipt-print body.receipt-page > .am-skip-link,
+  html.receipt-print body.receipt-page > .am-sidebar-shadow,
+  html.receipt-print body.receipt-page > .am-sidebar-tooltip {
+    display: none !important;
+  }
+
   @page receipt-a5-final {
     size: A5 portrait;
     margin: 0;
@@ -1068,6 +1074,10 @@
     background: #fff !important;
   }
 
+  html.receipt-print body.receipt-page .page-shell {
+    min-height: 0;
+  }
+
   .delivery-receipt-page {
     width: 148mm;
     height: 210mm;
@@ -1487,7 +1497,7 @@
     min-height: 297mm !important;
     max-height: none !important;
     margin: 0 !important;
-    padding: 10mm !important;
+    padding: 7mm !important;
     overflow: visible !important;
     font-size: 9.4px !important;
     line-height: 1.2 !important;
@@ -1513,8 +1523,8 @@
     grid-template-columns: 25mm 1fr 34mm !important;
     min-height: 24mm !important;
     gap: 4mm !important;
-    margin-bottom: 4mm !important;
-    padding-bottom: 3mm !important;
+    margin-bottom: 2mm !important;
+    padding-bottom: 2mm !important;
   }
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-logo {
@@ -1558,11 +1568,11 @@
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 3mm !important;
-    margin-bottom: 3mm !important;
+    margin-bottom: 1.5mm !important;
   }
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-section {
-    margin-bottom: 3mm !important;
+    margin-bottom: 1.5mm !important;
   }
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-section-title {
@@ -1573,7 +1583,7 @@
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-section-body,
   html.receipt-print body.receipt-page.print-format-a4 .receipt-rows {
-    padding: 1.7mm 2mm !important;
+    padding: 1mm 2mm !important;
   }
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-row {
@@ -1610,7 +1620,7 @@
   }
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-writing-area .receipt-value.multi {
-    min-height: 9mm !important;
+    min-height: 5mm !important;
   }
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-cost-grid {
@@ -1689,14 +1699,14 @@
 
   html.receipt-print body.receipt-page.print-format-a4 .receipt-signatures {
     gap: 10mm !important;
-    margin-top: 6mm !important;
-    min-height: 38mm !important;
-    padding-top: 4mm !important;
+    margin-top: 3mm !important;
+    min-height: 30mm !important;
+    padding-top: 2mm !important;
   }
 
   html.receipt-print body.receipt-page.print-format-a4 .signature-box {
-    min-height: 36mm !important;
-    height: 36mm !important;
+    min-height: 28mm !important;
+    height: 28mm !important;
     font-size: 8.7px !important;
   }
 
